@@ -1,0 +1,287 @@
+from __future__ import annotations
+
+import json
+import sqlite3
+from datetime import UTC, datetime
+from pathlib import Path
+
+from .bootstrap import bootstrap_workspace
+from .config import PipelineConfig
+
+WATCHLIST_NOTE_RELATIVE_PATH = "queries/jinwang-jarvis-importance-shift-watchlist.md"
+WATCHLIST_INDEX_LINE = "- [[jinwang-jarvis-importance-shift-watchlist]] — Rolling watchlist of suppressed-but-promotable mail threads and the current importance-shift patterns in Jinwang Jarvis."
+
+
+def _utc_now() -> datetime:
+    return datetime.now(UTC).replace(microsecond=0)
+
+
+def _load_checkpoints(path: Path) -> dict:
+    if not path.exists():
+        return {}
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _save_checkpoints(path: Path, payload: dict) -> None:
+    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def _load_latest_proposal_payload(config: PipelineConfig) -> tuple[dict, Path]:
+    checkpoints = _load_checkpoints(config.checkpoints_path)
+    latest = ((checkpoints.get("proposals") or {}).get("latest") or {})
+    artifact_file = latest.get("artifact_file")
+    if not artifact_file:
+        raise FileNotFoundError("No latest proposal artifact recorded in checkpoints")
+    artifact_path = config.workspace_root / "data" / "proposals" / artifact_file
+    if not artifact_path.exists():
+        raise FileNotFoundError(f"Latest proposal artifact not found: {artifact_path}")
+    return json.loads(artifact_path.read_text(encoding="utf-8")), artifact_path
+
+
+def _promotion_score(details: dict) -> float:
+    scores = details.get("scores") or {}
+    priority = float(scores.get("priority", 0.0))
+    action = float(scores.get("action", 0.0))
+    calendar = float(scores.get("calendar", 0.0))
+    noise = float(scores.get("noise", 0.0))
+    date_confidence = float(scores.get("date_confidence", 0.0))
+    signal_confidence = float(scores.get("signal_confidence", 0.0))
+    value = priority * 0.34 + action * 0.22 + calendar * 0.18 + date_confidence * 0.16 + signal_confidence * 0.18 - noise * 0.18
+    return max(0.0, min(value, 1.0))
+
+
+def _watch_kind(entry: dict) -> str:
+    details = entry.get("details") or {}
+    scores = details.get("scores") or {}
+    labels = set(details.get("labels") or [])
+    signal_confidence = float(scores.get("signal_confidence", 0.0))
+    if signal_confidence >= 0.9:
+        return "reply-backed-candidate"
+    if "advisor-fyi" in labels:
+        return "advisor-fyi-revival"
+    return "promotion-candidate"
+
+
+def _should_watch(entry: dict) -> bool:
+    details = entry.get("details") or {}
+    if not details:
+        return False
+    scores = details.get("scores") or {}
+    labels = set(details.get("labels") or [])
+    suppression = details.get("suppression") or {}
+    suppression_kind = suppression.get("kind") or (entry.get("reason") or {}).get("kind")
+    promotion_score = _promotion_score(details)
+    signal_confidence = float(scores.get("signal_confidence", 0.0))
+    date_confidence = float(scores.get("date_confidence", 0.0))
+    action = float(scores.get("action", 0.0))
+    if suppression_kind == "policy-promotional-subject" and signal_confidence < 0.9 and "advisor-fyi" not in labels:
+        return False
+    return (
+        promotion_score >= 0.48
+        or signal_confidence >= 0.9
+        or "advisor-fyi" in labels
+        or (date_confidence >= 0.6 and action >= 0.3)
+    )
+
+
+def _build_watchlist_entries(proposal_payload: dict) -> list[dict]:
+    entries: list[dict] = []
+    for item in proposal_payload.get("suppressed", []):
+        details = item.get("details") or {}
+        if not _should_watch(item):
+            continue
+        entries.append(
+            {
+                "source_message_id": item.get("source_message_id"),
+                "title": item.get("title") or "Untitled",
+                "watch_kind": _watch_kind(item),
+                "promotion_score": _promotion_score(details),
+                "reason": item.get("reason") or {},
+                "details": details,
+            }
+        )
+    entries.sort(key=lambda row: (-float(row["promotion_score"]), row["source_message_id"] or ""))
+    return entries[:12]
+
+
+def _upsert_watchlist(conn: sqlite3.Connection, entries: list[dict], generated_at: str, artifact_file: str, wiki_note_path: str | None) -> None:
+    for entry in entries:
+        existing = conn.execute(
+            "SELECT first_seen_at, seen_count FROM message_watchlist WHERE source_message_id = ?",
+            (entry["source_message_id"],),
+        ).fetchone()
+        first_seen_at = existing[0] if existing else generated_at
+        seen_count = int(existing[1]) + 1 if existing else 1
+        conn.execute(
+            """
+            INSERT INTO message_watchlist (
+                source_message_id, title, watch_kind, promotion_score, first_seen_at,
+                last_seen_at, seen_count, latest_reason_json, latest_artifact_file, wiki_note_path
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(source_message_id) DO UPDATE SET
+                title = excluded.title,
+                watch_kind = excluded.watch_kind,
+                promotion_score = excluded.promotion_score,
+                last_seen_at = excluded.last_seen_at,
+                seen_count = excluded.seen_count,
+                latest_reason_json = excluded.latest_reason_json,
+                latest_artifact_file = excluded.latest_artifact_file,
+                wiki_note_path = excluded.wiki_note_path
+            """,
+            (
+                entry["source_message_id"],
+                entry["title"],
+                entry["watch_kind"],
+                entry["promotion_score"],
+                first_seen_at,
+                generated_at,
+                seen_count,
+                json.dumps({"reason": entry["reason"], "details": entry["details"]}, ensure_ascii=False),
+                artifact_file,
+                wiki_note_path,
+            ),
+        )
+
+
+def _write_watchlist_artifact(config: PipelineConfig, entries: list[dict], proposal_payload: dict, generated_at: str) -> Path:
+    watchlist_dir = config.workspace_root / "data" / "watchlists"
+    watchlist_dir.mkdir(parents=True, exist_ok=True)
+    timestamp = datetime.fromisoformat(generated_at.replace("Z", "+00:00")).strftime("%Y%m%dT%H%M%SZ")
+    artifact_path = watchlist_dir / f"watchlist-{timestamp}.json"
+    artifact_path.write_text(
+        json.dumps(
+            {
+                "generated_at": generated_at,
+                "proposal_generated_at": proposal_payload.get("generated_at"),
+                "proposal_count": proposal_payload.get("proposal_count", 0),
+                "suppressed_count": proposal_payload.get("suppressed_count", 0),
+                "watchlist_count": len(entries),
+                "watchlist": entries,
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    return artifact_path
+
+
+def _update_index(index_path: Path, today: str) -> None:
+    text = index_path.read_text(encoding="utf-8") if index_path.exists() else "# Wiki Index\n\n## Entities\n\n## Concepts\n\n## Comparisons\n\n## Queries\n"
+    if WATCHLIST_INDEX_LINE not in text:
+        marker = "## Queries\n"
+        if marker in text:
+            text = text.replace(marker, marker + WATCHLIST_INDEX_LINE + "\n")
+        else:
+            text += "\n## Queries\n" + WATCHLIST_INDEX_LINE + "\n"
+    pages = 0
+    for section in ("entities", "concepts", "comparisons", "queries"):
+        section_dir = index_path.parent / section
+        if section_dir.exists():
+            pages += len(list(section_dir.glob("*.md")))
+    lines = []
+    for line in text.splitlines():
+        if line.startswith("> Last updated:"):
+            lines.append(f"> Last updated: {today} | Total pages: {pages}")
+        else:
+            lines.append(line)
+    index_path.write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")
+
+
+def _append_log(log_path: Path, today: str, wiki_rel_path: str, watchlist_count: int, artifact_name: str) -> None:
+    with log_path.open("a", encoding="utf-8") as handle:
+        handle.write(
+            f"\n## [{today}] update | Jinwang Jarvis importance-shift watchlist\n"
+            f"- Updated `{wiki_rel_path}`\n"
+            f"- Watchlist candidates: {watchlist_count}\n"
+            f"- Source artifact: `data/watchlists/{artifact_name}`\n"
+        )
+
+
+def _write_wiki_summary(config: PipelineConfig, proposal_payload: dict, entries: list[dict], generated_at: str) -> Path:
+    note_path = config.wiki_root / WATCHLIST_NOTE_RELATIVE_PATH
+    note_path.parent.mkdir(parents=True, exist_ok=True)
+    today = generated_at[:10]
+    proposals = proposal_payload.get("proposals") or []
+    lines = [
+        "---",
+        "title: Jinwang Jarvis Importance Shift Watchlist",
+        f"created: {today}",
+        f"updated: {today}",
+        "type: query",
+        "tags: [email, advisor, lab, filtering, automation, query]",
+        "sources: []",
+        "---",
+        "",
+        "# Jinwang Jarvis Importance Shift Watchlist",
+        "",
+        "## Why this page exists",
+        "Suppressed mail can become important later as deadlines approach, more replies accumulate, or older backfill windows reveal recurring workstreams.",
+        "This page keeps a rolling synthesis of threads that are currently suppressed but still look promotable.",
+        "",
+        "## Current active proposals",
+    ]
+    if proposals:
+        for proposal in proposals[:8]:
+            lines.append(f"- `{proposal.get('source_message_id', 'n/a')}` {proposal.get('title', 'Untitled')} — start: {proposal.get('start_ts') or 'n/a'}")
+    else:
+        lines.append("- No active proposals in the latest proposal artifact.")
+
+    lines.extend(["", "## Promotion candidates"])
+    if entries:
+        for entry in entries:
+            labels = ", ".join((entry.get("details") or {}).get("labels") or []) or "n/a"
+            reason_kind = (entry.get("reason") or {}).get("kind", "unknown")
+            lines.append(
+                f"- `{entry['source_message_id']}` [{entry['watch_kind']}] {entry['title']} — promotion_score={entry['promotion_score']:.2f}, labels={labels}, suppression={reason_kind}"
+            )
+    else:
+        lines.append("- No current promotion candidates.")
+
+    lines.extend([
+        "",
+        "## Current pattern summary",
+        f"- latest proposal artifact generated_at: {proposal_payload.get('generated_at', 'n/a')}",
+        f"- active proposal count: {proposal_payload.get('proposal_count', 0)}",
+        f"- suppressed candidate count: {proposal_payload.get('suppressed_count', 0)}",
+        f"- watchlist candidate count: {len(entries)}",
+        "- operational source of truth remains SQLite + artifacts; this page is the rolling synthesis layer.",
+        "",
+        "## Relationships",
+        "- [[jinwang-jarvis]]",
+        "- [[personal-intelligence-pipeline-mvp-implementation-plan-april-2026]]",
+        "- [[jinwang-jarvis-mvp-completion-april-2026]]",
+    ])
+    note_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    _update_index(config.wiki_root / "index.md", today)
+    _append_log(config.wiki_root / "log.md", today, WATCHLIST_NOTE_RELATIVE_PATH, len(entries), f"watchlist-{datetime.fromisoformat(generated_at.replace('Z', '+00:00')).strftime('%Y%m%dT%H%M%SZ')}.json")
+    return note_path
+
+
+def synthesize_knowledge(config: PipelineConfig, *, write_wiki: bool = True, as_of: datetime | None = None) -> dict:
+    bootstrap_workspace(config)
+    generated_at = (as_of or _utc_now()).isoformat().replace("+00:00", "Z")
+    proposal_payload, proposal_artifact_path = _load_latest_proposal_payload(config)
+    entries = _build_watchlist_entries(proposal_payload)
+    artifact_path = _write_watchlist_artifact(config, entries, proposal_payload, generated_at)
+    wiki_page_path = _write_wiki_summary(config, proposal_payload, entries, generated_at) if write_wiki else None
+    with sqlite3.connect(config.database_path) as conn:
+        _upsert_watchlist(conn, entries, generated_at, artifact_path.name, str(wiki_page_path) if wiki_page_path else None)
+        conn.commit()
+    checkpoints = _load_checkpoints(config.checkpoints_path)
+    checkpoints.setdefault("knowledge", {})
+    checkpoints["knowledge"]["latest"] = {
+        "generated_at": generated_at,
+        "artifact_file": artifact_path.name,
+        "watchlist_count": len(entries),
+        "wiki_page": str(wiki_page_path) if wiki_page_path else None,
+        "proposal_artifact_file": proposal_artifact_path.name,
+    }
+    _save_checkpoints(config.checkpoints_path, checkpoints)
+    return {
+        "generated_at": generated_at,
+        "artifact_path": artifact_path,
+        "watchlist_count": len(entries),
+        "wiki_page_path": wiki_page_path,
+        "proposal_artifact_path": proposal_artifact_path,
+    }

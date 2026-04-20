@@ -1,0 +1,11 @@
+[Unit]
+Description=Run Jinwang Jarvis pipeline every 5 minutes
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=5min
+Persistent=true
+Unit=jinwang-jarvis-cycle.service
+
+[Install]
+WantedBy=timers.target

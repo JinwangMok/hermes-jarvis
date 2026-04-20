@@ -1,0 +1,13 @@
+__pycache__/
+.pytest_cache/
+*.pyc
+state/*.db
+state/*.sqlite
+state/*.sqlite3
+state/checkpoints.json
+data/snapshots/
+data/exports/
+data/proposals/
+data/digests/
+data/feedback/
+data/watchlists/

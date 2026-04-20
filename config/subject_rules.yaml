@@ -1,0 +1,9 @@
+# Optional subject suppression / promotion patterns for jinwang-jarvis
+# suppress:
+#   - pattern: "security alert"
+#     labels: [security-routine]
+# promote:
+#   - pattern: "meeting"
+#     labels: [meeting]
+suppress: []
+promote: []

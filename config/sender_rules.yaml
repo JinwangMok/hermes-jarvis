@@ -1,0 +1,6 @@
+# Optional sender overrides for jinwang-jarvis
+# email:
+#   role: advisor
+#   organization: smartx
+#   priority_base: 100
+{}

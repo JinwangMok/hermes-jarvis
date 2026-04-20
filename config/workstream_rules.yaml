@@ -1,0 +1,4 @@
+# Optional workstream mapping rules for jinwang-jarvis
+# - name: e2e
+#   patterns: ["E2E", "Data-Bahn"]
+[]
