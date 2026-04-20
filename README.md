@@ -2,6 +2,16 @@
 
 Hermes Jarvis helps you turn mail and calendar activity into a short action-oriented briefing.
 
+## Who this is for
+- people who want a compact summary of what needs attention now
+- people who want mail-driven schedule suggestions with explicit approve/reject control
+- people who prefer a local-first workflow with Hermes-friendly integration points
+
+## Who this is not for
+- people looking for a hosted SaaS product or one-click cloud setup
+- people who do not want to manage local config for mail/calendar access
+- teams that need a polished multi-user web UI out of the box
+
 It is for people who want to quickly see:
 - what needs attention now
 - what is still ongoing
