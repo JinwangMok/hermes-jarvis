@@ -6,10 +6,19 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from .bootstrap import bootstrap_workspace
+from .briefing import generate_briefing
 from .config import PipelineConfig
 
 WATCHLIST_NOTE_RELATIVE_PATH = "queries/jinwang-jarvis-importance-shift-watchlist.md"
 WATCHLIST_INDEX_LINE = "- [[jinwang-jarvis-importance-shift-watchlist]] — Rolling watchlist of suppressed-but-promotable mail threads and the current importance-shift patterns in Jinwang Jarvis."
+MEMORY_NOTE_DIR = "queries/jinwang-jarvis-memory"
+MEMORY_INDEX_RELATIVE_PATH = f"{MEMORY_NOTE_DIR}/index.md"
+MEMORY_SECTION_FILES = {
+    "recent_important": f"{MEMORY_NOTE_DIR}/recent-important.md",
+    "continuing_important": f"{MEMORY_NOTE_DIR}/continuing-important.md",
+    "newly_important": f"{MEMORY_NOTE_DIR}/newly-important.md",
+    "schedule_recommendations": f"{MEMORY_NOTE_DIR}/schedule-recommendations.md",
+}
 
 
 def _utc_now() -> datetime:
@@ -251,11 +260,101 @@ def _write_wiki_summary(config: PipelineConfig, proposal_payload: dict, entries:
         "- [[jinwang-jarvis]]",
         "- [[personal-intelligence-pipeline-mvp-implementation-plan-april-2026]]",
         "- [[jinwang-jarvis-mvp-completion-april-2026]]",
+        "- [[jinwang-jarvis-memory/index]]",
     ])
     note_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     _update_index(config.wiki_root / "index.md", today)
     _append_log(config.wiki_root / "log.md", today, WATCHLIST_NOTE_RELATIVE_PATH, len(entries), f"watchlist-{datetime.fromisoformat(generated_at.replace('Z', '+00:00')).strftime('%Y%m%dT%H%M%SZ')}.json")
     return note_path
+
+
+def _memory_note_title(stem: str) -> str:
+    mapping = {
+        "recent-important": "Jinwang Jarvis Recent Important Mail",
+        "continuing-important": "Jinwang Jarvis Continuing Important Work",
+        "newly-important": "Jinwang Jarvis Newly Important Work",
+        "schedule-recommendations": "Jinwang Jarvis Schedule Recommendations",
+    }
+    return mapping.get(stem, stem.replace("-", " ").title())
+
+
+def _write_memory_section(note_path: Path, *, generated_at: str, heading: str, items: list[dict], empty_message: str) -> None:
+    note_path.parent.mkdir(parents=True, exist_ok=True)
+    title = _memory_note_title(note_path.stem)
+    lines = [
+        "---",
+        f"title: {title}",
+        f"created: {generated_at[:10]}",
+        f"updated: {generated_at[:10]}",
+        "type: query",
+        "tags: [email, automation, memory, query]",
+        "sources: []",
+        "---",
+        "",
+        f"# {heading}",
+        "",
+    ]
+    if items:
+        for item in items:
+            lines.append(
+                f"- {item.get('title', 'Untitled')} — source: {item.get('source_message_id', 'n/a')}, start: {item.get('start_ts') or 'n/a'}, confidence: {float(item.get('confidence') or 0.0):.2f}"
+            )
+    else:
+        lines.append(f"- {empty_message}")
+    note_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def _write_memory_notes(config: PipelineConfig, briefing_payload: dict, generated_at: str) -> dict[str, Path]:
+    note_paths: dict[str, Path] = {}
+    for section_name, relative_path in MEMORY_SECTION_FILES.items():
+        note_path = config.wiki_root / relative_path
+        heading = {
+            "recent_important": "최근 중요한 일",
+            "continuing_important": "계속 중요한 일",
+            "newly_important": "새로 중요해진 일",
+            "schedule_recommendations": "추천 일정",
+        }[section_name]
+        empty_message = {
+            "recent_important": "현재 최근 중요 항목이 없습니다.",
+            "continuing_important": "현재 계속 중요한 항목이 없습니다.",
+            "newly_important": "현재 새로 중요해진 항목이 없습니다.",
+            "schedule_recommendations": "현재 추천 일정이 없습니다.",
+        }[section_name]
+        _write_memory_section(
+            note_path,
+            generated_at=generated_at,
+            heading=heading,
+            items=briefing_payload.get("sections", {}).get(section_name, []),
+            empty_message=empty_message,
+        )
+        note_paths[section_name] = note_path
+
+    index_path = config.wiki_root / MEMORY_INDEX_RELATIVE_PATH
+    index_path.parent.mkdir(parents=True, exist_ok=True)
+    index_lines = [
+        "---",
+        "title: Jinwang Jarvis Memory Index",
+        f"created: {generated_at[:10]}",
+        f"updated: {generated_at[:10]}",
+        "type: query",
+        "tags: [email, automation, memory, query]",
+        "sources: []",
+        "---",
+        "",
+        "# Jinwang Jarvis Memory Index",
+        "",
+        "이 메모 묶음은 최근/지속/신규 중요 메일과 추천 일정 후보를 계층적으로 저장해, 이후 대화에서 빠르게 탐색하기 위한 장기 기억 레이어다.",
+        "",
+        "## Sections",
+        "- [[jinwang-jarvis-memory/recent-important]]",
+        "- [[jinwang-jarvis-memory/continuing-important]]",
+        "- [[jinwang-jarvis-memory/newly-important]]",
+        "- [[jinwang-jarvis-memory/schedule-recommendations]]",
+        "- [[jinwang-jarvis-importance-shift-watchlist]]",
+    ]
+    index_path.write_text("\n".join(index_lines) + "\n", encoding="utf-8")
+    note_paths["index"] = index_path
+    return note_paths
 
 
 def synthesize_knowledge(config: PipelineConfig, *, write_wiki: bool = True, as_of: datetime | None = None) -> dict:
@@ -265,6 +364,11 @@ def synthesize_knowledge(config: PipelineConfig, *, write_wiki: bool = True, as_
     entries = _build_watchlist_entries(proposal_payload)
     artifact_path = _write_watchlist_artifact(config, entries, proposal_payload, generated_at)
     wiki_page_path = _write_wiki_summary(config, proposal_payload, entries, generated_at) if write_wiki else None
+    memory_note_paths: dict[str, Path] = {}
+    if write_wiki:
+        briefing_result = generate_briefing(config, as_of=datetime.fromisoformat(generated_at.replace("Z", "+00:00")))
+        briefing_payload = json.loads(briefing_result["artifact_path"].read_text(encoding="utf-8"))
+        memory_note_paths = _write_memory_notes(config, briefing_payload, generated_at)
     with sqlite3.connect(config.database_path) as conn:
         _upsert_watchlist(conn, entries, generated_at, artifact_path.name, str(wiki_page_path) if wiki_page_path else None)
         conn.commit()
@@ -275,6 +379,7 @@ def synthesize_knowledge(config: PipelineConfig, *, write_wiki: bool = True, as_
         "artifact_file": artifact_path.name,
         "watchlist_count": len(entries),
         "wiki_page": str(wiki_page_path) if wiki_page_path else None,
+        "memory_index_page": str(memory_note_paths.get("index")) if memory_note_paths.get("index") else None,
         "proposal_artifact_file": proposal_artifact_path.name,
     }
     _save_checkpoints(config.checkpoints_path, checkpoints)
@@ -283,5 +388,6 @@ def synthesize_knowledge(config: PipelineConfig, *, write_wiki: bool = True, as_
         "artifact_path": artifact_path,
         "watchlist_count": len(entries),
         "wiki_page_path": wiki_page_path,
+        "memory_note_paths": memory_note_paths,
         "proposal_artifact_path": proposal_artifact_path,
     }

@@ -23,6 +23,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 cd "$ROOT_DIR"
+python3 "$ROOT_DIR/scripts/patch_google_workspace_wrapper.py"
 CMD=(python3 -m jinwang_jarvis.cli install-systemd --config config/pipeline.yaml --poll-minutes "$POLL_MINUTES")
 if [[ "$ENABLE" != "1" ]]; then
   CMD+=(--no-enable)

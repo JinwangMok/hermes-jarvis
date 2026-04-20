@@ -41,6 +41,14 @@ PYTHONPATH=src python3 -m jinwang_jarvis.cli generate-proposals --config config/
 This also refreshes:
 - watchlist artifact under `data/watchlists/`
 - rolling wiki synthesis note at `/home/jinwang/wiki/queries/jinwang-jarvis-importance-shift-watchlist.md`
+- latest natural-language briefing artifact under `data/briefings/`
+- hierarchical memory notes under `/home/jinwang/wiki/queries/jinwang-jarvis-memory/`
+
+## Briefing command
+```bash
+cd /home/jinwang/workspace/jinwang-jarvis
+PYTHONPATH=src python3 -m jinwang_jarvis.cli generate-briefing --config config/pipeline.yaml
+```
 
 ## Knowledge synthesis command
 ```bash
@@ -57,6 +65,9 @@ PYTHONPATH=src python3 -m jinwang_jarvis.cli record-feedback \
   --decision reject \
   --reason-code duplicate
 ```
+
+If the user approves a timed proposal, add `--create-calendar` to materialize it immediately in Google Calendar.
+The command also regenerates the latest briefing artifact so the next Discord report reflects the resolved state.
 
 ## Weekly review command
 ```bash
@@ -76,6 +87,7 @@ This writes user units to `~/.config/systemd/user/` and mirrors them under `syst
 ```bash
 cd /home/jinwang/workspace/jinwang-jarvis
 PYTHONPATH=src python3 -m jinwang_jarvis.cli backfill --config config/pipeline.yaml
+PYTHONPATH=src python3 -m jinwang_jarvis.cli backfill-next --config config/pipeline.yaml --max-months 36
 ```
 
 ## Polling principle

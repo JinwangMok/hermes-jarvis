@@ -127,6 +127,8 @@ def test_synthesize_knowledge_creates_watchlist_artifact_and_wiki_summary(tmp_pa
     assert result["watchlist_count"] == 1
     assert result["artifact_path"].exists()
     assert result["wiki_page_path"].exists()
+    assert result["memory_note_paths"]["index"].exists()
+    assert result["memory_note_paths"]["recent_important"].exists()
 
     payload = json.loads(result["artifact_path"].read_text(encoding="utf-8"))
     assert payload["watchlist"][0]["source_message_id"] == "m-watch"

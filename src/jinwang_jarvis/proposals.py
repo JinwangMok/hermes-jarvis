@@ -587,6 +587,14 @@ def _build_proposal_record(
 ) -> tuple[dict | None, dict]:
     label_names = {label["label"] for label in message.labels}
     subject_lower = message.subject.casefold()
+    reference = as_of or datetime.now(UTC)
+    reference = reference.astimezone(UTC) if reference.tzinfo else reference.replace(tzinfo=UTC)
+    candidate_start_dt = None
+    if candidate.start_ts:
+        candidate_start_dt = datetime.fromisoformat(candidate.start_ts)
+        if candidate_start_dt.tzinfo is None:
+            candidate_start_dt = candidate_start_dt.replace(tzinfo=UTC)
+        candidate_start_dt = candidate_start_dt.astimezone(UTC)
     confidence = (
         scores["priority"] * 0.3
         + scores["action"] * 0.25
@@ -603,8 +611,6 @@ def _build_proposal_record(
         confidence -= 0.12
     watch_info = None
     if watch_row is not None:
-        reference = as_of or datetime.now(UTC)
-        reference = reference.astimezone(UTC) if reference.tzinfo else reference.replace(tzinfo=UTC)
         watch_boost = 0.0
         seen_count = int(watch_row.get("seen_count") or 0)
         promotional_subject = any(hint in subject_lower for hint in PROMO_SUPPRESSION_HINTS)
@@ -614,11 +620,8 @@ def _build_proposal_record(
             watch_boost += 0.04
         if watch_row.get("watch_kind") == "reply-backed-candidate" and signal_confidence >= 0.9:
             watch_boost += 0.12
-        if candidate.start_ts:
-            start_dt = datetime.fromisoformat(candidate.start_ts)
-            if start_dt.tzinfo is None:
-                start_dt = start_dt.replace(tzinfo=UTC)
-            days_until = (start_dt.astimezone(UTC) - reference).total_seconds() / 86400.0
+        if candidate_start_dt:
+            days_until = (candidate_start_dt - reference).total_seconds() / 86400.0
             if 0.0 <= days_until <= 14.0:
                 watch_boost += 0.10
         if watch_row.get("watch_kind") == "advisor-fyi-revival" and "advisor-fyi" in label_names:
@@ -635,7 +638,9 @@ def _build_proposal_record(
         }
     confidence = max(0.0, min(confidence, 1.0))
     policy_suppression = None
-    if "security-routine" in label_names:
+    if candidate_start_dt and candidate_start_dt < reference:
+        policy_suppression = {"kind": "policy-past-event"}
+    elif "security-routine" in label_names:
         policy_suppression = {"kind": "policy-security-routine"}
     elif (
         "promotional-reference" in label_names

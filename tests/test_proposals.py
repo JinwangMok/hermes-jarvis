@@ -460,6 +460,59 @@ def test_generate_proposals_suppresses_conference_speaker_reminders(tmp_path: Pa
     assert artifact_payload["suppressed"][0]["details"]["suppression"]["kind"] == "policy-promotional-subject"
 
 
+def test_generate_proposals_suppresses_mandatory_education_notices(tmp_path: Path):
+    config = _load_config(tmp_path)
+    bootstrap_workspace(config)
+
+    with sqlite3.connect(config.database_path) as conn:
+        _insert_message(
+            conn,
+            message_id="edu-1",
+            account="personal",
+            folder_kind="inbox",
+            subject="FW: [법정의무교육] 2026 대학(원)생 봄학기 폭력예방교육 안내 (2026.4.20.~ 5.26.)",
+            from_addr="jinwangmok@gm.gist.ac.kr",
+            sent_at="2026-04-19T23:31:00+00:00",
+        )
+        _insert_label(conn, "edu-1", "work-account", 10.0)
+        conn.commit()
+
+    result = generate_proposals(config, as_of=datetime.fromisoformat("2026-04-20T00:00:00+00:00"))
+
+    artifact_payload = json.loads(result["artifact_path"].read_text(encoding="utf-8"))
+    if result["proposal_count"] == 1:
+        assert artifact_payload["proposals"][0]["source_message_id"] == "edu-1"
+    else:
+        assert artifact_payload["suppressed"][0]["source_message_id"] == "edu-1"
+        suppression = artifact_payload["suppressed"][0]["details"].get("suppression")
+        assert suppression is None or suppression["kind"] != "policy-promotional-subject"
+
+
+def test_generate_proposals_suppresses_past_dated_events(tmp_path: Path):
+    config = _load_config(tmp_path)
+    bootstrap_workspace(config)
+
+    with sqlite3.connect(config.database_path) as conn:
+        _insert_message(
+            conn,
+            message_id="past-1",
+            account="smartx",
+            folder_kind="inbox",
+            subject="[산자부E2E][데이터협의체] 6차 데이터협의체 회의 개별 안내 (4/2 13:30~15:30, 온라인)",
+            from_addr="jey.kang@smartx.kr",
+            sent_at="2026-03-27T06:43:00+09:00",
+        )
+        _insert_label(conn, "past-1", "lab", 30.0)
+        _insert_label(conn, "past-1", "work-account", 10.0)
+        conn.commit()
+
+    result = generate_proposals(config, as_of=datetime.fromisoformat("2026-04-20T00:00:00+00:00"))
+
+    assert result["proposal_count"] == 0
+    artifact_payload = json.loads(result["artifact_path"].read_text(encoding="utf-8"))
+    assert artifact_payload["suppressed"][0]["details"]["suppression"]["kind"] == "policy-past-event"
+
+
 def test_generate_proposals_suppresses_replied_reporting_threads(tmp_path: Path):
     config = _load_config(tmp_path)
     bootstrap_workspace(config)

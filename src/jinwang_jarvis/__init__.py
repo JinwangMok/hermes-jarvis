@@ -1,5 +1,6 @@
-from .backfill import run_progressive_backfill
+from .backfill import run_next_backfill_step, run_progressive_backfill
 from .bootstrap import REQUIRED_DIRECTORIES, bootstrap_workspace
+from .briefing import generate_briefing
 from .calendar import collect_calendar_snapshots
 from .classifier import classify_messages
 from .config import PipelineConfig, load_pipeline_config
@@ -19,12 +20,14 @@ __all__ = [
     "classify_messages",
     "collect_calendar_snapshots",
     "collect_mail_snapshots",
+    "generate_briefing",
     "generate_digest",
     "generate_proposals",
     "generate_weekly_review",
     "install_systemd_user_units",
     "load_pipeline_config",
     "record_proposal_feedback",
+    "run_next_backfill_step",
     "run_pipeline_cycle",
     "run_progressive_backfill",
     "synthesize_knowledge",

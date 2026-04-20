@@ -11,6 +11,7 @@ REQUIRED_DIRECTORIES = [
     Path("data/exports"),
     Path("data/proposals"),
     Path("data/digests"),
+    Path("data/briefings"),
     Path("data/feedback"),
     Path("data/watchlists"),
     Path("state"),

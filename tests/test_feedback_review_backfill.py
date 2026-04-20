@@ -3,7 +3,7 @@ import sqlite3
 from datetime import UTC, datetime
 from pathlib import Path
 
-from jinwang_jarvis.backfill import run_progressive_backfill
+from jinwang_jarvis.backfill import determine_next_backfill_month_window, run_next_backfill_step, run_progressive_backfill
 from jinwang_jarvis.bootstrap import bootstrap_workspace
 from jinwang_jarvis.config import load_pipeline_config
 from jinwang_jarvis.feedback import record_proposal_feedback
@@ -108,6 +108,63 @@ def test_record_proposal_feedback_persists_decision_and_artifact(tmp_path: Path)
     assert artifact["decision"] == "reject"
     assert artifact["updated_status"] == "rejected"
     assert artifact["proposal"]["title"] == "Advisor meeting"
+    assert "캘린더 등록 보류" in artifact["response_text"]
+
+
+def test_record_proposal_feedback_allow_can_create_calendar_event(tmp_path: Path):
+    config = load_pipeline_config(_write_config(tmp_path))
+    bootstrap_workspace(config)
+
+    with sqlite3.connect(config.database_path) as conn:
+        conn.execute(
+            """
+            INSERT INTO event_proposals (
+                proposal_id, source_message_id, title, start_ts, end_ts, location,
+                description_md, confidence, status, dedup_key, reason_json, created_at, resolved_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "p-allow",
+                "m-allow",
+                "Advisor sync",
+                "2026-04-22T09:00:00+09:00",
+                "2026-04-22T09:30:00+09:00",
+                "Zoom",
+                "Discuss progress",
+                0.97,
+                "proposed",
+                "advisor-sync",
+                json.dumps({"source": "test"}),
+                "2026-04-20T00:00:00+00:00",
+                None,
+            ),
+        )
+        conn.commit()
+
+    recorded = []
+
+    def runner(args):
+        recorded.append(args)
+        return json.dumps({"status": "created", "id": "evt-created", "summary": "Advisor sync", "htmlLink": "https://calendar.test/event"}, ensure_ascii=False)
+
+    result = record_proposal_feedback(
+        config,
+        "p-allow",
+        "allow",
+        "other",
+        "Looks good.",
+        recorded_at=datetime(2026, 4, 21, 0, 0, tzinfo=UTC),
+        create_calendar_event=True,
+        runner=runner,
+    )
+
+    assert recorded
+    assert recorded[0][2:4] == ["calendar", "create"]
+    assert result["calendar_result"]["id"] == "evt-created"
+    assert "캘린더 등록 완료" in result["response_text"]
+    artifact = json.loads(result["artifact_path"].read_text(encoding="utf-8"))
+    assert artifact["calendar_result"]["status"] == "created"
+    assert artifact["calendar_result"]["id"] == "evt-created"
 
 
 def test_generate_weekly_review_writes_markdown_summary(tmp_path: Path):
@@ -315,3 +372,67 @@ def test_run_progressive_backfill_records_windows_and_artifacts(tmp_path: Path):
     artifact_payload = json.loads(artifact_1m.read_text(encoding="utf-8"))
     assert artifact_payload["status"] == "completed"
     assert artifact_payload["accounts"]["smartx"]["inbox_count"] == 2
+
+
+def test_determine_next_backfill_month_window_advances_in_three_month_steps():
+    checkpoints = {
+        "backfill": {
+            "1w": {"status": "completed"},
+            "1m": {"status": "completed"},
+            "3m": {"status": "completed"},
+            "6m": {"status": "completed"},
+        }
+    }
+
+    assert determine_next_backfill_month_window(checkpoints, max_months=36) == "9m"
+
+
+def test_run_next_backfill_step_only_fetches_incremental_slice(tmp_path: Path):
+    config = load_pipeline_config(_write_config(tmp_path))
+    bootstrap_workspace(config)
+    config.checkpoints_path.write_text(
+        json.dumps({"backfill": {"6m": {"status": "completed"}}}, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+
+    folder_listing = "| NAME | DESC |\n|------|------|\n| INBOX | \\HasNoChildren |\n| [Gmail]/보낸편지함 | \\HasNoChildren, \\Sent |\n"
+    pages = {
+        ("personal", "inbox", 1): [
+            {"id": "p-old-slice", "flags": [], "subject": "9m slice", "from": {"name": None, "addr": "a@example.org"}, "to": {"name": None, "addr": "jinwangmok@gmail.com"}, "date": "2025-09-01 00:00+00:00", "has_attachment": False},
+            {"id": "p-too-recent", "flags": [], "subject": "6m recent", "from": {"name": None, "addr": "b@example.org"}, "to": {"name": None, "addr": "jinwangmok@gmail.com"}, "date": "2025-11-20 00:00+00:00", "has_attachment": False},
+        ],
+        ("personal", "sent", 1): [],
+        ("smartx", "inbox", 1): [
+            {"id": "s-old-slice", "flags": [], "subject": "9m smartx slice", "from": {"name": None, "addr": "c@example.org"}, "to": {"name": None, "addr": "jinwang@smartx.kr"}, "date": "2025-08-15 00:00+00:00", "has_attachment": False},
+            {"id": "s-too-old", "flags": [], "subject": "older than 9m", "from": {"name": None, "addr": "d@example.org"}, "to": {"name": None, "addr": "jinwang@smartx.kr"}, "date": "2025-06-01 00:00+00:00", "has_attachment": False},
+        ],
+        ("smartx", "sent", 1): [],
+    }
+
+    def runner(args):
+        if args[:3] == ["himalaya", "folder", "list"]:
+            return folder_listing
+        if args[:3] == ["himalaya", "envelope", "list"]:
+            account = args[4]
+            page = int(args[args.index("--page") + 1])
+            folder_kind = "sent" if "--folder" in args else "inbox"
+            return json.dumps(pages.get((account, folder_kind, page), []), ensure_ascii=False)
+        raise AssertionError(args)
+
+    result = run_next_backfill_step(
+        config,
+        as_of=datetime(2026, 4, 20, 0, 0, tzinfo=UTC),
+        max_months=36,
+        runner=runner,
+    )
+
+    assert result["executed"] is True
+    assert result["next_window"] == "9m"
+    with sqlite3.connect(config.database_path) as conn:
+        message_ids = {row[0] for row in conn.execute("SELECT message_id FROM messages")}
+    assert "personal:INBOX:p-old-slice" in message_ids
+    assert "smartx:INBOX:s-old-slice" in message_ids
+    assert "personal:INBOX:p-too-recent" not in message_ids
+    assert "smartx:INBOX:s-too-old" not in message_ids
+    artifact = json.loads(result["runs"][0]["artifact_path"].read_text(encoding="utf-8"))
+    assert artifact["incremental_extension"] == {"from_months": 6, "to_months": 9}

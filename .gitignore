@@ -9,5 +9,7 @@ data/snapshots/
 data/exports/
 data/proposals/
 data/digests/
+data/briefings/
 data/feedback/
 data/watchlists/
+state/*.txt

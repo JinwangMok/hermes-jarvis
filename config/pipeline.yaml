@@ -20,7 +20,7 @@ state:
   checkpoints: state/checkpoints.json
 hermes:
   integration_mode: boundary-cli
-  deliver_channel: discord-origin
+  deliver_channel: discord:1493529569926578276
 reproducibility:
   packaging: pyproject
   config_format: yaml

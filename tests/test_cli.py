@@ -154,6 +154,7 @@ def test_cli_generate_proposals_and_record_feedback_commands_run_pipeline(tmp_pa
     ])
     assert feedback_exit_code == 0
     assert list((tmp_path / "data" / "feedback").glob("feedback-*.json"))
+    assert list((tmp_path / "data" / "briefings").glob("briefing-*.json"))
 
 
 def test_cli_weekly_review_and_backfill_commands_write_artifacts(tmp_path: Path):
@@ -244,3 +245,65 @@ def test_cli_synthesize_knowledge_command_writes_watchlist_artifact(tmp_path: Pa
 
     assert exit_code == 0
     assert list((tmp_path / "data" / "watchlists").glob("watchlist-*.json"))
+
+
+def test_cli_generate_briefing_command_writes_artifact(tmp_path: Path):
+    config_file = tmp_path / "pipeline.yaml"
+    (tmp_path / "sender-map.md").write_text("## Current members\n- Professor | 김종원(JongWon Kim) | jongwon@smartx.kr\n", encoding="utf-8")
+    config_file.write_text(_config_text(tmp_path), encoding="utf-8")
+    main(["bootstrap", "--config", str(config_file)])
+
+    import sqlite3
+    with sqlite3.connect(tmp_path / "state" / "personal_intel.db") as conn:
+        conn.execute("INSERT INTO messages (message_id, account, folder_kind, subject, from_addr, sent_at, ingested_at, is_seen) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", ("m1", "smartx", "inbox", "Meeting agenda", "jongwon@smartx.kr", "2026-04-20T00:00:00+00:00", "2026-04-20T00:00:00+00:00", 0))
+        conn.execute("INSERT INTO message_labels (message_id, label, score, reason_json) VALUES (?, ?, ?, ?)", ("m1", "advisor-request", 100.0, "{}"))
+        conn.execute("INSERT INTO event_proposals (proposal_id, source_message_id, title, start_ts, end_ts, location, description_md, confidence, status, dedup_key, reason_json, created_at, resolved_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", ("p1", "m1", "Meeting agenda", "2026-04-22T10:00:00+09:00", "2026-04-22T11:00:00+09:00", "Zoom", "Discuss work", 0.9, "proposed", "meeting-agenda", "{}", "2026-04-20T00:00:00+00:00", None))
+        conn.commit()
+
+    exit_code = main(["generate-briefing", "--config", str(config_file)])
+    assert exit_code == 0
+    assert list((tmp_path / "data" / "briefings").glob("briefing-*.json"))
+
+
+def test_cli_record_feedback_allow_create_calendar_command(monkeypatch, tmp_path: Path):
+    config_file = tmp_path / "pipeline.yaml"
+    (tmp_path / "sender-map.md").write_text("## Current members\n- Professor | 김종원(JongWon Kim) | jongwon@smartx.kr\n", encoding="utf-8")
+    config_file.write_text(_config_text(tmp_path), encoding="utf-8")
+    main(["bootstrap", "--config", str(config_file)])
+
+    import sqlite3
+    with sqlite3.connect(tmp_path / "state" / "personal_intel.db") as conn:
+        conn.execute("INSERT INTO event_proposals (proposal_id, source_message_id, title, start_ts, end_ts, location, description_md, confidence, status, dedup_key, reason_json, created_at, resolved_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", ("p-cal", "m-cal", "Calendar me", "2026-04-22T10:00:00+09:00", "2026-04-22T11:00:00+09:00", "Zoom", "Discuss work", 0.9, "proposed", "calendar-me", "{}", "2026-04-20T00:00:00+00:00", None))
+        conn.commit()
+
+    monkeypatch.setattr("jinwang_jarvis.feedback._default_runner", lambda args: json.dumps({"status": "created", "id": "evt-1"}))
+
+    exit_code = main(["record-feedback", "--config", str(config_file), "--proposal-id", "p-cal", "--decision", "allow", "--reason-code", "other", "--create-calendar"])
+    assert exit_code == 0
+    feedback_files = list((tmp_path / "data" / "feedback").glob("feedback-*.json"))
+    assert feedback_files
+    payload = json.loads(feedback_files[0].read_text(encoding="utf-8"))
+    assert payload["calendar_result"]["id"] == "evt-1"
+
+
+def test_cli_backfill_next_command_runs_incremental_extension(monkeypatch, tmp_path: Path):
+    config_file = tmp_path / "pipeline.yaml"
+    (tmp_path / "sender-map.md").write_text("## Current members\n- Professor | 김종원(JongWon Kim) | jongwon@smartx.kr\n", encoding="utf-8")
+    config_file.write_text(_config_text(tmp_path), encoding="utf-8")
+    main(["bootstrap", "--config", str(config_file)])
+    (tmp_path / "state" / "checkpoints.json").write_text(json.dumps({"backfill": {"6m": {"status": "completed"}}}), encoding="utf-8")
+
+    folder_listing = "| NAME | DESC |\n|------|------|\n| INBOX | \\HasNoChildren |\n| [Gmail]/보낸편지함 | \\HasNoChildren, \\Sent |\n"
+
+    def fake_runner(args):
+        if args[:3] == ["himalaya", "folder", "list"]:
+            return folder_listing
+        if args[:3] == ["himalaya", "envelope", "list"]:
+            return json.dumps([])
+        raise AssertionError(args)
+
+    monkeypatch.setattr("jinwang_jarvis.backfill._default_runner", fake_runner)
+
+    exit_code = main(["backfill-next", "--config", str(config_file), "--max-months", "36"])
+    assert exit_code == 0
+    assert list((tmp_path / "data" / "exports").glob("backfill-9m-*.json"))

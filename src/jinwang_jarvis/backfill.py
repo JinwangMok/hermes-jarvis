@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import sqlite3
 import subprocess
 from datetime import UTC, datetime, timedelta
@@ -24,6 +25,7 @@ WINDOWS = {
 }
 DEFAULT_PAGE_SIZE = 100
 MAX_BACKFILL_PAGES = 200
+WINDOW_PATTERN = re.compile(r"^(?P<count>\d+)(?P<unit>[wm])$")
 
 
 def _utc_now() -> datetime:
@@ -45,6 +47,61 @@ def _load_checkpoints(path) -> dict:
     if path.exists():
         return json.loads(path.read_text(encoding="utf-8"))
     return {}
+
+
+def resolve_window_delta(window_name: str) -> timedelta:
+    normalized = window_name.strip().lower()
+    if normalized in WINDOWS:
+        return WINDOWS[normalized]
+    match = WINDOW_PATTERN.match(normalized)
+    if not match:
+        raise ValueError(f"Unsupported backfill window: {window_name}")
+    count = int(match.group("count"))
+    unit = match.group("unit")
+    if count <= 0:
+        raise ValueError(f"Unsupported backfill window: {window_name}")
+    if unit == "w":
+        return timedelta(days=count * 7)
+    if unit == "m":
+        return timedelta(days=count * 30)
+    raise ValueError(f"Unsupported backfill window: {window_name}")
+
+
+def _window_sort_key(window_name: str) -> tuple[int, int]:
+    normalized = window_name.strip().lower()
+    match = WINDOW_PATTERN.match(normalized)
+    if not match:
+        return (9, 0)
+    count = int(match.group("count"))
+    unit = match.group("unit")
+    return (0 if unit == "w" else 1, count)
+
+
+def _month_count(window_name: str) -> int | None:
+    normalized = window_name.strip().lower()
+    match = WINDOW_PATTERN.match(normalized)
+    if not match or match.group("unit") != "m":
+        return None
+    return int(match.group("count"))
+
+
+def determine_next_backfill_month_window(
+    checkpoints: dict,
+    *,
+    max_months: int = 36,
+    step_months: int = 3,
+    baseline_months: int = 6,
+) -> str | None:
+    completed = {
+        key.strip().lower()
+        for key, payload in (checkpoints.get("backfill") or {}).items()
+        if isinstance(payload, dict) and payload.get("status") == "completed"
+    }
+    for month in range(baseline_months + step_months, max_months + 1, step_months):
+        candidate = f"{month}m"
+        if candidate not in completed:
+            return candidate
+    return None
 
 
 def _parse_himalaya_date(value: str | None) -> datetime | None:
@@ -185,9 +242,7 @@ def run_progressive_backfill(
     runner = runner or _default_runner
 
     for window_name in windows:
-        if window_name not in WINDOWS:
-            raise ValueError(f"Unsupported backfill window: {window_name}")
-        start = end - WINDOWS[window_name]
+        start = end - resolve_window_delta(window_name)
         start_text = start.isoformat()
         end_text = end.isoformat()
         rows, account_summary = _collect_window_messages(config, runner=runner, start=start, end=end)
@@ -227,3 +282,92 @@ def run_progressive_backfill(
 
     config.checkpoints_path.write_text(json.dumps(checkpoints, ensure_ascii=False, indent=2), encoding="utf-8")
     return {"completed_at": end.isoformat(), "runs": results}
+
+
+def run_next_backfill_step(
+    config: PipelineConfig,
+    *,
+    as_of: datetime | None = None,
+    max_months: int = 36,
+    step_months: int = 3,
+    baseline_months: int = 6,
+    runner: Callable[[list[str]], str] | None = None,
+) -> dict:
+    bootstrap_workspace(config)
+    checkpoints = _load_checkpoints(config.checkpoints_path)
+    next_window = determine_next_backfill_month_window(
+        checkpoints,
+        max_months=max_months,
+        step_months=step_months,
+        baseline_months=baseline_months,
+    )
+    if next_window is None:
+        completed_at = _normalize_as_of(as_of).isoformat()
+        completed_windows = sorted((checkpoints.get("backfill") or {}).keys(), key=_window_sort_key)
+        return {
+            "completed_at": completed_at,
+            "next_window": None,
+            "executed": False,
+            "runs": [],
+            "completed_windows": completed_windows,
+        }
+
+    end = _normalize_as_of(as_of)
+    next_months = _month_count(next_window)
+    if next_months is None:
+        raise ValueError(f"Expected month window, got {next_window}")
+    previous_months = next_months - step_months
+    start = end - timedelta(days=next_months * 30)
+    slice_end = end - timedelta(days=previous_months * 30)
+    runner = runner or _default_runner
+    rows, account_summary = _collect_window_messages(config, runner=runner, start=start, end=slice_end)
+    _append_message_rows(config.database_path, rows)
+
+    export_dir = config.workspace_root / "data" / "exports"
+    export_dir.mkdir(parents=True, exist_ok=True)
+    notes = f"incremental 3-month extension completed for {next_window} via himalaya pagination"
+    with sqlite3.connect(config.database_path) as conn:
+        conn.execute(
+            """
+            INSERT OR REPLACE INTO backfill_runs (
+                window_name, window_start, window_end, status, messages_scanned, notes
+            ) VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (next_window, start.isoformat(), slice_end.isoformat(), "completed", len(rows), notes),
+        )
+        conn.commit()
+
+    artifact_path = export_dir / f"backfill-{next_window}-{end.strftime('%Y%m%dT%H%M%SZ')}.json"
+    artifact = {
+        "window_name": next_window,
+        "window_start": start.isoformat(),
+        "window_end": slice_end.isoformat(),
+        "status": "completed",
+        "messages_scanned": len(rows),
+        "notes": notes,
+        "accounts": account_summary,
+        "message_ids": [row["message_id"] for row in rows],
+        "incremental_extension": {
+            "from_months": previous_months,
+            "to_months": next_months,
+        },
+    }
+    artifact_path.write_text(json.dumps(artifact, ensure_ascii=False, indent=2), encoding="utf-8")
+    checkpoints.setdefault("backfill", {})
+    checkpoints["backfill"][next_window] = {
+        "window_start": start.isoformat(),
+        "window_end": slice_end.isoformat(),
+        "status": "completed",
+        "messages_scanned": len(rows),
+        "artifact_file": artifact_path.name,
+        "source_mode": "himalaya-pagination-incremental",
+    }
+    config.checkpoints_path.write_text(json.dumps(checkpoints, ensure_ascii=False, indent=2), encoding="utf-8")
+    updated_checkpoints = _load_checkpoints(config.checkpoints_path)
+    return {
+        "completed_at": end.isoformat(),
+        "next_window": next_window,
+        "executed": True,
+        "runs": [{**artifact, "artifact_path": artifact_path}],
+        "completed_windows": sorted((updated_checkpoints.get("backfill") or {}).keys(), key=_window_sort_key),
+    }

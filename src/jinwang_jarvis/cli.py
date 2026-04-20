@@ -4,8 +4,9 @@ import argparse
 import json
 from typing import Sequence
 
-from .backfill import run_progressive_backfill
+from .backfill import run_next_backfill_step, run_progressive_backfill
 from .bootstrap import bootstrap_workspace
+from .briefing import generate_briefing
 from .calendar import build_fake_calendar_runner, collect_calendar_snapshots
 from .classifier import classify_messages
 from .config import load_pipeline_config
@@ -45,6 +46,9 @@ def build_parser() -> argparse.ArgumentParser:
     digest_parser = subparsers.add_parser("generate-digest", help="Generate a markdown digest from current pipeline state")
     digest_parser.add_argument("--config", required=True, help="Path to pipeline.yaml")
 
+    briefing_parser = subparsers.add_parser("generate-briefing", help="Generate a natural-language Jarvis briefing artifact for Discord delivery")
+    briefing_parser.add_argument("--config", required=True, help="Path to pipeline.yaml")
+
     knowledge_parser = subparsers.add_parser("synthesize-knowledge", help="Generate a rolling watchlist and optional wiki synthesis from the latest proposal artifact")
     knowledge_parser.add_argument("--config", required=True, help="Path to pipeline.yaml")
     knowledge_parser.add_argument("--no-write-wiki", action="store_true", help="Only write watchlist artifact/DB state; skip wiki update")
@@ -55,6 +59,7 @@ def build_parser() -> argparse.ArgumentParser:
     feedback_parser.add_argument("--decision", required=True, choices=("allow", "reject"), help="User decision")
     feedback_parser.add_argument("--reason-code", required=True, help="Reason code for the decision")
     feedback_parser.add_argument("--note", default=None, help="Optional freeform note")
+    feedback_parser.add_argument("--create-calendar", action="store_true", help="When decision=allow, immediately create the calendar event via Google Workspace")
 
     review_parser = subparsers.add_parser("weekly-review", help="Generate a weekly review markdown artifact")
     review_parser.add_argument("--config", required=True, help="Path to pipeline.yaml")
@@ -62,6 +67,10 @@ def build_parser() -> argparse.ArgumentParser:
     backfill_parser = subparsers.add_parser("backfill", help="Record progressive backfill windows")
     backfill_parser.add_argument("--config", required=True, help="Path to pipeline.yaml")
     backfill_parser.add_argument("--windows", default="1w,1m,3m,6m", help="Comma-separated backfill windows")
+
+    backfill_next_parser = subparsers.add_parser("backfill-next", help="Extend historical coverage by only the next 3-month slice (6m→9m→12m...)" )
+    backfill_next_parser.add_argument("--config", required=True, help="Path to pipeline.yaml")
+    backfill_next_parser.add_argument("--max-months", type=int, default=36, help="Stop staged extension once this month depth is reached")
 
     install_parser = subparsers.add_parser("install-systemd", help="Install and enable systemd user timers for automatic polling and weekly review")
     install_parser.add_argument("--config", required=True, help="Path to pipeline.yaml")
@@ -132,12 +141,19 @@ def main(argv: Sequence[str] | None = None) -> int:
             "watchlist_path": str(knowledge_result["artifact_path"]),
             "watchlist_count": knowledge_result["watchlist_count"],
             "wiki_page_path": str(knowledge_result["wiki_page_path"]) if knowledge_result.get("wiki_page_path") else None,
+            "memory_index_path": str(knowledge_result["memory_note_paths"].get("index")) if knowledge_result.get("memory_note_paths") else None,
         }, ensure_ascii=False))
         return 0
 
     if args.command == "generate-digest":
         config = load_pipeline_config(args.config)
         result = generate_digest(config)
+        print(json.dumps({**result, "artifact_path": str(result["artifact_path"])}, ensure_ascii=False))
+        return 0
+
+    if args.command == "generate-briefing":
+        config = load_pipeline_config(args.config)
+        result = generate_briefing(config)
         print(json.dumps({**result, "artifact_path": str(result["artifact_path"])}, ensure_ascii=False))
         return 0
 
@@ -149,6 +165,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             "artifact_path": str(result["artifact_path"]),
             "proposal_artifact_path": str(result["proposal_artifact_path"]),
             "wiki_page_path": str(result["wiki_page_path"]) if result.get("wiki_page_path") else None,
+            "memory_index_path": str(result["memory_note_paths"].get("index")) if result.get("memory_note_paths") else None,
+            "memory_note_paths": {key: str(value) for key, value in (result.get("memory_note_paths") or {}).items()},
         }, ensure_ascii=False))
         return 0
 
@@ -160,8 +178,17 @@ def main(argv: Sequence[str] | None = None) -> int:
             decision=args.decision,
             reason_code=args.reason_code,
             freeform_note=args.note,
+            create_calendar_event=args.create_calendar,
         )
-        print(json.dumps({**result, "artifact_path": str(result["artifact_path"])}, ensure_ascii=False))
+        briefing_result = generate_briefing(config)
+        print(json.dumps({
+            **result,
+            "artifact_path": str(result["artifact_path"]),
+            "next_briefing_path": str(briefing_result["artifact_path"]),
+            "next_pending_approval_count": briefing_result["pending_approval_count"],
+            "next_open_proposal_count": briefing_result["open_proposal_count"],
+            "next_briefing_text": briefing_result["message_text"],
+        }, ensure_ascii=False))
         return 0
 
     if args.command == "weekly-review":
@@ -178,6 +205,19 @@ def main(argv: Sequence[str] | None = None) -> int:
             "completed_at": result["completed_at"],
             "windows": [run["window_name"] for run in result["runs"]],
             "artifacts": [str(run["artifact_path"]) for run in result["runs"]],
+        }, ensure_ascii=False))
+        return 0
+
+    if args.command == "backfill-next":
+        config = load_pipeline_config(args.config)
+        result = run_next_backfill_step(config, max_months=args.max_months)
+        print(json.dumps({
+            "completed_at": result["completed_at"],
+            "executed": result["executed"],
+            "next_window": result["next_window"],
+            "windows": [run["window_name"] for run in result["runs"]],
+            "artifacts": [str(run["artifact_path"]) for run in result["runs"]],
+            "completed_windows": result["completed_windows"],
         }, ensure_ascii=False))
         return 0
 

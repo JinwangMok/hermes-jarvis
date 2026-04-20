@@ -5,6 +5,7 @@ import subprocess
 from pathlib import Path
 
 from .bootstrap import bootstrap_workspace
+from .briefing import generate_briefing
 from .calendar import collect_calendar_snapshots
 from .classifier import classify_messages
 from .config import PipelineConfig
@@ -30,6 +31,7 @@ def run_pipeline_cycle(config: PipelineConfig) -> dict:
     proposal_result = generate_proposals(config)
     knowledge_result = synthesize_knowledge(config, write_wiki=False)
     digest_result = generate_digest(config, proposal_result)
+    briefing_result = generate_briefing(config)
     return {
         "mail": mail_result,
         "calendar": calendar_result,
@@ -37,6 +39,7 @@ def run_pipeline_cycle(config: PipelineConfig) -> dict:
         "proposals": proposal_result,
         "knowledge": knowledge_result,
         "digest": digest_result,
+        "briefing": briefing_result,
     }
 
 
