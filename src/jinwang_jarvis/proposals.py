@@ -442,8 +442,17 @@ def _build_reply_signals(messages: list[MessageContext]) -> list[dict]:
     return signals
 
 
-def _extract_date(subject: str) -> tuple[datetime | None, dict]:
-    now = datetime.now(UTC).astimezone()
+def _reference_moment(sent_at: str | None) -> datetime:
+    if sent_at:
+        parsed = datetime.fromisoformat(sent_at)
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=UTC)
+        return parsed.astimezone()
+    return datetime.now(UTC).astimezone()
+
+
+def _extract_date(subject: str, *, sent_at: str | None = None) -> tuple[datetime | None, dict]:
+    now = _reference_moment(sent_at)
     reason: dict = {"matched_date": None, "matched_time": None}
     date_value: datetime | None = None
     lowered = subject.casefold()
@@ -525,7 +534,7 @@ def extract_candidate_event(message: MessageContext, scores: dict) -> CandidateE
 
     label_names = {label["label"] for label in message.labels}
     subject_lower = subject.casefold()
-    start_dt, parse_reason = _extract_date(subject)
+    start_dt, parse_reason = _extract_date(subject, sent_at=message.sent_at)
     title = _clean_title(subject)
     date_confidence = 0.0
     start_ts = None

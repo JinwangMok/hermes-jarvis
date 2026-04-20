@@ -12,6 +12,7 @@ from .classifier import classify_messages
 from .config import load_pipeline_config
 from .digest import generate_digest
 from .feedback import record_proposal_feedback
+from .intelligence import collect_knowledge_mail, generate_daily_intelligence_report
 from .knowledge import synthesize_knowledge
 from .mail import build_fake_mail_runner, collect_mail_snapshots
 from .proposals import generate_proposals
@@ -29,6 +30,10 @@ def build_parser() -> argparse.ArgumentParser:
     collect_mail_parser = subparsers.add_parser("collect-mail", help="Collect inbox and sent mail snapshots")
     collect_mail_parser.add_argument("--config", required=True, help="Path to pipeline.yaml")
     collect_mail_parser.add_argument("--runner", choices=("real", "fake"), default="real", help="Use real Himalaya commands or a deterministic fake runner for tests")
+
+    collect_knowledge_parser = subparsers.add_parser("collect-knowledge-mail", help="Collect All Mail/archive knowledge-lane messages into the separate intelligence store")
+    collect_knowledge_parser.add_argument("--config", required=True, help="Path to pipeline.yaml")
+    collect_knowledge_parser.add_argument("--months", type=int, default=36, help="Historical window depth in months")
 
     collect_calendar_parser = subparsers.add_parser("collect-calendar", help="Collect Google Calendar snapshots")
     collect_calendar_parser.add_argument("--config", required=True, help="Path to pipeline.yaml")
@@ -52,6 +57,10 @@ def build_parser() -> argparse.ArgumentParser:
     knowledge_parser = subparsers.add_parser("synthesize-knowledge", help="Generate a rolling watchlist and optional wiki synthesis from the latest proposal artifact")
     knowledge_parser.add_argument("--config", required=True, help="Path to pipeline.yaml")
     knowledge_parser.add_argument("--no-write-wiki", action="store_true", help="Only write watchlist artifact/DB state; skip wiki update")
+
+    intelligence_parser = subparsers.add_parser("generate-daily-intelligence", help="Generate a category-based daily intelligence report and wiki notes from the knowledge lane")
+    intelligence_parser.add_argument("--config", required=True, help="Path to pipeline.yaml")
+    intelligence_parser.add_argument("--lookback-days", type=int, default=7, help="How many recent days to summarize")
 
     feedback_parser = subparsers.add_parser("record-feedback", help="Record allow/reject feedback for a proposal")
     feedback_parser.add_argument("--config", required=True, help="Path to pipeline.yaml")
@@ -98,6 +107,12 @@ def main(argv: Sequence[str] | None = None) -> int:
             "accounts": result["accounts"],
             "total_messages": result["total_messages"],
         }, ensure_ascii=False))
+        return 0
+
+    if args.command == "collect-knowledge-mail":
+        config = load_pipeline_config(args.config)
+        result = collect_knowledge_mail(config, months=args.months)
+        print(json.dumps(result, ensure_ascii=False))
         return 0
 
     if args.command == "collect-calendar":
@@ -167,6 +182,17 @@ def main(argv: Sequence[str] | None = None) -> int:
             "wiki_page_path": str(result["wiki_page_path"]) if result.get("wiki_page_path") else None,
             "memory_index_path": str(result["memory_note_paths"].get("index")) if result.get("memory_note_paths") else None,
             "memory_note_paths": {key: str(value) for key, value in (result.get("memory_note_paths") or {}).items()},
+        }, ensure_ascii=False))
+        return 0
+
+    if args.command == "generate-daily-intelligence":
+        config = load_pipeline_config(args.config)
+        result = generate_daily_intelligence_report(config, lookback_days=args.lookback_days)
+        print(json.dumps({
+            **result,
+            "artifact_path": str(result["artifact_path"]),
+            "wiki_note_path": str(result["wiki_note_path"]),
+            "index_path": str(result["index_path"]),
         }, ensure_ascii=False))
         return 0
 

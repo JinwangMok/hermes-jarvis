@@ -3,6 +3,7 @@ from pathlib import Path
 
 from jinwang_jarvis.mail import (
     FolderInfo,
+    choose_all_mail_folder,
     choose_sent_folder,
     normalize_envelope,
     parse_folder_list_table,
@@ -35,6 +36,17 @@ def test_choose_sent_folder_prefers_sent_flag_then_common_names():
 
     assert choose_sent_folder("personal", folders, overrides={}) == "[Gmail]/보낸편지함"
     assert choose_sent_folder("personal", [FolderInfo(name="Sent", flags=("\\HasNoChildren",))], overrides={}) == "Sent"
+
+
+def test_choose_all_mail_folder_prefers_all_flag_then_common_names():
+    folders = [
+        FolderInfo(name="INBOX", flags=("\\HasNoChildren",)),
+        FolderInfo(name="Archive", flags=("\\HasNoChildren",)),
+        FolderInfo(name="[Gmail]/전체보관함", flags=("\\HasNoChildren", "\\All")),
+    ]
+
+    assert choose_all_mail_folder("personal", folders) == "[Gmail]/전체보관함"
+    assert choose_all_mail_folder("personal", [FolderInfo(name="Archive", flags=("\\HasNoChildren",))]) == "Archive"
 
 
 def test_normalize_envelope_maps_himalaya_json_to_snapshot_record():

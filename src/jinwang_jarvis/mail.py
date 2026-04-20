@@ -19,6 +19,13 @@ COMMON_SENT_FOLDER_NAMES = (
     "[gmail]/sent mail",
 )
 
+COMMON_ALL_MAIL_FOLDER_NAMES = (
+    "[gmail]/전체보관함",
+    "[gmail]/all mail",
+    "all mail",
+    "archive",
+)
+
 
 @dataclass(frozen=True)
 class FolderInfo:
@@ -59,6 +66,20 @@ def choose_sent_folder(account: str, folders: Iterable[FolderInfo], overrides: d
             return lowered[candidate]
 
     raise ValueError(f"could not determine sent folder for account {account}")
+
+
+def choose_all_mail_folder(account: str, folders: Iterable[FolderInfo]) -> str:
+    folders = list(folders)
+    for folder in folders:
+        if "\\All" in folder.flags:
+            return folder.name
+
+    lowered = {folder.name.casefold(): folder.name for folder in folders}
+    for candidate in COMMON_ALL_MAIL_FOLDER_NAMES:
+        if candidate in lowered:
+            return lowered[candidate]
+
+    raise ValueError(f"could not determine all-mail folder for account {account}")
 
 
 def normalize_envelope(*, account: str, folder_kind: str, folder_name: str, envelope: dict) -> dict:

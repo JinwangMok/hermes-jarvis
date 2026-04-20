@@ -8,6 +8,7 @@ from .config import PipelineConfig
 REQUIRED_DIRECTORIES = [
     Path("data/snapshots/mail"),
     Path("data/snapshots/calendar"),
+    Path("data/intelligence"),
     Path("data/exports"),
     Path("data/proposals"),
     Path("data/digests"),
@@ -128,6 +129,36 @@ SCHEMA_STATEMENTS = [
         seen_count INTEGER NOT NULL DEFAULT 1,
         latest_reason_json TEXT,
         latest_artifact_file TEXT,
+        wiki_note_path TEXT
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS knowledge_messages (
+        knowledge_id TEXT PRIMARY KEY,
+        account TEXT NOT NULL,
+        folder_name TEXT NOT NULL,
+        source_id TEXT NOT NULL,
+        subject TEXT,
+        from_addr TEXT,
+        to_addr TEXT,
+        sent_at TEXT,
+        has_attachment INTEGER DEFAULT 0,
+        category TEXT NOT NULL,
+        tags_json TEXT,
+        importance_score REAL NOT NULL,
+        opportunity_score REAL NOT NULL,
+        summary_text TEXT,
+        collected_at TEXT NOT NULL
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS daily_intelligence_reports (
+        report_id TEXT PRIMARY KEY,
+        generated_at TEXT NOT NULL,
+        lookback_days INTEGER NOT NULL,
+        item_count INTEGER NOT NULL,
+        opportunity_count INTEGER NOT NULL,
+        artifact_file TEXT NOT NULL,
         wiki_note_path TEXT
     )
     """,

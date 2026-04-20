@@ -317,6 +317,53 @@ def test_extract_candidate_event_handles_two_digit_year_without_false_month_matc
     assert candidate.start_ts == "2026-04-19T09:00:00+09:00"
 
 
+def test_extract_candidate_event_anchors_yearless_date_to_message_sent_at():
+    message = MessageContext(
+        message_id="m-yearless-anchor",
+        account="personal",
+        folder_kind="inbox",
+        subject="이주의 미팅 (7/17~7/21)",
+        from_addr="seungjun@gist.ac.kr",
+        sent_at="2023-07-14T06:45:00+00:00",
+        role="external",
+        priority_base=0,
+        labels=(
+            {"label": "meeting", "score": 40.0, "reason": {}},
+        ),
+    )
+
+    scores = derive_message_scores(message)
+    candidate = extract_candidate_event(message, scores)
+
+    assert candidate is not None
+    assert candidate.start_ts == "2023-07-17T09:00:00+09:00"
+
+
+def test_generate_proposals_suppresses_historical_yearless_dates_using_sent_at_anchor(tmp_path: Path):
+    config = _load_config(tmp_path)
+    bootstrap_workspace(config)
+
+    with sqlite3.connect(config.database_path) as conn:
+        _insert_message(
+            conn,
+            message_id="historical-1",
+            account="personal",
+            folder_kind="inbox",
+            subject="이주의 미팅 (7/17~7/21)",
+            from_addr="seungjun@gist.ac.kr",
+            sent_at="2023-07-14T06:45:00+00:00",
+        )
+        _insert_label(conn, "historical-1", "meeting", 40.0)
+        conn.commit()
+
+    result = generate_proposals(config, as_of=datetime.fromisoformat("2026-04-20T00:00:00+00:00"))
+
+    assert result["proposal_count"] == 0
+    artifact_payload = json.loads(result["artifact_path"].read_text(encoding="utf-8"))
+    assert artifact_payload["suppressed"][0]["source_message_id"] == "historical-1"
+    assert artifact_payload["suppressed"][0]["details"]["suppression"]["kind"] == "policy-past-event"
+
+
 def test_generate_proposals_suppresses_promotional_dateless_items(tmp_path: Path):
     config = _load_config(tmp_path)
     bootstrap_workspace(config)
