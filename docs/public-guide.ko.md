@@ -83,7 +83,17 @@ PYTHONPATH=src python3 -m jinwang_jarvis.cli record-feedback \
 ## 7. 자동 실행
 ```bash
 ./scripts/install.sh --config config/pipeline.local.yaml --poll-minutes 5
+sudo loginctl enable-linger $USER
 ```
+
+권장 운영:
+- 5분 polling loop로 새 메일/캘린더/분류/위키 상태 갱신
+- 별도 스케줄로 **매일 오전 8시(KST)** 디스코드 모닝 브리핑 보고
+
+## 8. Gmail / All Mail / Discord까지 포함한 전체 제품화 가이드
+더 높은 수준의 개인 비서형 운영(knowledge lane, 위키 intelligence, participant cache, thread/project note, Discord morning briefing)은 아래 문서를 따를 것.
+
+- `docs/productized-jarvis.ko.md`
 
 ## 참고
 - 개인 값은 `config/pipeline.local.yaml`에 둘 것

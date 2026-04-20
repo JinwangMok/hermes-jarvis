@@ -49,6 +49,9 @@ You can use this as a lightweight personal operations summary, or feed it into a
 - optional calendar creation after approval
 - weekly review output
 - systemd timer setup for automatic polling
+- All Mail-based knowledge lane and wiki intelligence notes
+- participant/thread/project-aware memory notes
+- daily morning briefing architecture for Discord delivery
 
 ## 3-minute quick start
 If you just want to see it working once:
@@ -139,7 +142,11 @@ PYTHONPATH=src python3 -m jinwang_jarvis.cli record-feedback \
 ## Run automatically
 ```bash
 ./scripts/install.sh --config config/pipeline.local.yaml --poll-minutes 5
+sudo loginctl enable-linger $USER
 ```
+
+Use the 5-minute polling loop for collection/state refresh, then add a separate 08:00 KST morning digest schedule for Discord delivery.
+See `docs/productized-jarvis.en.md` / `docs/productized-jarvis.ko.md` for the full productized workflow.
 
 ## Notes
 - Keep personal values in `config/pipeline.local.yaml`.
@@ -149,6 +156,8 @@ PYTHONPATH=src python3 -m jinwang_jarvis.cli record-feedback \
 ## Docs
 - English guide: `docs/public-guide.en.md`
 - 한국어 가이드: `docs/public-guide.ko.md`
+- Productized setup (EN): `docs/productized-jarvis.en.md`
+- 제품화 가이드 (KO): `docs/productized-jarvis.ko.md`
 - Public/private sync notes: `docs/public-sync.md`
 
 ## FAQ

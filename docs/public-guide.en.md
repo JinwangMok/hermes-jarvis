@@ -83,7 +83,17 @@ PYTHONPATH=src python3 -m jinwang_jarvis.cli record-feedback \
 ## 7. Run it automatically
 ```bash
 ./scripts/install.sh --config config/pipeline.local.yaml --poll-minutes 5
+sudo loginctl enable-linger $USER
 ```
+
+Recommended operations model:
+- use a 5-minute polling loop to keep mail/calendar/classification/wiki state fresh
+- use a separate **08:00 KST** morning digest schedule for Discord delivery
+
+## 8. Full productized guide (Gmail / All Mail / Discord / wiki intelligence)
+For the higher-level assistant workflow (knowledge lane, wiki intelligence, participant cache, thread/project notes, Discord morning briefing), follow:
+
+- `docs/productized-jarvis.en.md`
 
 ## Practical notes
 - Keep personal values in `config/pipeline.local.yaml`.

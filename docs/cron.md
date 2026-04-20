@@ -79,9 +79,11 @@ PYTHONPATH=src python3 -m jinwang_jarvis.cli weekly-review --config config/pipel
 ```bash
 cd /home/jinwang/workspace/jinwang-jarvis
 PYTHONPATH=src python3 -m jinwang_jarvis.cli install-systemd --config config/pipeline.yaml --poll-minutes 5
+sudo loginctl enable-linger $USER
 ```
 
 This writes user units to `~/.config/systemd/user/` and mirrors them under `systemd/` inside the workspace.
+If you want timers to continue after reboot **without an interactive login**, `loginctl enable-linger` is strongly recommended.
 
 ## Backfill command
 ```bash
@@ -92,3 +94,18 @@ PYTHONPATH=src python3 -m jinwang_jarvis.cli backfill-next --config config/pipel
 
 ## Polling principle
 New mail is handled by **polling**, not IMAP push/async callbacks. The cycle timer periodically reruns collection/classification/proposal generation and resumes automatically after reboot via systemd user timers.
+
+## Morning briefing pattern (recommended)
+Use two layers:
+1. 5-minute polling loop for data freshness
+2. separate 08:00 KST digest for Discord delivery
+
+Recommended digest steps:
+- `collect-mail`
+- `collect-calendar`
+- `classify-messages`
+- `collect-knowledge-mail` (or staged equivalent)
+- `generate-daily-intelligence`
+- deliver a human-facing morning summary to Discord
+
+See `docs/productized-jarvis.en.md` / `docs/productized-jarvis.ko.md` for the end-to-end productized setup.
