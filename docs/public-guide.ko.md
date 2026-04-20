@@ -1,42 +1,48 @@
-# 퍼블릭 설정 가이드 (한국어)
+# Hermes Jarvis 설정 가이드
 
-이 문서는 `hermes-jarvis`를 누구나 Hermes와 함께 재사용할 수 있게 설정하는 방법을 설명해.
+Hermes Jarvis는 메일과 캘린더 데이터를 짧은 브리핑으로 정리해준다.
 
-호환성 참고: 내부 패키지명은 아직 바꾸지 않았기 때문에 명령은 계속 `python3 -m jinwang_jarvis.cli ...` 형태를 사용해.
+이런 용도에 맞다:
+- 지금 바로 챙길 일 확인
+- 계속 이어지는 일 확인
+- 새로 중요해진 일 확인
+- 캘린더에 넣을 일정 후보 확인
 
-## 1. 이런 용도에 맞음
-다음을 정리하고 싶을 때 적합해:
-- 최근 중요해진 메일/일
-- 예전부터 계속 중요한 흐름
-- 새로 중요해진 흐름
-- 캘린더에 올릴 만한 일정 후보
-
-## 2. 최소 요구사항
+## 요구사항
 - Python 3.11+
 - 로컬 Hermes 설치
-- 메일 수집용 CLI 환경(이 레포는 Himalaya 기반)
-- 캘린더 수집/생성을 원하면 Google Calendar 접근 권한
+- 메일 수집이 가능한 환경
+- 캘린더 동기화를 원하면 Google Calendar 접근 권한
 
-## 3. 설정 파일 전략
-추적되는 공개용 예시:
-- `config/pipeline.yaml`
+## 1. clone 및 설치
+```bash
+git clone https://github.com/JinwangMok/hermes-jarvis.git
+cd hermes-jarvis
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -e .
+```
 
-개인 실사용 권장 파일:
-- `config/pipeline.local.yaml`
+## 2. 로컬 설정 파일 만들기
+```bash
+cp config/pipeline.yaml config/pipeline.local.yaml
+cp config/sender-map.example.md config/sender-map.md
+```
 
-설치 스크립트는 `config/pipeline.local.yaml`이 있으면 그 파일을 자동 우선 사용해.
-
-## 4. 꼭 바꿔야 하는 항목
-`config/pipeline.local.yaml`에서 주로 수정할 것:
+## 3. 로컬 설정 수정
+`config/pipeline.local.yaml`에서 아래 항목을 먼저 수정:
 - `accounts`
+- `wiki_root`
 - `classification.sender_map_path`
 - `classification.self_addresses`
 - `classification.work_accounts`
 - `hermes.deliver_channel`
-- `wiki_root`
 
-## 5. sender map 형식
-아래처럼 markdown bullet 형식이면 돼:
+sender-aware 분류를 쓰려면:
+- `classification.sender_map_path: config/sender-map.md`
+
+## 4. sender map 작성
+예시 형식:
 
 ```md
 - Professor | Ada Lovelace | ada@example.org
@@ -44,7 +50,7 @@
 - M.S. Student | Demo User | you@example.com
 ```
 
-## 6. 기본 실행 순서
+## 5. 기본 실행 순서
 ```bash
 PYTHONPATH=src python3 -m jinwang_jarvis.cli collect-mail --config config/pipeline.local.yaml
 PYTHONPATH=src python3 -m jinwang_jarvis.cli collect-calendar --config config/pipeline.local.yaml
@@ -53,9 +59,7 @@ PYTHONPATH=src python3 -m jinwang_jarvis.cli generate-proposals --config config/
 PYTHONPATH=src python3 -m jinwang_jarvis.cli generate-briefing --config config/pipeline.local.yaml
 ```
 
-## 7. 승인 루프
-일정 후보를 보고 decision을 기록할 때:
-
+## 6. proposal 승인 / 거절
 거절:
 ```bash
 PYTHONPATH=src python3 -m jinwang_jarvis.cli record-feedback \
@@ -66,7 +70,7 @@ PYTHONPATH=src python3 -m jinwang_jarvis.cli record-feedback \
   --note "관심없음"
 ```
 
-승인 + 캘린더 생성:
+승인 후 캘린더 생성:
 ```bash
 PYTHONPATH=src python3 -m jinwang_jarvis.cli record-feedback \
   --config config/pipeline.local.yaml \
@@ -76,12 +80,12 @@ PYTHONPATH=src python3 -m jinwang_jarvis.cli record-feedback \
   --create-calendar
 ```
 
-## 8. 자동 폴링 설치
+## 7. 자동 실행
 ```bash
 ./scripts/install.sh --config config/pipeline.local.yaml --poll-minutes 5
 ```
 
-## 9. Hermes와 함께 쓸 때 팁
-- 개인 경로/개인 채널/개인 이메일은 추적 파일에 넣지 말 것
-- 운영 상태는 `state/`, `data/`에 두고
-- 위키는 장기 synthesis 메모 계층으로 쓰는 게 좋음
+## 참고
+- 개인 값은 `config/pipeline.local.yaml`에 둘 것
+- `config/sender-map.md`는 버전 관리에 올리지 말 것
+- 호환성 때문에 모듈 경로는 아직 `jinwang_jarvis`를 사용함

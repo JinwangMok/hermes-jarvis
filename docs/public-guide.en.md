@@ -1,42 +1,48 @@
-# Public Setup Guide (English)
+# Hermes Jarvis Setup Guide
 
-This guide explains how to use `hermes-jarvis` as a reusable personal intelligence pipeline with Hermes.
+Hermes Jarvis gives you a short briefing from your mail and calendar data.
 
-Compatibility note: commands still use `python3 -m jinwang_jarvis.cli ...` because the internal package name has not been renamed yet.
+Use it if you want to answer these questions quickly:
+- What needs attention now?
+- What is still ongoing?
+- What became important recently?
+- Which timed items should go on my calendar?
 
-## 1. Who this is for
-Use this if you want Hermes to help summarize:
-- what became important recently
-- what stayed important over time
-- what is newly important now
-- which timed items are worth putting on your calendar
-
-## 2. Minimum requirements
+## Requirements
 - Python 3.11+
 - Hermes installed locally
-- a working mail CLI flow (for this repo, Himalaya-based mail collection)
-- Google Calendar access if you want calendar collection / creation
+- working mail access for collection
+- Google Calendar access if you want calendar sync
 
-## 3. Local config strategy
-Tracked file:
-- `config/pipeline.yaml` → public-safe example
+## 1. Clone and install
+```bash
+git clone https://github.com/JinwangMok/hermes-jarvis.git
+cd hermes-jarvis
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -e .
+```
 
-Private file (recommended):
-- `config/pipeline.local.yaml` → your real paths, channels, accounts, addresses
+## 2. Create local config
+```bash
+cp config/pipeline.yaml config/pipeline.local.yaml
+cp config/sender-map.example.md config/sender-map.md
+```
 
-The install script prefers `config/pipeline.local.yaml` automatically.
-
-## 4. What you should customize
-Edit these fields in `config/pipeline.local.yaml`:
+## 3. Edit the local config
+Update these fields in `config/pipeline.local.yaml`:
 - `accounts`
+- `wiki_root`
 - `classification.sender_map_path`
 - `classification.self_addresses`
 - `classification.work_accounts`
 - `hermes.deliver_channel`
-- `wiki_root`
 
-## 5. Sender map format
-Use markdown bullets like:
+If you want sender-aware classification, set:
+- `classification.sender_map_path: config/sender-map.md`
+
+## 4. Fill the sender map
+Example format:
 
 ```md
 - Professor | Ada Lovelace | ada@example.org
@@ -44,7 +50,7 @@ Use markdown bullets like:
 - M.S. Student | Demo User | you@example.com
 ```
 
-## 6. Common workflow
+## 5. Run the main steps
 ```bash
 PYTHONPATH=src python3 -m jinwang_jarvis.cli collect-mail --config config/pipeline.local.yaml
 PYTHONPATH=src python3 -m jinwang_jarvis.cli collect-calendar --config config/pipeline.local.yaml
@@ -53,9 +59,7 @@ PYTHONPATH=src python3 -m jinwang_jarvis.cli generate-proposals --config config/
 PYTHONPATH=src python3 -m jinwang_jarvis.cli generate-briefing --config config/pipeline.local.yaml
 ```
 
-## 7. Approval loop
-When Hermes shows a timed proposal, record your decision:
-
+## 6. Approve or reject a proposal
 Reject:
 ```bash
 PYTHONPATH=src python3 -m jinwang_jarvis.cli record-feedback \
@@ -66,7 +70,7 @@ PYTHONPATH=src python3 -m jinwang_jarvis.cli record-feedback \
   --note "Not interested"
 ```
 
-Allow + create calendar event:
+Approve and create a calendar event:
 ```bash
 PYTHONPATH=src python3 -m jinwang_jarvis.cli record-feedback \
   --config config/pipeline.local.yaml \
@@ -76,12 +80,12 @@ PYTHONPATH=src python3 -m jinwang_jarvis.cli record-feedback \
   --create-calendar
 ```
 
-## 8. Automatic polling
+## 7. Run it automatically
 ```bash
 ./scripts/install.sh --config config/pipeline.local.yaml --poll-minutes 5
 ```
 
-## 9. Notes for Hermes users
-- keep secrets and personal identifiers out of tracked config
-- keep runtime state under `state/` and `data/`
-- use wiki notes as synthesis memory, not raw source-of-truth
+## Practical notes
+- Keep personal values in `config/pipeline.local.yaml`.
+- Keep `config/sender-map.md` out of version control.
+- The module path is still `jinwang_jarvis` for compatibility.
