@@ -4,6 +4,7 @@ from pathlib import Path
 from jinwang_jarvis.config import load_pipeline_config
 from jinwang_jarvis.intelligence import (
     _backfill_message_participant_cache,
+    _build_education_cv_sections,
     _build_education_memory_records,
     _classify_jongwon_context,
     _get_cached_message_participants,
@@ -253,6 +254,42 @@ def test_build_education_memory_records_promotes_career_like_items_and_filters_g
     assert by_title["4차산업혁명 트렌드분석 11월 5일 강의 자료공유 및 사전질문 요청"]["role"] == "teaching-delivery"
 
 
+def test_build_education_cv_sections_groups_records_for_cv_style_note():
+    records = [
+        {
+            "event_name": "4차산업혁명 트렌드분석 11월 5일 강의 자료공유 및 사전질문 요청",
+            "sent_at": "2024-10-28T09:00:00+09:00",
+            "audience": "workers",
+            "role": "teaching-delivery",
+            "summary": "강의/교안/콘텐츠 전달 준비 흐름",
+            "subject": "4차산업혁명 트렌드분석 11월 5일 강의 자료공유 및 사전질문 요청",
+        },
+        {
+            "event_name": "고등학교 음악 교과서",
+            "sent_at": "2024-11-19T09:00:00+09:00",
+            "audience": "high-school",
+            "role": "textbook-development",
+            "summary": "교과서/교육자료 개발 또는 검토 흐름",
+            "subject": "고등학교 음악 교과서.zip",
+        },
+        {
+            "event_name": "2026년도 교원연수 강사료 관련 서류 작성 요청",
+            "sent_at": "2026-02-10T11:53:00+09:00",
+            "audience": "teachers",
+            "role": "instruction-support",
+            "summary": "교원연수 운영·정산·보고 관련 흐름",
+            "subject": "2026년도 교원연수 강사료 관련 서류 작성 요청",
+        },
+    ]
+
+    sections = _build_education_cv_sections(records)
+
+    assert sections["teaching-delivery"][0]["event_name"].startswith("4차산업혁명")
+    assert sections["textbook-development"][0]["event_name"] == "고등학교 음악 교과서"
+    assert sections["instruction-support"][0]["audience"] == "teachers"
+    assert sections["timeline"][0]["sent_at"] == "2026-02-10T11:53:00+09:00"
+
+
 def test_collect_knowledge_mail_and_generate_daily_intelligence(tmp_path: Path):
     config = load_pipeline_config(_write_config(tmp_path))
     runner = FakeKnowledgeRunner()
@@ -490,7 +527,11 @@ def test_generate_daily_intelligence_creates_dedicated_jongwon_smartx_lane_notes
     assert "교수님" in advisor_action_text
 
     education_text = education_note.read_text(encoding="utf-8")
-    assert "## Career-like education records" in education_text
+    assert "## Direct teaching / training" in education_text
+    assert "## Textbook / material development" in education_text
+    assert "## Education operations / support" in education_text
+    assert "## Selected timeline" in education_text
+    assert "date=2025-01-10" in education_text
     assert "audience=teachers" in education_text
     assert "role=textbook-development" in education_text
     assert "광주 인공지능 교과서 및 Star-MOOC 관련 인턴 지원 요청드립니다." in education_text

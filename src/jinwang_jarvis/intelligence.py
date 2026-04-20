@@ -1139,6 +1139,7 @@ def _build_education_memory_records(rows: list[dict]) -> list[dict]:
         records.append({
             'knowledge_id': row.get('knowledge_id'),
             'sent_at': row.get('sent_at'),
+            'date': (row.get('sent_at') or '')[:10],
             'month': (row.get('sent_at') or '')[:7],
             'event_name': event_name,
             'audience': _education_audience(subject),
@@ -1150,16 +1151,28 @@ def _build_education_memory_records(rows: list[dict]) -> list[dict]:
     return records
 
 
+def _build_education_cv_sections(records: list[dict]) -> dict[str, list[dict]]:
+    sections = {
+        'teaching-delivery': [],
+        'textbook-development': [],
+        'instruction-support': [],
+        'timeline': sorted(records, key=lambda item: item.get('sent_at') or '', reverse=True),
+    }
+    for record in records:
+        role = record.get('role')
+        if role in sections:
+            sections[role].append(record)
+    return sections
+
+
 def _write_education_teaching_memory_note(config: PipelineConfig, rows: list[dict], generated_at: str) -> Path:
     path = config.wiki_root / EDUCATION_TEACHING_MEMORY_NOTE
     path.parent.mkdir(parents=True, exist_ok=True)
     edu_rows = _load_education_memory_rows(config.database_path)
     records = _build_education_memory_records(edu_rows)
-    by_month: dict[str, list[dict]] = {}
+    sections = _build_education_cv_sections(records)
     by_audience: dict[str, list[dict]] = {}
     for record in records:
-        if record['month']:
-            by_month.setdefault(record['month'], []).append(record)
         by_audience.setdefault(record['audience'], []).append(record)
     lines = [
         "---",
@@ -1173,26 +1186,48 @@ def _write_education_teaching_memory_note(config: PipelineConfig, rows: list[dic
         "",
         "# Education and teaching memory",
         "",
-        "> 직장인/일반인/고등학생 대상 교육강의 및 교과서/교원연수 작업을 행사명/날짜/대상/역할 중심으로 남기는 memory note.",
+        "> 직장인/일반인/고등학생 대상 교육강의 및 교과서/교원연수 작업을 CV처럼 읽을 수 있게 정리한 memory note.",
         "",
         f"- captured education-like traces: {len(edu_rows)}",
         f"- retained career-like records: {len(records)}",
         "",
-        "## Career-like education records",
+        "## Direct teaching / training",
     ]
-    for record in records[:40]:
-        lines.append(
-            f"- {record['sent_at']} | audience={record['audience']} | role={record['role']} | event={record['event_name']} | summary={record['summary']}"
-        )
+    direct_items = sections['teaching-delivery'][:20]
+    if direct_items:
+        for record in direct_items:
+            lines.append(
+                f"- date={record['date']} | audience={record['audience']} | role={record['role']} | event={record['event_name']} | content={record['summary']}"
+            )
+    else:
+        lines.append("- none")
+    lines.extend(["", "## Textbook / material development"])
+    textbook_items = sections['textbook-development'][:25]
+    if textbook_items:
+        for record in textbook_items:
+            lines.append(
+                f"- date={record['date']} | audience={record['audience']} | role={record['role']} | event={record['event_name']} | content={record['summary']}"
+            )
+    else:
+        lines.append("- none")
+    lines.extend(["", "## Education operations / support"])
+    support_items = sections['instruction-support'][:20]
+    if support_items:
+        for record in support_items:
+            lines.append(
+                f"- date={record['date']} | audience={record['audience']} | role={record['role']} | event={record['event_name']} | content={record['summary']}"
+            )
+    else:
+        lines.append("- none")
     lines.extend(["", "## Audience map"])
     for audience in sorted(by_audience):
         sample = '; '.join(item['event_name'] for item in by_audience[audience][:3])
         lines.append(f"- {audience}: {len(by_audience[audience])} records — {sample}")
-    lines.extend(["", "## Monthly career memory"])
-    for ym in sorted(by_month):
-        items = by_month[ym][:3]
-        summary = '; '.join(f"{item['event_name']} ({item['role']})" for item in items)
-        lines.append(f"- {ym}: {len(by_month[ym])} records — {summary}")
+    lines.extend(["", "## Selected timeline"])
+    for record in sections['timeline'][:24]:
+        lines.append(
+            f"- date={record['date']} | event={record['event_name']} | audience={record['audience']} | role={record['role']}"
+        )
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return path
 
