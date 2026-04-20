@@ -1,6 +1,8 @@
 # Public Setup Guide (English)
 
-This guide explains how to use `jinwang-jarvis` as a reusable personal intelligence pipeline with Hermes.
+This guide explains how to use `hermes-jarvis` as a reusable personal intelligence pipeline with Hermes.
+
+Compatibility note: commands still use `python3 -m jinwang_jarvis.cli ...` because the internal package name has not been renamed yet.
 
 ## 1. Who this is for
 Use this if you want Hermes to help summarize:

@@ -1,13 +1,17 @@
-# Jinwang Jarvis
+# Hermes Jarvis
 
-A local-first mail/calendar intelligence pipeline that works well with Hermes Agent.
+A local-first mail and calendar intelligence pipeline designed to work well with Hermes Agent.
+
+> Public repository: `JinwangMok/hermes-jarvis`
+> 
+> Compatibility note: the internal Python package and CLI module path are still named `jinwang_jarvis` for now, to avoid breaking the existing private deployment workflow.
 
 ---
 
 ## English
 
 ### What it does
-`jinwang-jarvis` watches your mail + calendar activity, scores what matters, and turns it into:
+`hermes-jarvis` watches your mail + calendar activity, scores what matters, and turns it into:
 - recent important work
 - continuing important work
 - newly important work
@@ -31,7 +35,7 @@ Implemented end-to-end:
 - reproducible CLI/bin entrypoints and tests
 
 ### Public-friendly defaults
-This repository no longer requires Jinwang-specific paths or emails in tracked config.
+Tracked config no longer requires personal paths, personal channel IDs, or hardcoded personal email assumptions.
 
 Tracked defaults now use:
 - relative workspace paths
@@ -41,12 +45,12 @@ Tracked defaults now use:
 - a generic sender-map example
 
 If you want to keep a private local setup, create `config/pipeline.local.yaml` and keep your personal values there.
-`./scripts/install.sh` will automatically prefer `config/pipeline.local.yaml` when present.
+`./scripts/install.sh` automatically prefers `config/pipeline.local.yaml` when present.
 
 ### Quick start
 ```bash
-git clone https://github.com/JinwangMok/jinwang-jarvis.git
-cd jinwang-jarvis
+git clone https://github.com/JinwangMok/hermes-jarvis.git
+cd hermes-jarvis
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -e .
@@ -99,9 +103,14 @@ PYTHONPATH=src python3 -m jinwang_jarvis.cli record-feedback \
 ./scripts/install.sh --config config/pipeline.local.yaml --poll-minutes 5
 ```
 
+### Public/private repository workflow
+If you maintain both a private operational repo and this public repo, see:
+- `docs/public-sync.md`
+
 ### More docs
 - Korean setup guide: `docs/public-guide.ko.md`
 - English setup guide: `docs/public-guide.en.md`
+- Public/private sync strategy: `docs/public-sync.md`
 - Operational playbooks: `docs/playbooks.md`
 - Cron / timer notes: `docs/cron.md`
 - Data schema: `docs/schema.md`
@@ -111,7 +120,7 @@ PYTHONPATH=src python3 -m jinwang_jarvis.cli record-feedback \
 ## 한국어
 
 ### 이게 하는 일
-`jinwang-jarvis`는 메일/캘린더 흐름을 읽어서 아래처럼 정리해주는 로컬 우선 파이프라인이야.
+`hermes-jarvis`는 메일/캘린더 흐름을 읽어서 아래처럼 정리해주는 로컬 우선 파이프라인이야.
 - 최근 중요한 일
 - 계속 중요한 일
 - 새로 중요해진 일
@@ -120,7 +129,9 @@ PYTHONPATH=src python3 -m jinwang_jarvis.cli record-feedback \
 - 정기 브리핑 / 주간 리뷰
 - 장기 기억용 위키 메모 노트(선택)
 
-### 이제 퍼블릭하게 쓸 수 있게 바뀐 점
+> 참고: 공개 레포 이름은 `hermes-jarvis`지만, 내부 Python 패키지명은 기존 호환성을 위해 아직 `jinwang_jarvis`를 유지하고 있어.
+
+### 퍼블릭하게 쓸 수 있게 바뀐 점
 이제 추적되는 기본 설정에는 아래가 안 박혀 있어:
 - 개인 절대경로
 - 개인 Discord 채널 ID
@@ -133,12 +144,12 @@ PYTHONPATH=src python3 -m jinwang_jarvis.cli record-feedback \
 - 일반화된 sender map 예시
 
 개인 실사용 설정은 `config/pipeline.local.yaml`에 두면 되고,
-`scripts/install.sh`는 이 파일이 있으면 자동으로 그걸 우선 사용해.
+`./scripts/install.sh`는 이 파일이 있으면 자동으로 그걸 우선 사용해.
 
 ### 빠른 시작
 ```bash
-git clone https://github.com/JinwangMok/jinwang-jarvis.git
-cd jinwang-jarvis
+git clone https://github.com/JinwangMok/hermes-jarvis.git
+cd hermes-jarvis
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -e .
@@ -164,3 +175,6 @@ PYTHONPATH=src python3 -m jinwang_jarvis.cli record-feedback --config config/pip
 ```bash
 ./scripts/install.sh --config config/pipeline.local.yaml --poll-minutes 5
 ```
+
+### private/public 함께 운영할 때
+- 운영용 private 레포와 공개용 public 레포를 같이 유지하려면 `docs/public-sync.md`를 보면 돼.
