@@ -6,6 +6,7 @@ from jinwang_jarvis.intelligence import (
     _backfill_message_participant_cache,
     _classify_jongwon_context,
     _get_cached_message_participants,
+    _infer_interaction_chains,
     _parse_participant_headers,
     collect_knowledge_mail,
     generate_daily_intelligence_report,
@@ -65,6 +66,24 @@ reproducibility:
         encoding="utf-8",
     )
     return config_file
+
+
+def test_infer_interaction_chains_marks_pending_replied_and_follow_up():
+    rows = [
+        {"knowledge_id": "1", "subject": "Please review architecture", "from_addr": "boss@example.com", "to_addr": "me@example.com", "self_role": "direct-to-me", "interaction_role": "review-request", "sent_at": "2026-04-10T10:00:00+00:00"},
+        {"knowledge_id": "2", "subject": "Re: Please review architecture", "from_addr": "me@example.com", "to_addr": "boss@example.com", "self_role": "sent-by-me", "interaction_role": "status-reply", "sent_at": "2026-04-10T12:00:00+00:00"},
+        {"knowledge_id": "3", "subject": "Need update on budget", "from_addr": "boss@example.com", "to_addr": "me@example.com", "self_role": "direct-to-me", "interaction_role": "direct-ask", "sent_at": "2026-04-11T10:00:00+00:00"},
+        {"knowledge_id": "4", "subject": "Re: Need update on budget", "from_addr": "me@example.com", "to_addr": "boss@example.com", "self_role": "sent-by-me", "interaction_role": "status-reply", "sent_at": "2026-04-11T11:00:00+00:00"},
+        {"knowledge_id": "5", "subject": "Re: Need update on budget", "from_addr": "boss@example.com", "to_addr": "me@example.com", "self_role": "direct-to-me", "interaction_role": "direct-ask", "sent_at": "2026-04-11T12:00:00+00:00"},
+        {"knowledge_id": "6", "subject": "Submit draft today", "from_addr": "boss@example.com", "to_addr": "me@example.com", "self_role": "direct-to-me", "interaction_role": "direct-ask", "sent_at": "2026-04-12T10:00:00+00:00"},
+        {"knowledge_id": "7", "subject": "[SmartX Info] infra weekly", "from_addr": "info@smartx.kr", "to_addr": "info@smartx.kr", "self_role": "other", "interaction_role": "broadcast", "sent_at": "2026-04-12T09:00:00+00:00"},
+    ]
+    chains = _infer_interaction_chains(rows)
+    by_subject = {item["subject_key"]: item for item in chains}
+    assert by_subject["please review architecture"]["state"] == "replied"
+    assert by_subject["need update on budget"]["state"] == "follow-up-pending"
+    assert by_subject["submit draft today"]["state"] == "pending"
+    assert "smartx info infra weekly" not in by_subject
 
 
 def test_parse_participant_headers_extracts_to_cc_reply_to_and_references():
@@ -333,15 +352,18 @@ def test_generate_daily_intelligence_creates_dedicated_jongwon_smartx_lane_notes
     assert "smartx-weekly-briefing" in index_text
     assert "jongwon-phase-map" in index_text
     assert "jongwon-context-cases" in index_text
+    assert "interaction-chain-status" in index_text
 
     direct_note = config.wiki_root / "queries/jinwang-jarvis-intelligence/priority/jongwon-direct-actions.md"
     weekly_note = config.wiki_root / "queries/jinwang-jarvis-intelligence/priority/smartx-weekly-briefing.md"
     phase_note = config.wiki_root / "queries/jinwang-jarvis-intelligence/priority/jongwon-phase-map.md"
     context_note = config.wiki_root / "queries/jinwang-jarvis-intelligence/priority/jongwon-context-cases.md"
+    chain_note = config.wiki_root / "queries/jinwang-jarvis-intelligence/priority/interaction-chain-status.md"
     assert direct_note.exists()
     assert weekly_note.exists()
     assert phase_note.exists()
     assert context_note.exists()
+    assert chain_note.exists()
 
     direct_text = direct_note.read_text(encoding="utf-8")
     assert "데이터 파이프라인 검토 요청" in direct_text
@@ -359,3 +381,6 @@ def test_generate_daily_intelligence_creates_dedicated_jongwon_smartx_lane_notes
 
     context_text = context_note.read_text(encoding="utf-8")
     assert "## professor-sent-involving-me" in context_text
+
+    chain_text = chain_note.read_text(encoding="utf-8")
+    assert "## follow-up-pending" in chain_text

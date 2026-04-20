@@ -79,6 +79,7 @@ JONGWON_DIRECT_ACTIONS_NOTE = f"{PRIORITY_NOTE_DIR}/jongwon-direct-actions.md"
 SMARTX_WEEKLY_BRIEFING_NOTE = f"{PRIORITY_NOTE_DIR}/smartx-weekly-briefing.md"
 JONGWON_PHASE_MAP_NOTE = f"{PRIORITY_NOTE_DIR}/jongwon-phase-map.md"
 JONGWON_CONTEXT_CASES_NOTE = f"{PRIORITY_NOTE_DIR}/jongwon-context-cases.md"
+INTERACTION_CHAIN_NOTE = f"{PRIORITY_NOTE_DIR}/interaction-chain-status.md"
 MONTHLY_TIMELINE_NOTE = "queries/jinwang-jarvis-monthly-timeline-36m.md"
 DEFAULT_LOOKBACK_DAYS = 7
 MAX_PAGES = 200
@@ -596,6 +597,38 @@ def _flow_pattern(subject: str | None) -> str:
     return "general"
 
 
+def _infer_interaction_chains(rows: list[dict]) -> list[dict]:
+    chain_rows = [row for row in rows if row.get("interaction_role") not in {None, "other", "broadcast", "cc-for-awareness"}]
+    grouped: dict[str, list[dict]] = {}
+    for row in chain_rows:
+        key = _dedup_subject_key(row.get("subject"))
+        grouped.setdefault(key, []).append(row)
+    results: list[dict] = []
+    for key, items in grouped.items():
+        ordered = sorted(items, key=lambda row: row.get("sent_at") or "")
+        last = ordered[-1]
+        has_self_reply = any(row.get("self_role") == "sent-by-me" and row.get("interaction_role") == "status-reply" for row in ordered)
+        has_external_ask = any(row.get("self_role") in {"direct-to-me", "cc-me", "other"} and row.get("interaction_role") in {"direct-ask", "review-request", "status-request", "decision-request"} for row in ordered)
+        if not has_external_ask:
+            continue
+        if last.get("self_role") == "sent-by-me" and last.get("interaction_role") == "status-reply":
+            state = "replied"
+        elif has_self_reply:
+            state = "follow-up-pending"
+        else:
+            state = "pending"
+        results.append({
+            "subject_key": key,
+            "state": state,
+            "last_sent_at": last.get("sent_at"),
+            "latest_subject": last.get("subject"),
+            "participants": sorted({row.get("from_addr") for row in ordered if row.get("from_addr")}),
+            "message_count": len(ordered),
+        })
+    order = {"follow-up-pending": 0, "pending": 1, "replied": 2}
+    return sorted(results, key=lambda item: (order.get(item["state"], 9), item.get("last_sent_at") or ""), reverse=False)
+
+
 def _load_jongwon_smartx_flow_rows(database_path: Path, *, as_of: datetime, months: int = 36) -> list[dict]:
     start = (as_of - timedelta(days=months * 30)).isoformat()
     with sqlite3.connect(database_path) as conn:
@@ -875,6 +908,37 @@ def _write_jongwon_context_cases_note(config: PipelineConfig, rows: list[dict], 
     return path
 
 
+def _write_interaction_chain_note(config: PipelineConfig, rows: list[dict], generated_at: str) -> Path:
+    path = config.wiki_root / INTERACTION_CHAIN_NOTE
+    path.parent.mkdir(parents=True, exist_ok=True)
+    chains = _infer_interaction_chains(rows)
+    lines = [
+        "---",
+        "title: Interaction chain status",
+        f"created: {generated_at[:10]}",
+        f"updated: {generated_at[:10]}",
+        "type: query",
+        "tags: [jarvis, intelligence, chains, priority]",
+        "sources: []",
+        "---",
+        "",
+        "# Interaction chain status",
+        "",
+        "> 요청-응답-후속질문 흐름을 subject chain 기준으로 추정한 note.",
+    ]
+    for state in ["follow-up-pending", "pending", "replied"]:
+        lines.extend(["", f"## {state}"])
+        items = [item for item in chains if item["state"] == state]
+        if not items:
+            lines.append("- none")
+            continue
+        for item in items[:20]:
+            participants = ", ".join(item.get("participants") or [])
+            lines.append(f"- {item['latest_subject']} | messages={item['message_count']} | participants={participants} | last={item['last_sent_at']}")
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return path
+
+
 def _write_category_notes(config: PipelineConfig, rows: list[dict], generated_at: str) -> dict[str, Path]:
     base = config.wiki_root / CATEGORY_NOTE_DIR
     base.mkdir(parents=True, exist_ok=True)
@@ -996,6 +1060,7 @@ def generate_daily_intelligence_report(
     smartx_weekly_path = _write_smartx_weekly_briefing_note(config, priority_flow_rows, moment.date().isoformat(), as_of=moment)
     phase_map_path = _write_jongwon_phase_map_note(config, priority_flow_rows, moment.date().isoformat())
     context_cases_path = _write_jongwon_context_cases_note(config, priority_flow_rows, moment.date().isoformat())
+    chain_note_path = _write_interaction_chain_note(config, rows, moment.date().isoformat())
     index_path = _write_intelligence_index(
         config,
         note_paths,
@@ -1007,6 +1072,7 @@ def generate_daily_intelligence_report(
             SMARTX_WEEKLY_BRIEFING_NOTE,
             JONGWON_PHASE_MAP_NOTE,
             JONGWON_CONTEXT_CASES_NOTE,
+            INTERACTION_CHAIN_NOTE,
         ],
     )
     with sqlite3.connect(config.database_path) as conn:
