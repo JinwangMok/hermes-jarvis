@@ -2,7 +2,11 @@ import json
 from pathlib import Path
 
 from jinwang_jarvis.config import load_pipeline_config
-from jinwang_jarvis.intelligence import collect_knowledge_mail, generate_daily_intelligence_report
+from jinwang_jarvis.intelligence import (
+    _classify_jongwon_context,
+    collect_knowledge_mail,
+    generate_daily_intelligence_report,
+)
 
 
 class FakeKnowledgeRunner:
@@ -58,6 +62,31 @@ reproducibility:
         encoding="utf-8",
     )
     return config_file
+
+
+def test_classify_jongwon_context_distinguishes_sender_recipient_and_cc_cases():
+    self_addresses = {"jinwang@smartx.kr", "jinwangmok@gmail.com"}
+
+    professor_sent = _classify_jongwon_context(
+        {"from_addr": "jongwon@smartx.kr", "subject": "Re: 검토 요청", "to_addr": "jinwang@smartx.kr"},
+        {"to": ["jinwang@smartx.kr"], "cc": [], "delivered_to": "jinwang@smartx.kr"},
+        self_addresses,
+    )
+    assert professor_sent == "professor-sent-to-me-primary"
+
+    professor_primary_me_cc = _classify_jongwon_context(
+        {"from_addr": "member@smartx.kr", "subject": "보고드립니다", "to_addr": "jongwon@smartx.kr"},
+        {"to": ["jongwon@smartx.kr"], "cc": ["jinwang@smartx.kr"], "delivered_to": "jinwang@smartx.kr"},
+        self_addresses,
+    )
+    assert professor_primary_me_cc == "professor-primary-me-cc"
+
+    professor_cced = _classify_jongwon_context(
+        {"from_addr": "member@smartx.kr", "subject": "진행 상황 공유", "to_addr": "jinwang@smartx.kr"},
+        {"to": ["jinwang@smartx.kr"], "cc": ["jongwon@smartx.kr"], "delivered_to": "jinwang@smartx.kr"},
+        self_addresses,
+    )
+    assert professor_cced == "professor-cced"
 
 
 def test_collect_knowledge_mail_and_generate_daily_intelligence(tmp_path: Path):
@@ -219,13 +248,16 @@ def test_generate_daily_intelligence_creates_dedicated_jongwon_smartx_lane_notes
     assert "jongwon-direct-actions" in index_text
     assert "smartx-weekly-briefing" in index_text
     assert "jongwon-phase-map" in index_text
+    assert "jongwon-context-cases" in index_text
 
     direct_note = config.wiki_root / "queries/jinwang-jarvis-intelligence/priority/jongwon-direct-actions.md"
     weekly_note = config.wiki_root / "queries/jinwang-jarvis-intelligence/priority/smartx-weekly-briefing.md"
     phase_note = config.wiki_root / "queries/jinwang-jarvis-intelligence/priority/jongwon-phase-map.md"
+    context_note = config.wiki_root / "queries/jinwang-jarvis-intelligence/priority/jongwon-context-cases.md"
     assert direct_note.exists()
     assert weekly_note.exists()
     assert phase_note.exists()
+    assert context_note.exists()
 
     direct_text = direct_note.read_text(encoding="utf-8")
     assert "데이터 파이프라인 검토 요청" in direct_text
@@ -240,3 +272,6 @@ def test_generate_daily_intelligence_creates_dedicated_jongwon_smartx_lane_notes
     phase_text = phase_note.read_text(encoding="utf-8")
     assert "## Monthly phase map" in phase_text
     assert "2026-04" in phase_text
+
+    context_text = context_note.read_text(encoding="utf-8")
+    assert "## professor-sent-involving-me" in context_text

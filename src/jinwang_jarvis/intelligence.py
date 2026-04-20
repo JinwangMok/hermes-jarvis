@@ -4,7 +4,11 @@ import json
 import re
 import sqlite3
 import subprocess
+import tempfile
 from datetime import UTC, datetime, timedelta
+from email import policy
+from email.parser import BytesHeaderParser
+from email.utils import getaddresses
 from pathlib import Path
 from typing import Callable
 
@@ -74,6 +78,7 @@ JONGWON_SMARTX_FLOW_NOTE = f"{PRIORITY_NOTE_DIR}/jongwon-smartx-flow.md"
 JONGWON_DIRECT_ACTIONS_NOTE = f"{PRIORITY_NOTE_DIR}/jongwon-direct-actions.md"
 SMARTX_WEEKLY_BRIEFING_NOTE = f"{PRIORITY_NOTE_DIR}/smartx-weekly-briefing.md"
 JONGWON_PHASE_MAP_NOTE = f"{PRIORITY_NOTE_DIR}/jongwon-phase-map.md"
+JONGWON_CONTEXT_CASES_NOTE = f"{PRIORITY_NOTE_DIR}/jongwon-context-cases.md"
 MONTHLY_TIMELINE_NOTE = "queries/jinwang-jarvis-monthly-timeline-36m.md"
 DEFAULT_LOOKBACK_DAYS = 7
 MAX_PAGES = 200
@@ -364,6 +369,93 @@ def _smartx_theme(subject: str | None) -> str:
     return "general"
 
 
+def _normalize_address_list(values: list[str] | None) -> list[str]:
+    normalized: list[str] = []
+    for value in values or []:
+        item = (value or "").strip().lower()
+        if item and item not in normalized:
+            normalized.append(item)
+    return normalized
+
+
+def _classify_jongwon_context(row: dict, participants: dict[str, object], self_addresses: set[str]) -> str:
+    sender = (row.get("from_addr") or "").strip().lower()
+    to_addrs = set(_normalize_address_list(participants.get("to") if isinstance(participants.get("to"), list) else []))
+    cc_addrs = set(_normalize_address_list(participants.get("cc") if isinstance(participants.get("cc"), list) else []))
+    delivered_to = (participants.get("delivered_to") or row.get("to_addr") or "").strip().lower()
+    self_set = {addr.strip().lower() for addr in self_addresses if addr.strip()} if self_addresses else set()
+    if delivered_to:
+        self_set.add(delivered_to)
+    professor = "jongwon@smartx.kr"
+    if sender == professor:
+        if self_set & set(to_addrs) and len(to_addrs) == 1 and not cc_addrs:
+            return "professor-sent-to-me-primary"
+        if self_set & (to_addrs | cc_addrs | {delivered_to}):
+            return "professor-sent-involving-me"
+        return "professor-sent-other"
+    if professor in to_addrs and self_set & cc_addrs:
+        return "professor-primary-me-cc"
+    if professor in cc_addrs and self_set & (to_addrs | {delivered_to}):
+        return "professor-cced"
+    if professor in to_addrs:
+        return "professor-primary"
+    if professor in cc_addrs:
+        return "professor-cc-only"
+    if _is_smartx_shared_message(row):
+        return "smartx-shared"
+    return "other"
+
+
+def _header_addresses(values: list[str] | None) -> list[str]:
+    parsed = [addr.lower() for _, addr in getaddresses(values or []) if addr]
+    return _normalize_address_list(parsed)
+
+
+def _load_message_participants(row: dict) -> dict[str, object]:
+    account = row.get("account")
+    folder_name = row.get("folder_name")
+    source_id = row.get("source_id")
+    fallback = {
+        "to": _normalize_address_list([row.get("to_addr") or ""]),
+        "cc": [],
+        "delivered_to": (row.get("to_addr") or "").strip().lower(),
+    }
+    if not account or not folder_name or not source_id:
+        return fallback
+    try:
+        with tempfile.NamedTemporaryFile(suffix=".eml", delete=False) as tmp:
+            temp_path = Path(tmp.name)
+        subprocess.run(
+            [
+                "himalaya", "message", "export",
+                "-a", str(account),
+                str(source_id),
+                "--folder", str(folder_name),
+                "--full",
+                "--destination", str(temp_path),
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        raw = temp_path.read_bytes()
+        parser = BytesHeaderParser(policy=policy.default)
+        headers = parser.parsebytes(raw)
+        delivered = headers.get("Delivered-To") or fallback["delivered_to"]
+        return {
+            "to": _header_addresses(headers.get_all("To", [])) or fallback["to"],
+            "cc": _header_addresses(headers.get_all("Cc", [])),
+            "delivered_to": (delivered or "").strip().lower(),
+        }
+    except Exception:
+        return fallback
+    finally:
+        try:
+            temp_path.unlink(missing_ok=True)
+        except Exception:
+            pass
+
+
 def _flow_pattern(subject: str | None) -> str:
     lowered = _clean_subject(subject).casefold()
     if any(keyword in lowered for keyword in ["요청", "문의", "검토", "회신", "확인", "submit", "review"]):
@@ -383,7 +475,7 @@ def _load_jongwon_smartx_flow_rows(database_path: Path, *, as_of: datetime, mont
         conn.row_factory = sqlite3.Row
         rows = conn.execute(
             """
-            SELECT knowledge_id, account, subject, from_addr, sent_at, category, tags_json,
+            SELECT knowledge_id, account, folder_name, source_id, subject, from_addr, to_addr, sent_at, category, tags_json,
                    importance_score, opportunity_score, summary_text
             FROM knowledge_messages
             WHERE COALESCE(sent_at, '') >= ?
@@ -451,6 +543,7 @@ def _write_jongwon_smartx_flow_note(config: PipelineConfig, rows: list[dict], ge
         f"- [[{JONGWON_DIRECT_ACTIONS_NOTE.removesuffix('.md')}]]",
         f"- [[{SMARTX_WEEKLY_BRIEFING_NOTE.removesuffix('.md')}]]",
         f"- [[{JONGWON_PHASE_MAP_NOTE.removesuffix('.md')}]]",
+        f"- [[{JONGWON_CONTEXT_CASES_NOTE.removesuffix('.md')}]]",
         "",
         "## Pattern mix",
     ]
@@ -608,6 +701,53 @@ def _write_jongwon_phase_map_note(config: PipelineConfig, rows: list[dict], gene
     return path
 
 
+def _write_jongwon_context_cases_note(config: PipelineConfig, rows: list[dict], generated_at: str) -> Path:
+    path = config.wiki_root / JONGWON_CONTEXT_CASES_NOTE
+    path.parent.mkdir(parents=True, exist_ok=True)
+    candidate_rows = _dedup_rows([
+        row for row in rows
+        if _is_jongwon_message(row) or _is_smartx_shared_message(row) or (row.get('to_addr') or '').strip().lower() == 'jongwon@smartx.kr'
+    ], limit=40)
+    grouped: dict[str, list[dict]] = {}
+    self_addresses = set(config.self_addresses)
+    for row in candidate_rows:
+        relation = _classify_jongwon_context(row, _load_message_participants(row), self_addresses)
+        grouped.setdefault(relation, []).append(row)
+    lines = [
+        "---",
+        "title: Jongwon context cases",
+        f"created: {generated_at[:10]}",
+        f"updated: {generated_at[:10]}",
+        "type: query",
+        "tags: [jarvis, intelligence, jongwon, context, priority]",
+        "sources: []",
+        "---",
+        "",
+        "# Jongwon context cases",
+        "",
+        "> 교수님 관련 메일을 발신/수신/참조 관계로 나눠서 최근 중요 케이스를 보는 note.",
+    ]
+    for relation in [
+        "professor-sent-to-me-primary",
+        "professor-sent-involving-me",
+        "professor-primary-me-cc",
+        "professor-cced",
+        "professor-primary",
+        "professor-cc-only",
+        "professor-sent-other",
+        "smartx-shared",
+    ]:
+        lines.extend(["", f"## {relation}"])
+        items = grouped.get(relation, [])
+        if not items:
+            lines.append("- none")
+            continue
+        for row in items[:10]:
+            lines.append(f"- {row['sent_at']} — {row['subject']} ({row['from_addr'] or 'unknown'} -> {row.get('to_addr') or 'unknown'})")
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return path
+
+
 def _write_category_notes(config: PipelineConfig, rows: list[dict], generated_at: str) -> dict[str, Path]:
     base = config.wiki_root / CATEGORY_NOTE_DIR
     base.mkdir(parents=True, exist_ok=True)
@@ -727,6 +867,7 @@ def generate_daily_intelligence_report(
     direct_actions_path = _write_jongwon_direct_actions_note(config, priority_flow_rows, moment.date().isoformat())
     smartx_weekly_path = _write_smartx_weekly_briefing_note(config, priority_flow_rows, moment.date().isoformat(), as_of=moment)
     phase_map_path = _write_jongwon_phase_map_note(config, priority_flow_rows, moment.date().isoformat())
+    context_cases_path = _write_jongwon_context_cases_note(config, priority_flow_rows, moment.date().isoformat())
     index_path = _write_intelligence_index(
         config,
         note_paths,
@@ -737,6 +878,7 @@ def generate_daily_intelligence_report(
             JONGWON_DIRECT_ACTIONS_NOTE,
             SMARTX_WEEKLY_BRIEFING_NOTE,
             JONGWON_PHASE_MAP_NOTE,
+            JONGWON_CONTEXT_CASES_NOTE,
         ],
     )
     with sqlite3.connect(config.database_path) as conn:
