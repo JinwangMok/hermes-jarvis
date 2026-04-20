@@ -318,36 +318,61 @@ def test_generate_daily_intelligence_creates_dedicated_jongwon_smartx_lane_notes
             (
                 "jongwon-action-1", "personal", "[Gmail]/전체보관함", "401",
                 "Re: 데이터 파이프라인 검토 요청", "jongwon@smartx.kr", "you@example.com",
+                '["you@example.com"]', '[]', 'direct-to-me', 'review-request',
                 "2026-04-18T10:00:00+00:00", 0, "technology", "[]", 0.91, 0.18,
                 "[technology] Re: 데이터 파이프라인 검토 요청", "2026-04-20T00:00:00+00:00",
             ),
             (
                 "jongwon-action-2", "personal", "[Gmail]/전체보관함", "402",
                 "Fwd: MCP Dev Summit Lands in Seoul this August", "jongwon@smartx.kr", "you@example.com",
+                '["you@example.com"]', '[]', 'direct-to-me', 'fyi-forward',
                 "2026-04-17T10:00:00+00:00", 0, "opportunity", "[]", 0.85, 0.55,
                 "[opportunity] Fwd: MCP Dev Summit Lands in Seoul this August", "2026-04-20T00:00:00+00:00",
             ),
             (
                 "smartx-weekly-1", "personal", "[Gmail]/전체보관함", "403",
                 "[NetCS Announce] [SmartX Info] DGX Spark 관련 이슈 troubleshooting", "ho.kim@smartx.kr", "you@example.com",
+                '["you@example.com"]', '[]', 'other', 'broadcast',
                 "2026-04-17T09:00:00+00:00", 0, "technology", "[]", 0.88, 0.12,
                 "[technology] [NetCS Announce] [SmartX Info] DGX Spark 관련 이슈 troubleshooting", "2026-04-20T00:00:00+00:00",
             ),
             (
                 "smartx-weekly-2", "personal", "[Gmail]/전체보관함", "404",
                 "[NetCS Announce] [SmartX Info] [정보보안팀] React 취약점 공격 IP 차단조치", "brave@gist.ac.kr", "you@example.com",
+                '["you@example.com"]', '[]', 'other', 'broadcast',
                 "2026-04-16T09:00:00+00:00", 0, "technology", "[]", 0.87, 0.10,
                 "[technology] [NetCS Announce] [SmartX Info] [정보보안팀] React 취약점 공격 IP 차단조치", "2026-04-20T00:00:00+00:00",
+            ),
+            (
+                "edu-1", "personal", "[Gmail]/전체보관함", "405",
+                "Dream AI 교원연수 운영 일정표 공유 및 준비 관련 안내", "iamtina@gist.ac.kr", "you@example.com",
+                '["you@example.com"]', '[]', 'direct-to-me', 'direct-ask',
+                "2026-01-10T10:00:00+00:00", 0, "technology", "[]", 0.83, 0.05,
+                "[technology] Dream AI 교원연수 운영 일정표 공유 및 준비 관련 안내", "2026-04-20T00:00:00+00:00",
+            ),
+            (
+                "edu-2", "personal", "[Gmail]/전체보관함", "406",
+                "2026년도 교원연수 강사료 관련 서류 작성 요청", "gaeun218@gist.ac.kr", "you@example.com",
+                '["you@example.com"]', '[]', 'direct-to-me', 'direct-ask',
+                "2026-02-05T10:00:00+00:00", 0, "admin", "[]", 0.78, 0.0,
+                "[admin] 2026년도 교원연수 강사료 관련 서류 작성 요청", "2026-04-20T00:00:00+00:00",
+            ),
+            (
+                "edu-3", "personal", "[Gmail]/전체보관함", "407",
+                "광주 인공지능 교과서 및 Star-MOOC 관련 인턴 지원 요청드립니다.", "cyk95780@gist.ac.kr", "you@example.com",
+                '["you@example.com"]', '[]', 'direct-to-me', 'direct-ask',
+                "2025-01-10T10:00:00+00:00", 0, "opportunity", "[]", 0.82, 0.2,
+                "[opportunity] 광주 인공지능 교과서 및 Star-MOOC 관련 인턴 지원 요청드립니다.", "2026-04-20T00:00:00+00:00",
             ),
         ]
         for row in rows:
             conn.execute(
                 """
                 INSERT OR REPLACE INTO knowledge_messages (
-                    knowledge_id, account, folder_name, source_id, subject, from_addr, to_addr,
-                    sent_at, has_attachment, category, tags_json, importance_score,
+                    knowledge_id, account, folder_name, source_id, subject, from_addr, to_addr, to_addrs_json, cc_addrs_json,
+                    self_role, interaction_role, sent_at, has_attachment, category, tags_json, importance_score,
                     opportunity_score, summary_text, collected_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 row,
             )
@@ -361,17 +386,23 @@ def test_generate_daily_intelligence_creates_dedicated_jongwon_smartx_lane_notes
     assert "jongwon-phase-map" in index_text
     assert "jongwon-context-cases" in index_text
     assert "interaction-chain-status" in index_text
+    assert "advisor-action-status" in index_text
+    assert "education-teaching-memory" in index_text
 
     direct_note = config.wiki_root / "queries/jinwang-jarvis-intelligence/priority/jongwon-direct-actions.md"
     weekly_note = config.wiki_root / "queries/jinwang-jarvis-intelligence/priority/smartx-weekly-briefing.md"
     phase_note = config.wiki_root / "queries/jinwang-jarvis-intelligence/priority/jongwon-phase-map.md"
     context_note = config.wiki_root / "queries/jinwang-jarvis-intelligence/priority/jongwon-context-cases.md"
     chain_note = config.wiki_root / "queries/jinwang-jarvis-intelligence/priority/interaction-chain-status.md"
+    advisor_action_note = config.wiki_root / "queries/jinwang-jarvis-intelligence/priority/advisor-action-status.md"
+    education_note = config.wiki_root / "queries/jinwang-jarvis-intelligence/priority/education-teaching-memory.md"
     assert direct_note.exists()
     assert weekly_note.exists()
     assert phase_note.exists()
     assert context_note.exists()
     assert chain_note.exists()
+    assert advisor_action_note.exists()
+    assert education_note.exists()
 
     direct_text = direct_note.read_text(encoding="utf-8")
     assert "데이터 파이프라인 검토 요청" in direct_text
@@ -392,3 +423,10 @@ def test_generate_daily_intelligence_creates_dedicated_jongwon_smartx_lane_notes
 
     chain_text = chain_note.read_text(encoding="utf-8")
     assert "## follow-up-pending" in chain_text
+
+    advisor_action_text = advisor_action_note.read_text(encoding="utf-8")
+    assert "교수님" in advisor_action_text
+
+    education_text = education_note.read_text(encoding="utf-8")
+    assert "교원연수" in education_text
+    assert "교과서" in education_text

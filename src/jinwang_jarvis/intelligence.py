@@ -80,6 +80,8 @@ SMARTX_WEEKLY_BRIEFING_NOTE = f"{PRIORITY_NOTE_DIR}/smartx-weekly-briefing.md"
 JONGWON_PHASE_MAP_NOTE = f"{PRIORITY_NOTE_DIR}/jongwon-phase-map.md"
 JONGWON_CONTEXT_CASES_NOTE = f"{PRIORITY_NOTE_DIR}/jongwon-context-cases.md"
 INTERACTION_CHAIN_NOTE = f"{PRIORITY_NOTE_DIR}/interaction-chain-status.md"
+ADVISOR_ACTION_STATUS_NOTE = f"{PRIORITY_NOTE_DIR}/advisor-action-status.md"
+EDUCATION_TEACHING_MEMORY_NOTE = f"{PRIORITY_NOTE_DIR}/education-teaching-memory.md"
 MONTHLY_TIMELINE_NOTE = "queries/jinwang-jarvis-monthly-timeline-36m.md"
 DEFAULT_LOOKBACK_DAYS = 7
 MAX_PAGES = 200
@@ -980,6 +982,112 @@ def _write_interaction_chain_note(config: PipelineConfig, rows: list[dict], gene
     return path
 
 
+def _write_advisor_action_status_note(config: PipelineConfig, rows: list[dict], generated_at: str) -> Path:
+    path = config.wiki_root / ADVISOR_ACTION_STATUS_NOTE
+    path.parent.mkdir(parents=True, exist_ok=True)
+    professor_rows = [row for row in rows if (row.get('from_addr') or '').strip().lower() == 'jongwon@smartx.kr']
+    chains = _infer_interaction_chains(professor_rows)
+    action_like = _dedup_rows([
+        row for row in professor_rows
+        if row.get('interaction_role') in {'direct-ask','review-request','status-request','decision-request','fyi-forward'}
+        or _is_action_like_subject(row.get('subject'))
+        or any(keyword in _clean_subject(row.get('subject')).casefold() for keyword in ['보고', '회의', '일정', '미팅', '검토', '문의'])
+    ], limit=30)
+    lines = [
+        "---",
+        "title: Advisor action status",
+        f"created: {generated_at[:10]}",
+        f"updated: {generated_at[:10]}",
+        "type: query",
+        "tags: [jarvis, intelligence, advisor, action, priority]",
+        "sources: []",
+        "---",
+        "",
+        "# Advisor action status",
+        "",
+        "> 교수님 관련 메일 중 액션/검토 흐름을 open state와 action candidate 중심으로 보는 note.",
+        "",
+        "## pending-or-follow-up",
+    ]
+    items = [item for item in chains if item['state'] in {'pending','follow-up-pending'}]
+    if items:
+        for item in items[:20]:
+            lines.append(f"- 교수님 관련: {item['latest_subject']} | state={item['state']} | last={item['last_sent_at']}")
+    else:
+        lines.append("- none")
+    lines.extend(["", "## recent action candidates"])
+    if action_like:
+        for row in action_like:
+            lines.append(f"- {row.get('sent_at')} — {row.get('subject')} ({row.get('interaction_role')})")
+    else:
+        lines.append("- none")
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return path
+
+
+def _load_education_memory_rows(database_path: Path, *, months: int = 36) -> list[dict]:
+    pattern = '(교육|강의|교원연수|교과서|고등학교|고교|특강|수업|직장인|일반인|기업가정신교육|연수|강사료|드림ai|dream ai|star-mooc|인공지능 교과서)'
+    with sqlite3.connect(database_path) as conn:
+        conn.row_factory = sqlite3.Row
+        conn.create_function('regexp', 2, lambda p, text: 1 if text and __import__('re').search(p, text, __import__('re').I) else 0)
+        rows = conn.execute(
+            """
+            SELECT knowledge_id, account, folder_name, source_id, subject, from_addr, to_addr, to_addrs_json, cc_addrs_json,
+                   self_role, interaction_role, sent_at, category, tags_json, importance_score, opportunity_score, summary_text
+            FROM knowledge_messages
+            WHERE lower(coalesce(subject,'')) regexp ?
+            ORDER BY sent_at DESC
+            """,
+            (pattern,),
+        ).fetchall()
+    payload = []
+    for row in rows:
+        item = dict(row)
+        item['tags'] = json.loads(item.get('tags_json') or '[]')
+        item['to_addrs'] = json.loads(item.get('to_addrs_json') or '[]')
+        item['cc_addrs'] = json.loads(item.get('cc_addrs_json') or '[]')
+        payload.append(item)
+    return payload
+
+
+def _write_education_teaching_memory_note(config: PipelineConfig, rows: list[dict], generated_at: str) -> Path:
+    path = config.wiki_root / EDUCATION_TEACHING_MEMORY_NOTE
+    path.parent.mkdir(parents=True, exist_ok=True)
+    edu_rows = _load_education_memory_rows(config.database_path)
+    monthly = {}
+    for row in edu_rows:
+        ym = (row.get('sent_at') or '')[:7]
+        if ym:
+            monthly.setdefault(ym, []).append(row)
+    lines = [
+        "---",
+        "title: Education and teaching memory",
+        f"created: {generated_at[:10]}",
+        f"updated: {generated_at[:10]}",
+        "type: query",
+        "tags: [jarvis, intelligence, education, teaching, memory]",
+        "sources: []",
+        "---",
+        "",
+        "# Education and teaching memory",
+        "",
+        "> 직장인/일반인/고등학생 대상 교육강의 및 교과서/교원연수 작업 흔적을 장기 기억용으로 모아둔 note.",
+        "",
+        f"- captured education-like traces: {len(edu_rows)}",
+        "",
+        "## Highlighted traces",
+    ]
+    for row in _dedup_rows(edu_rows, limit=30):
+        lines.append(f"- {row.get('sent_at')} — {row.get('subject')} ({row.get('from_addr') or 'unknown'})")
+    lines.extend(["", "## Monthly memory"])
+    for ym in sorted(monthly):
+        items = _dedup_rows(monthly[ym], limit=3)
+        summary = '; '.join(_clean_subject(item.get('subject')) for item in items)
+        lines.append(f"- {ym}: {len(monthly[ym])} traces — {summary}")
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return path
+
+
 def _write_category_notes(config: PipelineConfig, rows: list[dict], generated_at: str) -> dict[str, Path]:
     base = config.wiki_root / CATEGORY_NOTE_DIR
     base.mkdir(parents=True, exist_ok=True)
@@ -1102,6 +1210,8 @@ def generate_daily_intelligence_report(
     phase_map_path = _write_jongwon_phase_map_note(config, priority_flow_rows, moment.date().isoformat())
     context_cases_path = _write_jongwon_context_cases_note(config, priority_flow_rows, moment.date().isoformat())
     chain_note_path = _write_interaction_chain_note(config, rows, moment.date().isoformat())
+    advisor_action_path = _write_advisor_action_status_note(config, priority_flow_rows, moment.date().isoformat())
+    education_memory_path = _write_education_teaching_memory_note(config, rows, moment.date().isoformat())
     index_path = _write_intelligence_index(
         config,
         note_paths,
@@ -1114,6 +1224,8 @@ def generate_daily_intelligence_report(
             JONGWON_PHASE_MAP_NOTE,
             JONGWON_CONTEXT_CASES_NOTE,
             INTERACTION_CHAIN_NOTE,
+            ADVISOR_ACTION_STATUS_NOTE,
+            EDUCATION_TEACHING_MEMORY_NOTE,
         ],
     )
     with sqlite3.connect(config.database_path) as conn:
