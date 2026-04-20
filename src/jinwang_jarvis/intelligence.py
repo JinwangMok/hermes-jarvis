@@ -71,6 +71,9 @@ CATEGORY_NOTE_DIR = f"{INTELLIGENCE_NOTE_DIR}/categories"
 PRIORITY_NOTE_DIR = f"{INTELLIGENCE_NOTE_DIR}/priority"
 INDEX_NOTE = f"{INTELLIGENCE_NOTE_DIR}/index.md"
 JONGWON_SMARTX_FLOW_NOTE = f"{PRIORITY_NOTE_DIR}/jongwon-smartx-flow.md"
+JONGWON_DIRECT_ACTIONS_NOTE = f"{PRIORITY_NOTE_DIR}/jongwon-direct-actions.md"
+SMARTX_WEEKLY_BRIEFING_NOTE = f"{PRIORITY_NOTE_DIR}/smartx-weekly-briefing.md"
+JONGWON_PHASE_MAP_NOTE = f"{PRIORITY_NOTE_DIR}/jongwon-phase-map.md"
 MONTHLY_TIMELINE_NOTE = "queries/jinwang-jarvis-monthly-timeline-36m.md"
 DEFAULT_LOOKBACK_DAYS = 7
 MAX_PAGES = 200
@@ -335,6 +338,32 @@ def _is_smartx_shared_message(row: dict) -> bool:
     return sender in SMARTX_SHARED_ADDRESSES or "[smartx info]" in subject or "smartx info" in subject
 
 
+def _is_action_like_subject(subject: str | None) -> bool:
+    lowered = _clean_subject(subject).casefold()
+    action_keywords = [
+        "요청", "문의", "검토", "회신", "확인", "작성", "제출", "보고", "draft", "review", "submit", "action required",
+    ]
+    return any(keyword.casefold() in lowered for keyword in action_keywords)
+
+
+def _is_security_or_ops_subject(subject: str | None) -> bool:
+    lowered = _clean_subject(subject).casefold()
+    return any(keyword in lowered for keyword in [
+        "취약점", "보안", "ip 차단", "ip차단", "spoofing", "ssl", "tls", "인증서", "alert", "nfs", "troubleshooting", "ops", "server", "cluster", "react",
+    ])
+
+
+def _smartx_theme(subject: str | None) -> str:
+    lowered = _clean_subject(subject).casefold()
+    if _is_security_or_ops_subject(subject):
+        return "security-ops"
+    if any(keyword in lowered for keyword in ["dgx", "gpu", "dpu", "nvidia", "storage", "lakehouse", "iceberg", "data-bahn", "mcp", "openusd", "hpc"]):
+        return "technology"
+    if any(keyword in lowered for keyword in ["meetup", "summit", "webinar", "세미나", "심포지엄", "행사"]):
+        return "event"
+    return "general"
+
+
 def _flow_pattern(subject: str | None) -> str:
     lowered = _clean_subject(subject).casefold()
     if any(keyword in lowered for keyword in ["요청", "문의", "검토", "회신", "확인", "submit", "review"]):
@@ -418,6 +447,11 @@ def _write_jongwon_smartx_flow_note(config: PipelineConfig, rows: list[dict], ge
         f"- SmartX shared / [SmartX Info] mails (36m): {len(smartx_rows)}",
         f"- total tracked priority flow items (36m): {len(rows)}",
         "",
+        "## Related notes",
+        f"- [[{JONGWON_DIRECT_ACTIONS_NOTE.removesuffix('.md')}]]",
+        f"- [[{SMARTX_WEEKLY_BRIEFING_NOTE.removesuffix('.md')}]]",
+        f"- [[{JONGWON_PHASE_MAP_NOTE.removesuffix('.md')}]]",
+        "",
         "## Pattern mix",
     ]
     for name, count in sorted(pattern_counts.items(), key=lambda item: (-item[1], item[0])):
@@ -449,6 +483,131 @@ def _write_jongwon_smartx_flow_note(config: PipelineConfig, rows: list[dict], ge
     return path
 
 
+def _write_jongwon_direct_actions_note(config: PipelineConfig, rows: list[dict], generated_at: str) -> Path:
+    path = config.wiki_root / JONGWON_DIRECT_ACTIONS_NOTE
+    path.parent.mkdir(parents=True, exist_ok=True)
+    direct_rows = [row for row in rows if _is_jongwon_message(row)]
+    action_rows = _dedup_rows([row for row in direct_rows if _is_action_like_subject(row.get("subject")) or float(row.get("opportunity_score") or 0.0) >= 0.3], limit=50)
+    lines = [
+        "---",
+        "title: Jongwon direct actions",
+        f"created: {generated_at[:10]}",
+        f"updated: {generated_at[:10]}",
+        "type: query",
+        "tags: [jarvis, intelligence, jongwon, actions, priority]",
+        "sources: []",
+        "---",
+        "",
+        "# Jongwon direct actions",
+        "",
+        "> 교수님이 직접 보낸 메일 중 요청/검토/피드백/행사 forwarding 성격이 강한 메일을 우선 모아둔 note.",
+        "",
+        f"- total direct mails in 36m: {len(direct_rows)}",
+        f"- action-like mails selected: {len(action_rows)}",
+        "",
+        "## Action-like mails",
+    ]
+    for row in action_rows:
+        lines.append(f"- {row['sent_at']} — {row['subject']} ({row['category']})")
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return path
+
+
+def _write_smartx_weekly_briefing_note(config: PipelineConfig, rows: list[dict], generated_at: str, *, as_of: datetime) -> Path:
+    path = config.wiki_root / SMARTX_WEEKLY_BRIEFING_NOTE
+    path.parent.mkdir(parents=True, exist_ok=True)
+    cutoff = (as_of - timedelta(days=7)).isoformat()
+    weekly_rows = [row for row in rows if _is_smartx_shared_message(row) and (row.get('sent_at') or '') >= cutoff]
+    security_ops = _dedup_rows([row for row in weekly_rows if _smartx_theme(row.get('subject')) == 'security-ops'], limit=12)
+    technology = _dedup_rows([row for row in weekly_rows if _smartx_theme(row.get('subject')) == 'technology'], limit=12)
+    events = _dedup_rows([row for row in weekly_rows if _smartx_theme(row.get('subject')) == 'event'], limit=8)
+    lines = [
+        "---",
+        "title: SmartX weekly briefing",
+        f"created: {generated_at[:10]}",
+        f"updated: {generated_at[:10]}",
+        "type: query",
+        "tags: [jarvis, intelligence, smartx, weekly, priority]",
+        "sources: []",
+        "---",
+        "",
+        "# SmartX weekly briefing",
+        "",
+        "> 최근 7일간 SmartX shared 흐름 중 연구실 전체 기술/운영 문맥 파악에 중요한 메일을 묶은 note.",
+        "",
+        f"- weekly shared items: {len(weekly_rows)}",
+        "",
+        "## Security / ops watch",
+    ]
+    if security_ops:
+        for row in security_ops:
+            lines.append(f"- {row['sent_at']} — {row['subject']} ({row['from_addr'] or 'unknown'})")
+    else:
+        lines.append("- none")
+    lines.extend(["", "## Technology watch"])
+    if technology:
+        for row in technology:
+            lines.append(f"- {row['sent_at']} — {row['subject']} ({row['from_addr'] or 'unknown'})")
+    else:
+        lines.append("- none")
+    lines.extend(["", "## Event / opportunity watch"])
+    if events:
+        for row in events:
+            lines.append(f"- {row['sent_at']} — {row['subject']} ({row['from_addr'] or 'unknown'})")
+    else:
+        lines.append("- none")
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return path
+
+
+def _phase_for_month(*, direct: int, shared: int, rows: list[dict]) -> str:
+    subjects = ' '.join(_clean_subject(row.get('subject')).casefold() for row in rows)
+    if any(keyword in subjects for keyword in ['예산', '연구비', '협약', '참여율', '제안서', '작성', '제출']):
+        return 'execution-admin'
+    if any(keyword in subjects for keyword in ['dgx', 'gpu', 'nfs', 'storage', 'iceberg', 'data-bahn', 'cluster', 'server', 'dpu']):
+        return 'infra-buildout'
+    if shared >= direct:
+        return 'shared-tech-radar'
+    if direct >= 20:
+        return 'advisor-driven-execution'
+    return 'mixed-followups'
+
+
+def _write_jongwon_phase_map_note(config: PipelineConfig, rows: list[dict], generated_at: str) -> Path:
+    path = config.wiki_root / JONGWON_PHASE_MAP_NOTE
+    path.parent.mkdir(parents=True, exist_ok=True)
+    monthly: dict[str, list[dict]] = {}
+    for row in rows:
+        ym = (row.get('sent_at') or '')[:7]
+        if ym:
+            monthly.setdefault(ym, []).append(row)
+    lines = [
+        "---",
+        "title: Jongwon phase map",
+        f"created: {generated_at[:10]}",
+        f"updated: {generated_at[:10]}",
+        "type: query",
+        "tags: [jarvis, intelligence, jongwon, phase-map, priority]",
+        "sources: []",
+        "---",
+        "",
+        "# Jongwon phase map",
+        "",
+        "> 교수님 direct + SmartX shared 흐름을 월별 phase로 압축한 note.",
+        "",
+        "## Monthly phase map",
+    ]
+    for ym in sorted(monthly):
+        month_rows = monthly[ym]
+        direct = sum(1 for row in month_rows if _is_jongwon_message(row))
+        shared = sum(1 for row in month_rows if _is_smartx_shared_message(row))
+        phase = _phase_for_month(direct=direct, shared=shared, rows=month_rows)
+        examples = '; '.join(_clean_subject(row.get('subject')) for row in _dedup_rows(month_rows, limit=2))
+        lines.append(f"- {ym} — {phase} | direct={direct}, shared={shared} | {examples}")
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return path
+
+
 def _write_category_notes(config: PipelineConfig, rows: list[dict], generated_at: str) -> dict[str, Path]:
     base = config.wiki_root / CATEGORY_NOTE_DIR
     base.mkdir(parents=True, exist_ok=True)
@@ -456,6 +615,7 @@ def _write_category_notes(config: PipelineConfig, rows: list[dict], generated_at
     by_category: dict[str, list[dict]] = {key: [] for key in COMMON_CATEGORY_ORDER}
     for row in rows:
         by_category.setdefault(row["category"], []).append(row)
+
     for category, items in by_category.items():
         if not items:
             continue
@@ -564,12 +724,20 @@ def generate_daily_intelligence_report(
     note_paths = _write_category_notes(config, rows, moment.date().isoformat())
     priority_flow_rows = _load_jongwon_smartx_flow_rows(config.database_path, as_of=moment)
     priority_flow_path = _write_jongwon_smartx_flow_note(config, priority_flow_rows, moment.date().isoformat())
+    direct_actions_path = _write_jongwon_direct_actions_note(config, priority_flow_rows, moment.date().isoformat())
+    smartx_weekly_path = _write_smartx_weekly_briefing_note(config, priority_flow_rows, moment.date().isoformat(), as_of=moment)
+    phase_map_path = _write_jongwon_phase_map_note(config, priority_flow_rows, moment.date().isoformat())
     index_path = _write_intelligence_index(
         config,
         note_paths,
         moment.date().isoformat(),
         report_rel_path,
-        priority_links=[JONGWON_SMARTX_FLOW_NOTE],
+        priority_links=[
+            JONGWON_SMARTX_FLOW_NOTE,
+            JONGWON_DIRECT_ACTIONS_NOTE,
+            SMARTX_WEEKLY_BRIEFING_NOTE,
+            JONGWON_PHASE_MAP_NOTE,
+        ],
     )
     with sqlite3.connect(config.database_path) as conn:
         conn.execute(
