@@ -20,7 +20,7 @@ REQUIRED_DIRECTORIES = [
 ]
 
 SCHEMA_STATEMENTS = [
-    """
+        """
     CREATE TABLE IF NOT EXISTS messages (
         message_id TEXT PRIMARY KEY,
         account TEXT NOT NULL,
@@ -30,6 +30,8 @@ SCHEMA_STATEMENTS = [
         from_addr TEXT,
         to_addrs TEXT,
         cc_addrs TEXT,
+        self_role TEXT,
+        interaction_role TEXT,
         sent_at TEXT,
         snippet TEXT,
         body_path TEXT,
@@ -141,6 +143,10 @@ SCHEMA_STATEMENTS = [
         subject TEXT,
         from_addr TEXT,
         to_addr TEXT,
+        to_addrs_json TEXT,
+        cc_addrs_json TEXT,
+        self_role TEXT,
+        interaction_role TEXT,
         sent_at TEXT,
         has_attachment INTEGER DEFAULT 0,
         category TEXT NOT NULL,
@@ -173,4 +179,20 @@ def bootstrap_workspace(config: PipelineConfig) -> None:
     with sqlite3.connect(config.database_path) as conn:
         for statement in SCHEMA_STATEMENTS:
             conn.execute(statement)
+        existing_message_cols = {row[1] for row in conn.execute("PRAGMA table_info(messages)").fetchall()}
+        for col, spec in {
+            "self_role": "TEXT",
+            "interaction_role": "TEXT",
+        }.items():
+            if col not in existing_message_cols:
+                conn.execute(f"ALTER TABLE messages ADD COLUMN {col} {spec}")
+        existing_knowledge_cols = {row[1] for row in conn.execute("PRAGMA table_info(knowledge_messages)").fetchall()}
+        for col, spec in {
+            "to_addrs_json": "TEXT",
+            "cc_addrs_json": "TEXT",
+            "self_role": "TEXT",
+            "interaction_role": "TEXT",
+        }.items():
+            if col not in existing_knowledge_cols:
+                conn.execute(f"ALTER TABLE knowledge_messages ADD COLUMN {col} {spec}")
         conn.commit()

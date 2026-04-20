@@ -169,6 +169,7 @@ def _fetch_all_mail_rows(
     folder_name: str,
     start: datetime,
     end: datetime,
+    self_addresses: set[str] | None = None,
     page_size: int = PAGE_SIZE,
 ) -> list[dict]:
     collected: list[dict] = []
@@ -193,7 +194,7 @@ def _fetch_all_mail_rows(
         page_in_window = 0
         oldest_dt: datetime | None = None
         for item in page_rows:
-            normalized = normalize_envelope(account=account, folder_kind="knowledge", folder_name=folder_name, envelope=item)
+            normalized = normalize_envelope(account=account, folder_kind="knowledge", folder_name=folder_name, envelope=item, self_addresses=self_addresses)
             sent_dt = _parse_himalaya_date(normalized.get("date"))
             if sent_dt is None:
                 continue
@@ -219,10 +220,10 @@ def _upsert_knowledge_messages(database_path: Path, rows: list[dict]) -> None:
             conn.execute(
                 """
                 INSERT OR REPLACE INTO knowledge_messages (
-                    knowledge_id, account, folder_name, source_id, subject, from_addr, to_addr,
-                    sent_at, has_attachment, category, tags_json, importance_score,
+                    knowledge_id, account, folder_name, source_id, subject, from_addr, to_addr, to_addrs_json, cc_addrs_json,
+                    self_role, interaction_role, sent_at, has_attachment, category, tags_json, importance_score,
                     opportunity_score, summary_text, collected_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     row["message_id"],
@@ -232,6 +233,10 @@ def _upsert_knowledge_messages(database_path: Path, rows: list[dict]) -> None:
                     row.get("subject"),
                     row.get("from_addr"),
                     row.get("to_addr"),
+                    json.dumps(row.get("to_addrs") or [], ensure_ascii=False),
+                    json.dumps(row.get("cc_addrs") or [], ensure_ascii=False),
+                    row.get("self_role"),
+                    row.get("interaction_role"),
                     row.get("date"),
                     int(bool(row.get("has_attachment"))),
                     category,
@@ -262,7 +267,7 @@ def collect_knowledge_mail(
     for account in config.accounts:
         folders = parse_folder_list_table(runner(["himalaya", "folder", "list", "-a", account]))
         all_mail_folder = choose_all_mail_folder(account, folders)
-        rows = _fetch_all_mail_rows(runner=runner, account=account, folder_name=all_mail_folder, start=start, end=end)
+        rows = _fetch_all_mail_rows(runner=runner, account=account, folder_name=all_mail_folder, start=start, end=end, self_addresses=set(config.self_addresses))
         all_rows.extend(rows)
         checkpoints["knowledge_mail"][account] = {
             "all_mail_folder": all_mail_folder,
@@ -288,7 +293,8 @@ def _load_recent_knowledge_rows(database_path: Path, *, as_of: datetime, lookbac
         conn.row_factory = sqlite3.Row
         rows = conn.execute(
             """
-            SELECT knowledge_id, account, subject, from_addr, sent_at, category, tags_json,
+            SELECT knowledge_id, account, folder_name, source_id, subject, from_addr, to_addr, to_addrs_json, cc_addrs_json,
+                   self_role, interaction_role, sent_at, category, tags_json,
                    importance_score, opportunity_score, summary_text
             FROM knowledge_messages
             WHERE COALESCE(sent_at, '') >= ?
@@ -300,6 +306,8 @@ def _load_recent_knowledge_rows(database_path: Path, *, as_of: datetime, lookbac
     for row in rows:
         item = dict(row)
         item["tags"] = json.loads(item.get("tags_json") or "[]")
+        item["to_addrs"] = json.loads(item.get("to_addrs_json") or "[]")
+        item["cc_addrs"] = json.loads(item.get("cc_addrs_json") or "[]")
         payload.append(item)
     return payload
 

@@ -104,6 +104,15 @@ def test_collect_knowledge_mail_and_generate_daily_intelligence(tmp_path: Path):
     assert report_result["wiki_note_path"].exists()
     assert report_result["index_path"].exists()
 
+    import sqlite3
+    with sqlite3.connect(config.database_path) as conn:
+        row = conn.execute("SELECT to_addrs_json, cc_addrs_json, self_role, interaction_role FROM knowledge_messages WHERE knowledge_id = ?", ("personal:[Gmail]/전체보관함:201",)).fetchone()
+    assert row is not None
+    assert json.loads(row[0]) == ["you@example.com"]
+    assert json.loads(row[1]) == []
+    assert row[2] == "other"
+    assert row[3] == "broadcast" or row[3] == "other" or row[3] == "direct-ask"
+
     text = report_result["artifact_path"].read_text(encoding="utf-8")
     assert "Opportunity signals" in text
     assert "AI agent meetup registration open" in text

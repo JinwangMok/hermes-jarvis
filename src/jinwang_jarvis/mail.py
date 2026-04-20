@@ -82,10 +82,60 @@ def choose_all_mail_folder(account: str, folders: Iterable[FolderInfo]) -> str:
     raise ValueError(f"could not determine all-mail folder for account {account}")
 
 
-def normalize_envelope(*, account: str, folder_kind: str, folder_name: str, envelope: dict) -> dict:
+def _extract_addresses(value: dict | list[dict] | None) -> list[str]:
+    if not value:
+        return []
+    if isinstance(value, dict):
+        addr = (value.get("addr") or "").strip().lower()
+        return [addr] if addr else []
+    addresses: list[str] = []
+    for item in value:
+        if not isinstance(item, dict):
+            continue
+        addr = (item.get("addr") or "").strip().lower()
+        if addr and addr not in addresses:
+            addresses.append(addr)
+    return addresses
+
+
+def _derive_self_role(*, folder_kind: str | None = None, from_addr: str | None, to_addrs: list[str], cc_addrs: list[str], self_addresses: set[str] | None) -> str:
+    sender = (from_addr or "").strip().lower()
+    self_set = {addr.strip().lower() for addr in (self_addresses or set()) if addr.strip()}
+    if (folder_kind or "").strip().lower() == "sent":
+        return "sent-by-me"
+    if sender and sender in self_set:
+        return "sent-by-me"
+    if self_set & set(to_addrs):
+        return "direct-to-me"
+    if self_set & set(cc_addrs):
+        return "cc-me"
+    return "other"
+
+
+def _derive_interaction_role(*, subject: str | None, folder_kind: str | None = None, from_addr: str | None, to_addrs: list[str], cc_addrs: list[str], self_addresses: set[str] | None) -> str:
+    lowered = (subject or "").strip().casefold()
+    self_role = _derive_self_role(folder_kind=folder_kind, from_addr=from_addr, to_addrs=to_addrs, cc_addrs=cc_addrs, self_addresses=self_addresses)
+    if "[smartx info]" in lowered or from_addr in {"info@smartx.kr", "contacts@smartx.kr"}:
+        return "broadcast"
+    if lowered.startswith("fwd:") or lowered.startswith("fw:"):
+        return "fyi-forward"
+    if any(keyword in lowered for keyword in ["review", "검토", "proofreading"]):
+        return "review-request"
+    if self_role == "sent-by-me" and any(keyword in lowered for keyword in ["status", "보고", "제출", "reply", "re:"]):
+        return "status-reply"
+    if any(keyword in lowered for keyword in ["요청", "문의", "부탁", "확인", "작성", "submit"]):
+        return "direct-ask"
+    return "other"
+
+
+def normalize_envelope(*, account: str, folder_kind: str, folder_name: str, envelope: dict, self_addresses: set[str] | None = None) -> dict:
     sender = envelope.get("from") or {}
     recipient = envelope.get("to") or {}
+    to_addrs = _extract_addresses(envelope.get("to"))
+    cc_addrs = _extract_addresses(envelope.get("cc"))
     source_id = str(envelope["id"])
+    from_addr = sender.get("addr")
+    to_addr = to_addrs[0] if to_addrs else (recipient.get("addr") if isinstance(recipient, dict) else None)
     return {
         "message_id": f"{account}:{folder_name}:{source_id}",
         "source_id": source_id,
@@ -94,9 +144,13 @@ def normalize_envelope(*, account: str, folder_kind: str, folder_name: str, enve
         "folder_name": folder_name,
         "subject": envelope.get("subject"),
         "from_name": sender.get("name"),
-        "from_addr": sender.get("addr"),
-        "to_name": recipient.get("name"),
-        "to_addr": recipient.get("addr"),
+        "from_addr": from_addr,
+        "to_name": recipient.get("name") if isinstance(recipient, dict) else None,
+        "to_addr": to_addr,
+        "to_addrs": to_addrs,
+        "cc_addrs": cc_addrs,
+        "self_role": _derive_self_role(folder_kind=folder_kind, from_addr=from_addr, to_addrs=to_addrs, cc_addrs=cc_addrs, self_addresses=self_addresses),
+        "interaction_role": _derive_interaction_role(folder_kind=folder_kind, from_addr=from_addr, subject=envelope.get("subject"), to_addrs=to_addrs, cc_addrs=cc_addrs, self_addresses=self_addresses),
         "date": envelope.get("date"),
         "flags": envelope.get("flags") or [],
         "has_attachment": bool(envelope.get("has_attachment")),
@@ -187,9 +241,9 @@ def _append_message_rows(database_path: Path, rows: Iterable[dict]) -> None:
                 """
                 INSERT OR REPLACE INTO messages (
                     message_id, account, folder_kind, thread_key, subject, from_addr,
-                    to_addrs, cc_addrs, sent_at, snippet, body_path, raw_json_path,
+                    to_addrs, cc_addrs, self_role, interaction_role, sent_at, snippet, body_path, raw_json_path,
                     is_seen, ingested_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     row["message_id"],
@@ -198,8 +252,10 @@ def _append_message_rows(database_path: Path, rows: Iterable[dict]) -> None:
                     None,
                     row.get("subject"),
                     row.get("from_addr"),
-                    row.get("to_addr"),
-                    None,
+                    json.dumps(row.get("to_addrs") or [], ensure_ascii=False),
+                    json.dumps(row.get("cc_addrs") or [], ensure_ascii=False),
+                    row.get("self_role"),
+                    row.get("interaction_role"),
                     row.get("date"),
                     None,
                     None,
@@ -225,7 +281,7 @@ def collect_mail_snapshots(config: PipelineConfig, *, runner: Callable[[list[str
         sent_folder = choose_sent_folder(account, folders, config.sent_folder_overrides)
 
         inbox_rows = [
-            normalize_envelope(account=account, folder_kind="inbox", folder_name="INBOX", envelope=item)
+            normalize_envelope(account=account, folder_kind="inbox", folder_name="INBOX", envelope=item, self_addresses=set(config.self_addresses))
             for item in _load_json_output(
                 runner([
                     "himalaya",
@@ -241,7 +297,7 @@ def collect_mail_snapshots(config: PipelineConfig, *, runner: Callable[[list[str
             )
         ]
         sent_rows = [
-            normalize_envelope(account=account, folder_kind="sent", folder_name=sent_folder, envelope=item)
+            normalize_envelope(account=account, folder_kind="sent", folder_name=sent_folder, envelope=item, self_addresses=set(config.self_addresses))
             for item in _load_json_output(
                 runner([
                     "himalaya",

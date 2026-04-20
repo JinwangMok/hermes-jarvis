@@ -95,6 +95,20 @@ reproducibility:
     assert len(lines) == 2
     payloads = [json.loads(line) for line in lines]
     assert {row["folder_kind"] for row in payloads} == {"inbox", "sent"}
+    sent_payload = next(row for row in payloads if row["folder_kind"] == "sent")
+    assert sent_payload["self_role"] == "sent-by-me"
+    assert sent_payload["interaction_role"]
+
+    import sqlite3
+    with sqlite3.connect(tmp_path / "state" / "personal_intel.db") as conn:
+        row = conn.execute("SELECT to_addrs, cc_addrs, self_role, interaction_role FROM messages WHERE message_id = ?", ("personal:INBOX:10",)).fetchone()
+        sent_row = conn.execute("SELECT self_role FROM messages WHERE message_id = ?", ("personal:[Gmail]/보낸편지함:11",)).fetchone()
+    assert row is not None
+    assert json.loads(row[0]) == ["jinwangmok@gmail.com"]
+    assert json.loads(row[1]) == []
+    assert row[2] == "other"
+    assert row[3] == "other"
+    assert sent_row[0] == "sent-by-me"
 
     checkpoints = json.loads((tmp_path / "state" / "checkpoints.json").read_text(encoding="utf-8"))
     assert checkpoints["mail"]["personal"]["last_snapshot_file"] == snapshot_files[0].name
