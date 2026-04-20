@@ -8,6 +8,27 @@ It is for people who want to quickly see:
 - what became important recently
 - which timed items are worth adding to a calendar
 
+## Example output
+```text
+Jarvis Briefing
+
+- Needs attention now:
+  - Reply to project review request
+  - Confirm meeting agenda for Friday
+
+- Still ongoing:
+  - Budget draft with pending edits
+  - Weekly lab coordination thread
+
+- Newly important:
+  - External seminar invite with a registration deadline
+
+- Calendar suggestion:
+  - Add "Project sync" on 2026-04-24 14:00
+```
+
+You can use this as a lightweight personal operations summary, or feed it into a Hermes workflow that asks whether a timed proposal should be added to your calendar.
+
 ## What you get
 - mail collection from inbox + sent folders
 - calendar collection from Google Calendar
@@ -18,6 +39,38 @@ It is for people who want to quickly see:
 - optional calendar creation after approval
 - weekly review output
 - systemd timer setup for automatic polling
+
+## 3-minute quick start
+If you just want to see it working once:
+
+```bash
+git clone https://github.com/JinwangMok/hermes-jarvis.git
+cd hermes-jarvis
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -e .
+cp config/pipeline.yaml config/pipeline.local.yaml
+cp config/sender-map.example.md config/sender-map.md
+```
+
+Then edit `config/pipeline.local.yaml` and set:
+- your accounts
+- your `wiki_root`
+- `classification.sender_map_path: config/sender-map.md`
+- your own addresses in `classification.self_addresses`
+- your work mailbox names in `classification.work_accounts`
+
+Then run:
+
+```bash
+PYTHONPATH=src python3 -m jinwang_jarvis.cli collect-mail --config config/pipeline.local.yaml
+PYTHONPATH=src python3 -m jinwang_jarvis.cli collect-calendar --config config/pipeline.local.yaml
+PYTHONPATH=src python3 -m jinwang_jarvis.cli classify-messages --config config/pipeline.local.yaml
+PYTHONPATH=src python3 -m jinwang_jarvis.cli generate-proposals --config config/pipeline.local.yaml
+PYTHONPATH=src python3 -m jinwang_jarvis.cli generate-briefing --config config/pipeline.local.yaml
+```
+
+That is enough to produce your first briefing artifact.
 
 ## Quick start
 ```bash
@@ -87,3 +140,17 @@ PYTHONPATH=src python3 -m jinwang_jarvis.cli record-feedback \
 - English guide: `docs/public-guide.en.md`
 - 한국어 가이드: `docs/public-guide.ko.md`
 - Public/private sync notes: `docs/public-sync.md`
+
+## FAQ
+
+### Do I need Hermes to use this?
+No. The pipeline can run as a standalone local CLI workflow. Hermes becomes useful when you want delivery, conversational follow-up, or approval loops.
+
+### Do I need Google Calendar?
+No. You can still use mail collection, classification, proposals, and briefings without calendar creation. Calendar support is only needed if you want calendar collection or automatic event creation.
+
+### Do I need a sender map?
+No. The pipeline still works without one. A sender map simply improves prioritization and role-aware classification.
+
+### Where should private values go?
+Use `config/pipeline.local.yaml` and `config/sender-map.md`. Keep both out of version control.
