@@ -10,6 +10,7 @@ from jinwang_jarvis.intelligence import (
     _get_cached_message_participants,
     _infer_interaction_chains,
     _parse_participant_headers,
+    _systematic_backfill_message_participant_cache,
     collect_knowledge_mail,
     generate_daily_intelligence_report,
 )
@@ -82,9 +83,9 @@ def test_infer_interaction_chains_marks_pending_replied_and_follow_up():
     ]
     chains = _infer_interaction_chains(rows)
     by_subject = {item["latest_subject"]: item for item in chains}
-    assert by_subject["Re: Please review architecture"]["state"] == "replied"
+    assert by_subject["Re: Please review architecture"]["state"] == "waiting-on-others"
     assert by_subject["Budget follow-up question"]["state"] == "follow-up-pending"
-    assert by_subject["Submit draft today"]["state"] == "pending"
+    assert by_subject["Submit draft today"]["state"] == "waiting-on-me"
     assert "[SmartX Info] infra weekly" not in by_subject
 
 
@@ -166,6 +167,76 @@ def test_backfill_message_participant_cache_stores_exported_headers(tmp_path: Pa
     assert json.loads(record[2]) == ["reply@example.com"]
     assert record[3] == "<msg-201@example.com>"
     assert record[4] == "<msg-200@example.com>"
+
+
+def test_systematic_backfill_message_participant_cache_queries_uncached_rows(tmp_path: Path):
+    from jinwang_jarvis.bootstrap import bootstrap_workspace
+    from jinwang_jarvis.config import load_pipeline_config
+    import sqlite3
+
+    config = load_pipeline_config(_write_config(tmp_path))
+    bootstrap_workspace(config)
+    with sqlite3.connect(config.database_path) as conn:
+        conn.execute(
+            """
+            INSERT OR REPLACE INTO knowledge_messages (
+                knowledge_id, account, folder_name, source_id, subject, from_addr, to_addr, to_addrs_json, cc_addrs_json,
+                self_role, interaction_role, sent_at, has_attachment, category, tags_json, importance_score,
+                opportunity_score, summary_text, collected_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "k1", "personal", "[Gmail]/전체보관함", "501", "Need review", "boss@example.com", "you@example.com",
+                '["you@example.com"]', '[]', 'direct-to-me', 'review-request',
+                "2026-04-19T10:00:00+00:00", 0, "technology", "[]", 0.9, 0.1,
+                "summary", "2026-04-20T00:00:00+00:00",
+            ),
+        )
+        conn.execute(
+            """
+            INSERT OR REPLACE INTO knowledge_messages (
+                knowledge_id, account, folder_name, source_id, subject, from_addr, to_addr, to_addrs_json, cc_addrs_json,
+                self_role, interaction_role, sent_at, has_attachment, category, tags_json, importance_score,
+                opportunity_score, summary_text, collected_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "k2", "personal", "[Gmail]/전체보관함", "502", "Need update", "boss@example.com", "you@example.com",
+                '["you@example.com"]', '[]', 'direct-to-me', 'direct-ask',
+                "2026-04-18T10:00:00+00:00", 0, "technology", "[]", 0.8, 0.1,
+                "summary", "2026-04-20T00:00:00+00:00",
+            ),
+        )
+        conn.execute(
+            "INSERT OR REPLACE INTO message_participant_cache (message_id, account, folder_name, source_id, to_addrs_json, cc_addrs_json, reply_to_addrs_json, delivered_to, references_json, message_id_header, in_reply_to, header_hash, cached_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                "k1", "personal", "[Gmail]/전체보관함", "501", '["you@example.com"]', '[]', '[]', 'you@example.com', '[]', '<k1>', None, 'h1', '2026-04-20T00:00:00+00:00'
+            ),
+        )
+        conn.commit()
+
+    def exporter(row):
+        return f"Message-ID: <{row['source_id']}@example.com>\nTo: you@example.com\n\n".encode()
+
+    result = _systematic_backfill_message_participant_cache(config.database_path, exporter=exporter, limit=10)
+    assert result["candidate_count"] >= 1
+    assert result["cached_count"] == 1
+
+
+def test_infer_interaction_chains_marks_waiting_states_and_awareness():
+    rows = [
+        {"knowledge_id": "1", "subject": "Need budget update", "from_addr": "boss@example.com", "to_addr": "me@example.com", "self_role": "direct-to-me", "interaction_role": "direct-ask", "sent_at": "2026-04-10T10:00:00+00:00", "message_id_header": "<a1>", "in_reply_to": None, "references": []},
+        {"knowledge_id": "2", "subject": "Re: Need budget update", "from_addr": "me@example.com", "to_addr": "boss@example.com", "self_role": "sent-by-me", "interaction_role": "status-reply", "sent_at": "2026-04-10T11:00:00+00:00", "message_id_header": "<a2>", "in_reply_to": "<a1>", "references": ["<a1>"]},
+        {"knowledge_id": "3", "subject": "Need draft today", "from_addr": "boss@example.com", "to_addr": "me@example.com", "self_role": "direct-to-me", "interaction_role": "direct-ask", "sent_at": "2026-04-11T10:00:00+00:00", "message_id_header": "<b1>", "in_reply_to": None, "references": []},
+        {"knowledge_id": "4", "subject": "Need old approval", "from_addr": "boss@example.com", "to_addr": "me@example.com", "self_role": "direct-to-me", "interaction_role": "decision-request", "sent_at": "2024-01-01T10:00:00+00:00", "message_id_header": "<c1>", "in_reply_to": None, "references": []},
+        {"knowledge_id": "5", "subject": "Fwd: summit invite", "from_addr": "boss@example.com", "to_addr": "me@example.com", "self_role": "direct-to-me", "interaction_role": "fyi-forward", "sent_at": "2026-04-11T12:00:00+00:00", "message_id_header": "<d1>", "in_reply_to": None, "references": []},
+    ]
+    chains = _infer_interaction_chains(rows)
+    by_subject = {item["latest_subject"]: item for item in chains}
+    assert by_subject["Re: Need budget update"]["state"] == "waiting-on-others"
+    assert by_subject["Need draft today"]["state"] == "waiting-on-me"
+    assert by_subject["Need old approval"]["state"] == "stale-open"
+    assert by_subject["Fwd: summit invite"]["state"] == "awareness-only"
 
 
 def test_classify_jongwon_context_distinguishes_sender_recipient_and_cc_cases():
@@ -487,6 +558,7 @@ def test_generate_daily_intelligence_creates_dedicated_jongwon_smartx_lane_notes
     assert "interaction-chain-status" in index_text
     assert "advisor-action-status" in index_text
     assert "education-teaching-memory" in index_text
+    assert "project-work-items" in index_text
 
     direct_note = config.wiki_root / "queries/jinwang-jarvis-intelligence/priority/jongwon-direct-actions.md"
     weekly_note = config.wiki_root / "queries/jinwang-jarvis-intelligence/priority/smartx-weekly-briefing.md"
@@ -495,6 +567,7 @@ def test_generate_daily_intelligence_creates_dedicated_jongwon_smartx_lane_notes
     chain_note = config.wiki_root / "queries/jinwang-jarvis-intelligence/priority/interaction-chain-status.md"
     advisor_action_note = config.wiki_root / "queries/jinwang-jarvis-intelligence/priority/advisor-action-status.md"
     education_note = config.wiki_root / "queries/jinwang-jarvis-intelligence/priority/education-teaching-memory.md"
+    project_note = config.wiki_root / "queries/jinwang-jarvis-intelligence/priority/project-work-items.md"
     assert direct_note.exists()
     assert weekly_note.exists()
     assert phase_note.exists()
@@ -502,6 +575,7 @@ def test_generate_daily_intelligence_creates_dedicated_jongwon_smartx_lane_notes
     assert chain_note.exists()
     assert advisor_action_note.exists()
     assert education_note.exists()
+    assert project_note.exists()
 
     direct_text = direct_note.read_text(encoding="utf-8")
     assert "데이터 파이프라인 검토 요청" in direct_text
@@ -521,10 +595,16 @@ def test_generate_daily_intelligence_creates_dedicated_jongwon_smartx_lane_notes
     assert "## professor-sent-involving-me" in context_text
 
     chain_text = chain_note.read_text(encoding="utf-8")
-    assert "## follow-up-pending" in chain_text
+    assert "## waiting-on-me" in chain_text
+    assert "## waiting-on-others" in chain_text
 
     advisor_action_text = advisor_action_note.read_text(encoding="utf-8")
-    assert "교수님" in advisor_action_text
+    assert "## do-now" in advisor_action_text
+    assert "데이터 파이프라인 검토 요청" in advisor_action_text
+
+    project_text = project_note.read_text(encoding="utf-8")
+    assert "## Active work items" in project_text
+    assert "데이터 파이프라인" in project_text
 
     education_text = education_note.read_text(encoding="utf-8")
     assert "## Direct teaching / training" in education_text

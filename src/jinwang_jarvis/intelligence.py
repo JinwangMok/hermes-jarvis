@@ -81,6 +81,7 @@ JONGWON_PHASE_MAP_NOTE = f"{PRIORITY_NOTE_DIR}/jongwon-phase-map.md"
 JONGWON_CONTEXT_CASES_NOTE = f"{PRIORITY_NOTE_DIR}/jongwon-context-cases.md"
 INTERACTION_CHAIN_NOTE = f"{PRIORITY_NOTE_DIR}/interaction-chain-status.md"
 ADVISOR_ACTION_STATUS_NOTE = f"{PRIORITY_NOTE_DIR}/advisor-action-status.md"
+PROJECT_WORK_ITEMS_NOTE = f"{PRIORITY_NOTE_DIR}/project-work-items.md"
 EDUCATION_TEACHING_MEMORY_NOTE = f"{PRIORITY_NOTE_DIR}/education-teaching-memory.md"
 MONTHLY_TIMELINE_NOTE = "queries/jinwang-jarvis-monthly-timeline-36m.md"
 DEFAULT_LOOKBACK_DAYS = 7
@@ -552,6 +553,49 @@ def _backfill_message_participant_cache(
     return {"scanned": scanned, "cached_count": cached_count}
 
 
+def _load_uncached_participant_rows(database_path: Path, *, limit: int = 500) -> list[dict]:
+    with sqlite3.connect(database_path) as conn:
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute(
+            """
+            SELECT km.knowledge_id AS message_id, km.account, km.folder_name, km.source_id,
+                   km.subject, km.from_addr, km.to_addr, km.to_addrs_json, km.cc_addrs_json,
+                   km.self_role, km.interaction_role, km.sent_at, km.importance_score, km.opportunity_score
+            FROM knowledge_messages km
+            LEFT JOIN message_participant_cache cache ON cache.message_id = km.knowledge_id
+            WHERE cache.message_id IS NULL
+            ORDER BY
+                CASE WHEN km.interaction_role IN ('direct-ask', 'review-request', 'status-request', 'decision-request', 'fyi-forward') THEN 0 ELSE 1 END,
+                COALESCE(km.importance_score, 0) DESC,
+                COALESCE(km.opportunity_score, 0) DESC,
+                COALESCE(km.sent_at, '') DESC
+            LIMIT ?
+            """,
+            (limit,),
+        ).fetchall()
+    payload = []
+    for row in rows:
+        item = dict(row)
+        item["to_addrs"] = json.loads(item.get("to_addrs_json") or "[]")
+        item["cc_addrs"] = json.loads(item.get("cc_addrs_json") or "[]")
+        payload.append(item)
+    return payload
+
+
+def _systematic_backfill_message_participant_cache(
+    database_path: Path,
+    *,
+    exporter: Callable[[dict], bytes] | None = None,
+    limit: int = 500,
+) -> dict:
+    candidates = _load_uncached_participant_rows(database_path, limit=limit)
+    result = _backfill_message_participant_cache(database_path, candidates, exporter=exporter, limit=limit)
+    return {
+        "candidate_count": len(candidates),
+        **result,
+    }
+
+
 def _load_message_participants(database_path: Path, row: dict) -> dict[str, object]:
     cached = _get_cached_message_participants(database_path, row)
     fallback = {
@@ -617,8 +661,8 @@ def _flow_pattern(subject: str | None) -> str:
 
 
 def _infer_interaction_chains(rows: list[dict]) -> list[dict]:
-    chain_rows = [row for row in rows if row.get("interaction_role") not in {None, "other", "broadcast", "cc-for-awareness"}]
-    id_index = {row.get("message_id_header"): row for row in chain_rows if row.get("message_id_header")}
+    relevant_rows = [row for row in rows if row.get("interaction_role") not in {None, "other", "broadcast"}]
+    id_index = {row.get("message_id_header"): row for row in relevant_rows if row.get("message_id_header")}
     groups: dict[str, list[dict]] = {}
 
     def group_key(row: dict) -> str:
@@ -642,23 +686,41 @@ def _infer_interaction_chains(rows: list[dict]) -> list[dict]:
             return row.get("message_id_header")
         return _dedup_subject_key(row.get("subject"))
 
-    for row in chain_rows:
+    for row in relevant_rows:
         groups.setdefault(group_key(row), []).append(row)
 
     results: list[dict] = []
+    ask_roles = {"direct-ask", "review-request", "status-request", "decision-request"}
+    awareness_roles = {"fyi-forward", "cc-for-awareness", "team-thread-update"}
     for key, items in groups.items():
         ordered = sorted(items, key=lambda row: row.get("sent_at") or "")
         last = ordered[-1]
-        has_self_reply = any(row.get("self_role") == "sent-by-me" and row.get("interaction_role") == "status-reply" for row in ordered)
-        has_external_ask = any(row.get("self_role") in {"direct-to-me", "cc-me", "other"} and row.get("interaction_role") in {"direct-ask", "review-request", "status-request", "decision-request"} for row in ordered)
-        if not has_external_ask:
+        latest_ask_index = max(
+            (idx for idx, row in enumerate(ordered) if row.get("interaction_role") in ask_roles and row.get("self_role") in {"direct-to-me", "cc-me", "other"}),
+            default=-1,
+        )
+        latest_self_reply_index = max(
+            (idx for idx, row in enumerate(ordered) if row.get("self_role") == "sent-by-me" and row.get("interaction_role") in {"status-reply", "fyi-forward", "team-thread-update"}),
+            default=-1,
+        )
+        has_external_ask = latest_ask_index >= 0
+        has_awareness_only = not has_external_ask and any(row.get("interaction_role") in awareness_roles for row in ordered)
+        if not has_external_ask and not has_awareness_only:
             continue
-        if last.get("self_role") == "sent-by-me" and last.get("interaction_role") == "status-reply":
-            state = "replied"
-        elif has_self_reply:
+
+        if has_awareness_only:
+            state = "awareness-only"
+        elif last.get("self_role") == "sent-by-me" and latest_self_reply_index >= latest_ask_index:
+            state = "waiting-on-others"
+        elif latest_self_reply_index >= 0 and latest_self_reply_index < latest_ask_index:
             state = "follow-up-pending"
         else:
-            state = "pending"
+            last_dt = _parse_himalaya_date(last.get("sent_at"))
+            if last_dt and (_utc_now() - last_dt) > timedelta(days=30):
+                state = "stale-open"
+            else:
+                state = "waiting-on-me"
+
         results.append({
             "subject_key": _dedup_subject_key(last.get("subject")),
             "thread_key": key,
@@ -667,8 +729,9 @@ def _infer_interaction_chains(rows: list[dict]) -> list[dict]:
             "latest_subject": last.get("subject"),
             "participants": sorted({row.get("from_addr") for row in ordered if row.get("from_addr")}),
             "message_count": len(ordered),
+            "messages": ordered,
         })
-    order = {"follow-up-pending": 0, "pending": 1, "replied": 2}
+    order = {"waiting-on-me": 0, "follow-up-pending": 1, "stale-open": 2, "waiting-on-others": 3, "awareness-only": 4, "replied": 5}
     return sorted(results, key=lambda item: (order.get(item["state"], 9), item.get("last_sent_at") or ""), reverse=False)
 
 
@@ -968,9 +1031,9 @@ def _write_interaction_chain_note(config: PipelineConfig, rows: list[dict], gene
         "",
         "# Interaction chain status",
         "",
-        "> 요청-응답-후속질문 흐름을 subject chain 기준으로 추정한 note.",
+        "> 요청-응답-후속질문 흐름을 thread relation 기준으로 추정한 note.",
     ]
-    for state in ["follow-up-pending", "pending", "replied"]:
+    for state in ["waiting-on-me", "follow-up-pending", "stale-open", "waiting-on-others", "awareness-only"]:
         lines.extend(["", f"## {state}"])
         items = [item for item in chains if item["state"] == state]
         if not items:
@@ -988,12 +1051,9 @@ def _write_advisor_action_status_note(config: PipelineConfig, rows: list[dict], 
     path.parent.mkdir(parents=True, exist_ok=True)
     professor_rows = [row for row in rows if (row.get('from_addr') or '').strip().lower() == 'jongwon@smartx.kr']
     chains = _infer_interaction_chains(professor_rows)
-    action_like = _dedup_rows([
-        row for row in professor_rows
-        if row.get('interaction_role') in {'direct-ask','review-request','status-request','decision-request','fyi-forward'}
-        or _is_action_like_subject(row.get('subject'))
-        or any(keyword in _clean_subject(row.get('subject')).casefold() for keyword in ['보고', '회의', '일정', '미팅', '검토', '문의'])
-    ], limit=30)
+    do_now = [item for item in chains if item['state'] in {'waiting-on-me', 'follow-up-pending', 'stale-open'}]
+    waiting_on_others = [item for item in chains if item['state'] == 'waiting-on-others']
+    awareness = [item for item in chains if item['state'] == 'awareness-only']
     lines = [
         "---",
         "title: Advisor action status",
@@ -1006,20 +1066,96 @@ def _write_advisor_action_status_note(config: PipelineConfig, rows: list[dict], 
         "",
         "# Advisor action status",
         "",
-        "> 교수님 관련 메일 중 액션/검토 흐름을 open state와 action candidate 중심으로 보는 note.",
+        "> 교수님 관련 메일 중 실제 할 일 / 회신 대기 / awareness를 구분해 보는 note.",
         "",
-        "## pending-or-follow-up",
+        "## do-now",
     ]
-    items = [item for item in chains if item['state'] in {'pending','follow-up-pending'}]
-    if items:
-        for item in items[:20]:
-            lines.append(f"- 교수님 관련: {item['latest_subject']} | state={item['state']} | last={item['last_sent_at']}")
+    if do_now:
+        for item in do_now[:20]:
+            lines.append(f"- {item['latest_subject']} | state={item['state']} | last={item['last_sent_at']}")
     else:
         lines.append("- none")
-    lines.extend(["", "## recent action candidates"])
-    if action_like:
-        for row in action_like:
-            lines.append(f"- {row.get('sent_at')} — {row.get('subject')} ({row.get('interaction_role')})")
+    lines.extend(["", "## waiting-on-others"])
+    if waiting_on_others:
+        for item in waiting_on_others[:20]:
+            lines.append(f"- {item['latest_subject']} | state={item['state']} | last={item['last_sent_at']}")
+    else:
+        lines.append("- none")
+    lines.extend(["", "## awareness-only"])
+    if awareness:
+        for item in awareness[:20]:
+            lines.append(f"- {item['latest_subject']} | state={item['state']} | last={item['last_sent_at']}")
+    else:
+        lines.append("- none")
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return path
+
+
+def _project_bucket(subject: str | None) -> str:
+    lowered = _clean_subject(subject).casefold()
+    if any(keyword in lowered for keyword in ['data-bahn', '데이터 파이프라인', '데이터스키마', 'lakehouse']):
+        return 'data-platform'
+    if any(keyword in lowered for keyword in ['제안서', '사업계획서', '평가', '발표자료', 'innocore']):
+        return 'proposal-and-evaluation'
+    if any(keyword in lowered for keyword in ['교원연수', '교육자료', '교과서', 'star-mooc']):
+        return 'education-programs'
+    if any(keyword in lowered for keyword in ['특허', '출원']):
+        return 'patent-and-ip'
+    return 'general'
+
+
+def _build_project_work_items(rows: list[dict], chains: list[dict]) -> list[dict]:
+    grouped: dict[str, dict] = {}
+    for chain in chains:
+        bucket = _project_bucket(chain.get('latest_subject'))
+        if bucket == 'general':
+            continue
+        slot = grouped.setdefault(bucket, {
+            'bucket': bucket,
+            'items': [],
+            'states': set(),
+            'latest_at': '',
+        })
+        slot['items'].append(chain)
+        slot['states'].add(chain.get('state'))
+        slot['latest_at'] = max(slot['latest_at'], chain.get('last_sent_at') or '')
+    result = []
+    for bucket, slot in grouped.items():
+        examples = '; '.join(item.get('latest_subject') or '' for item in slot['items'][:3])
+        result.append({
+            'bucket': bucket,
+            'latest_at': slot['latest_at'],
+            'state_mix': ', '.join(sorted(state for state in slot['states'] if state)),
+            'count': len(slot['items']),
+            'examples': examples,
+        })
+    return sorted(result, key=lambda item: (item['latest_at'], item['count']), reverse=True)
+
+
+def _write_project_work_items_note(config: PipelineConfig, rows: list[dict], generated_at: str) -> Path:
+    path = config.wiki_root / PROJECT_WORK_ITEMS_NOTE
+    path.parent.mkdir(parents=True, exist_ok=True)
+    chains = _infer_interaction_chains(rows)
+    items = _build_project_work_items(rows, chains)
+    lines = [
+        "---",
+        "title: Project work items",
+        f"created: {generated_at[:10]}",
+        f"updated: {generated_at[:10]}",
+        "type: query",
+        "tags: [jarvis, intelligence, projects, work-items, priority]",
+        "sources: []",
+        "---",
+        "",
+        "# Project work items",
+        "",
+        "> 메일 체인을 프로젝트/업무 단위로 묶어 보는 canonical note.",
+        "",
+        "## Active work items",
+    ]
+    if items:
+        for item in items[:20]:
+            lines.append(f"- {item['bucket']} | states={item['state_mix']} | count={item['count']} | latest={item['latest_at']} | examples={item['examples']}")
     else:
         lines.append("- none")
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
@@ -1345,7 +1481,7 @@ def generate_daily_intelligence_report(
     text = "\n".join(lines) + "\n"
     artifact_path.write_text(text, encoding="utf-8")
     wiki_path.write_text(text, encoding="utf-8")
-    _backfill_message_participant_cache(config.database_path, rows, limit=80)
+    _systematic_backfill_message_participant_cache(config.database_path, limit=120)
     note_paths = _write_category_notes(config, rows, moment.date().isoformat())
     priority_flow_rows = _load_jongwon_smartx_flow_rows(config.database_path, as_of=moment)
     priority_flow_path = _write_jongwon_smartx_flow_note(config, priority_flow_rows, moment.date().isoformat())
@@ -1355,6 +1491,7 @@ def generate_daily_intelligence_report(
     context_cases_path = _write_jongwon_context_cases_note(config, priority_flow_rows, moment.date().isoformat())
     chain_note_path = _write_interaction_chain_note(config, rows, moment.date().isoformat())
     advisor_action_path = _write_advisor_action_status_note(config, priority_flow_rows, moment.date().isoformat())
+    project_work_items_path = _write_project_work_items_note(config, priority_flow_rows, moment.date().isoformat())
     education_memory_path = _write_education_teaching_memory_note(config, rows, moment.date().isoformat())
     index_path = _write_intelligence_index(
         config,
@@ -1369,6 +1506,7 @@ def generate_daily_intelligence_report(
             JONGWON_CONTEXT_CASES_NOTE,
             INTERACTION_CHAIN_NOTE,
             ADVISOR_ACTION_STATUS_NOTE,
+            PROJECT_WORK_ITEMS_NOTE,
             EDUCATION_TEACHING_MEMORY_NOTE,
         ],
     )
