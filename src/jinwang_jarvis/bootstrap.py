@@ -145,6 +145,8 @@ SCHEMA_STATEMENTS = [
         reply_to_addrs_json TEXT,
         delivered_to TEXT,
         references_json TEXT,
+        message_id_header TEXT,
+        in_reply_to TEXT,
         header_hash TEXT,
         cached_at TEXT NOT NULL
     )
@@ -201,6 +203,13 @@ def bootstrap_workspace(config: PipelineConfig) -> None:
         }.items():
             if col not in existing_message_cols:
                 conn.execute(f"ALTER TABLE messages ADD COLUMN {col} {spec}")
+        existing_cache_cols = {row[1] for row in conn.execute("PRAGMA table_info(message_participant_cache)").fetchall()}
+        for col, spec in {
+            "message_id_header": "TEXT",
+            "in_reply_to": "TEXT",
+        }.items():
+            if col not in existing_cache_cols:
+                conn.execute(f"ALTER TABLE message_participant_cache ADD COLUMN {col} {spec}")
         existing_knowledge_cols = {row[1] for row in conn.execute("PRAGMA table_info(knowledge_messages)").fetchall()}
         for col, spec in {
             "to_addrs_json": "TEXT",

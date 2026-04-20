@@ -70,29 +70,31 @@ reproducibility:
 
 def test_infer_interaction_chains_marks_pending_replied_and_follow_up():
     rows = [
-        {"knowledge_id": "1", "subject": "Please review architecture", "from_addr": "boss@example.com", "to_addr": "me@example.com", "self_role": "direct-to-me", "interaction_role": "review-request", "sent_at": "2026-04-10T10:00:00+00:00"},
-        {"knowledge_id": "2", "subject": "Re: Please review architecture", "from_addr": "me@example.com", "to_addr": "boss@example.com", "self_role": "sent-by-me", "interaction_role": "status-reply", "sent_at": "2026-04-10T12:00:00+00:00"},
-        {"knowledge_id": "3", "subject": "Need update on budget", "from_addr": "boss@example.com", "to_addr": "me@example.com", "self_role": "direct-to-me", "interaction_role": "direct-ask", "sent_at": "2026-04-11T10:00:00+00:00"},
-        {"knowledge_id": "4", "subject": "Re: Need update on budget", "from_addr": "me@example.com", "to_addr": "boss@example.com", "self_role": "sent-by-me", "interaction_role": "status-reply", "sent_at": "2026-04-11T11:00:00+00:00"},
-        {"knowledge_id": "5", "subject": "Re: Need update on budget", "from_addr": "boss@example.com", "to_addr": "me@example.com", "self_role": "direct-to-me", "interaction_role": "direct-ask", "sent_at": "2026-04-11T12:00:00+00:00"},
-        {"knowledge_id": "6", "subject": "Submit draft today", "from_addr": "boss@example.com", "to_addr": "me@example.com", "self_role": "direct-to-me", "interaction_role": "direct-ask", "sent_at": "2026-04-12T10:00:00+00:00"},
-        {"knowledge_id": "7", "subject": "[SmartX Info] infra weekly", "from_addr": "info@smartx.kr", "to_addr": "info@smartx.kr", "self_role": "other", "interaction_role": "broadcast", "sent_at": "2026-04-12T09:00:00+00:00"},
+        {"knowledge_id": "1", "subject": "Please review architecture", "from_addr": "boss@example.com", "to_addr": "me@example.com", "self_role": "direct-to-me", "interaction_role": "review-request", "sent_at": "2026-04-10T10:00:00+00:00", "message_id_header": "<m1>", "in_reply_to": None, "references": []},
+        {"knowledge_id": "2", "subject": "Re: Please review architecture", "from_addr": "me@example.com", "to_addr": "boss@example.com", "self_role": "sent-by-me", "interaction_role": "status-reply", "sent_at": "2026-04-10T12:00:00+00:00", "message_id_header": "<m2>", "in_reply_to": "<m1>", "references": ["<m1>"]},
+        {"knowledge_id": "3", "subject": "Need update on budget", "from_addr": "boss@example.com", "to_addr": "me@example.com", "self_role": "direct-to-me", "interaction_role": "direct-ask", "sent_at": "2026-04-11T10:00:00+00:00", "message_id_header": "<m3>", "in_reply_to": None, "references": []},
+        {"knowledge_id": "4", "subject": "Re: Need update on budget", "from_addr": "me@example.com", "to_addr": "boss@example.com", "self_role": "sent-by-me", "interaction_role": "status-reply", "sent_at": "2026-04-11T11:00:00+00:00", "message_id_header": "<m4>", "in_reply_to": "<m3>", "references": ["<m3>"]},
+        {"knowledge_id": "5", "subject": "Budget follow-up question", "from_addr": "boss@example.com", "to_addr": "me@example.com", "self_role": "direct-to-me", "interaction_role": "direct-ask", "sent_at": "2026-04-11T12:00:00+00:00", "message_id_header": "<m5>", "in_reply_to": "<m4>", "references": ["<m3>", "<m4>"]},
+        {"knowledge_id": "6", "subject": "Submit draft today", "from_addr": "boss@example.com", "to_addr": "me@example.com", "self_role": "direct-to-me", "interaction_role": "direct-ask", "sent_at": "2026-04-12T10:00:00+00:00", "message_id_header": "<m6>", "in_reply_to": None, "references": []},
+        {"knowledge_id": "7", "subject": "[SmartX Info] infra weekly", "from_addr": "info@smartx.kr", "to_addr": "info@smartx.kr", "self_role": "other", "interaction_role": "broadcast", "sent_at": "2026-04-12T09:00:00+00:00", "message_id_header": "<m7>", "in_reply_to": None, "references": []},
     ]
     chains = _infer_interaction_chains(rows)
-    by_subject = {item["subject_key"]: item for item in chains}
-    assert by_subject["please review architecture"]["state"] == "replied"
-    assert by_subject["need update on budget"]["state"] == "follow-up-pending"
-    assert by_subject["submit draft today"]["state"] == "pending"
-    assert "smartx info infra weekly" not in by_subject
+    by_subject = {item["latest_subject"]: item for item in chains}
+    assert by_subject["Re: Please review architecture"]["state"] == "replied"
+    assert by_subject["Budget follow-up question"]["state"] == "follow-up-pending"
+    assert by_subject["Submit draft today"]["state"] == "pending"
+    assert "[SmartX Info] infra weekly" not in by_subject
 
 
 def test_parse_participant_headers_extracts_to_cc_reply_to_and_references():
-    raw = b"""From: sender@example.com\nTo: me@example.com, team@example.com\nCc: boss@example.com\nReply-To: reply@example.com\nDelivered-To: me@example.com\nReferences: <a@example.com> <b@example.com>\nSubject: test\n\nbody\n"""
+    raw = b"""From: sender@example.com\nTo: me@example.com, team@example.com\nCc: boss@example.com\nReply-To: reply@example.com\nDelivered-To: me@example.com\nMessage-ID: <msg-1@example.com>\nIn-Reply-To: <msg-0@example.com>\nReferences: <a@example.com> <b@example.com>\nSubject: test\n\nbody\n"""
     parsed = _parse_participant_headers(raw)
     assert parsed["to"] == ["me@example.com", "team@example.com"]
     assert parsed["cc"] == ["boss@example.com"]
     assert parsed["reply_to"] == ["reply@example.com"]
     assert parsed["delivered_to"] == "me@example.com"
+    assert parsed["message_id"] == "<msg-1@example.com>"
+    assert parsed["in_reply_to"] == "<msg-0@example.com>"
     assert parsed["references"] == ["<a@example.com>", "<b@example.com>"]
 
 
@@ -105,7 +107,7 @@ def test_cached_message_participants_roundtrip(tmp_path: Path):
     bootstrap_workspace(config)
     with sqlite3.connect(config.database_path) as conn:
         conn.execute(
-            "INSERT OR REPLACE INTO message_participant_cache (message_id, account, folder_name, source_id, to_addrs_json, cc_addrs_json, reply_to_addrs_json, delivered_to, references_json, header_hash, cached_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT OR REPLACE INTO message_participant_cache (message_id, account, folder_name, source_id, to_addrs_json, cc_addrs_json, reply_to_addrs_json, delivered_to, references_json, message_id_header, in_reply_to, header_hash, cached_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 "personal:[Gmail]/전체보관함:201",
                 "personal",
@@ -116,6 +118,8 @@ def test_cached_message_participants_roundtrip(tmp_path: Path):
                 '["reply@example.com"]',
                 "you@example.com",
                 '["<a@example.com>"]',
+                "<msg-201@example.com>",
+                "<msg-200@example.com>",
                 "hash-1",
                 "2026-04-20T00:00:00+00:00",
             ),
@@ -128,6 +132,8 @@ def test_cached_message_participants_roundtrip(tmp_path: Path):
     assert cached["cc"] == ["boss@example.com"]
     assert cached["reply_to"] == ["reply@example.com"]
     assert cached["references"] == ["<a@example.com>"]
+    assert cached["message_id"] == "<msg-201@example.com>"
+    assert cached["in_reply_to"] == "<msg-200@example.com>"
 
 
 def test_backfill_message_participant_cache_stores_exported_headers(tmp_path: Path):
@@ -146,16 +152,18 @@ def test_backfill_message_participant_cache_stores_exported_headers(tmp_path: Pa
     }]
 
     def exporter(row):
-        return b"To: you@example.com\nCc: boss@example.com\nReply-To: reply@example.com\nDelivered-To: you@example.com\nReferences: <a@example.com>\n\n"
+        return b"Message-ID: <msg-201@example.com>\nIn-Reply-To: <msg-200@example.com>\nTo: you@example.com\nCc: boss@example.com\nReply-To: reply@example.com\nDelivered-To: you@example.com\nReferences: <a@example.com>\n\n"
 
     result = _backfill_message_participant_cache(config.database_path, rows, exporter=exporter, limit=10)
     assert result["cached_count"] == 1
     with sqlite3.connect(config.database_path) as conn:
-        record = conn.execute("SELECT to_addrs_json, cc_addrs_json, reply_to_addrs_json FROM message_participant_cache WHERE message_id = ?", ("personal:[Gmail]/전체보관함:201",)).fetchone()
+        record = conn.execute("SELECT to_addrs_json, cc_addrs_json, reply_to_addrs_json, message_id_header, in_reply_to FROM message_participant_cache WHERE message_id = ?", ("personal:[Gmail]/전체보관함:201",)).fetchone()
     assert record is not None
     assert json.loads(record[0]) == ["you@example.com"]
     assert json.loads(record[1]) == ["boss@example.com"]
     assert json.loads(record[2]) == ["reply@example.com"]
+    assert record[3] == "<msg-201@example.com>"
+    assert record[4] == "<msg-200@example.com>"
 
 
 def test_classify_jongwon_context_distinguishes_sender_recipient_and_cc_cases():

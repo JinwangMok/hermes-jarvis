@@ -309,6 +309,15 @@ def _load_recent_knowledge_rows(database_path: Path, *, as_of: datetime, lookbac
         item["tags"] = json.loads(item.get("tags_json") or "[]")
         item["to_addrs"] = json.loads(item.get("to_addrs_json") or "[]")
         item["cc_addrs"] = json.loads(item.get("cc_addrs_json") or "[]")
+        cached_participants = _get_cached_message_participants(database_path, item)
+        if cached_participants:
+            item["references"] = cached_participants.get("references") or []
+            item["message_id_header"] = cached_participants.get("message_id")
+            item["in_reply_to"] = cached_participants.get("in_reply_to")
+        else:
+            item["references"] = []
+            item["message_id_header"] = None
+            item["in_reply_to"] = None
         payload.append(item)
     return payload
 
@@ -430,6 +439,8 @@ def _parse_participant_headers(raw: bytes) -> dict[str, object]:
         "cc": _header_addresses(headers.get_all("Cc", [])),
         "reply_to": _header_addresses(headers.get_all("Reply-To", [])),
         "delivered_to": delivered,
+        "message_id": (headers.get("Message-ID") or "").strip() or None,
+        "in_reply_to": (headers.get("In-Reply-To") or "").strip() or None,
         "references": refs,
     }
 
@@ -441,7 +452,7 @@ def _get_cached_message_participants(database_path: Path, row: dict) -> dict[str
     with sqlite3.connect(database_path) as conn:
         conn.row_factory = sqlite3.Row
         cached = conn.execute(
-            "SELECT to_addrs_json, cc_addrs_json, reply_to_addrs_json, delivered_to, references_json FROM message_participant_cache WHERE message_id = ?",
+            "SELECT to_addrs_json, cc_addrs_json, reply_to_addrs_json, delivered_to, references_json, message_id_header, in_reply_to FROM message_participant_cache WHERE message_id = ?",
             (message_id,),
         ).fetchone()
     if not cached:
@@ -453,6 +464,8 @@ def _get_cached_message_participants(database_path: Path, row: dict) -> dict[str
         "reply_to": json.loads(item.get("reply_to_addrs_json") or "[]"),
         "delivered_to": item.get("delivered_to") or "",
         "references": json.loads(item.get("references_json") or "[]"),
+        "message_id": item.get("message_id_header"),
+        "in_reply_to": item.get("in_reply_to"),
     }
 
 
@@ -462,8 +475,8 @@ def _store_cached_message_participants(database_path: Path, row: dict, participa
             """
             INSERT OR REPLACE INTO message_participant_cache (
                 message_id, account, folder_name, source_id, to_addrs_json, cc_addrs_json,
-                reply_to_addrs_json, delivered_to, references_json, header_hash, cached_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                reply_to_addrs_json, delivered_to, references_json, message_id_header, in_reply_to, header_hash, cached_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 row.get("message_id"),
@@ -475,6 +488,8 @@ def _store_cached_message_participants(database_path: Path, row: dict, participa
                 json.dumps(participants.get("reply_to") or [], ensure_ascii=False),
                 participants.get("delivered_to") or "",
                 json.dumps(participants.get("references") or [], ensure_ascii=False),
+                participants.get("message_id") or None,
+                participants.get("in_reply_to") or None,
                 header_hash,
                 _utc_now().isoformat(),
             ),
@@ -542,7 +557,9 @@ def _load_message_participants(database_path: Path, row: dict) -> dict[str, obje
         "cc": _normalize_address_list(row.get("cc_addrs") if isinstance(row.get("cc_addrs"), list) else []),
         "reply_to": [],
         "delivered_to": (row.get("to_addr") or "").strip().lower(),
-        "references": [],
+        "references": row.get("references") or [],
+        "message_id": row.get("message_id_header"),
+        "in_reply_to": row.get("in_reply_to"),
     }
     if cached:
         merged = dict(fallback)
@@ -599,12 +616,35 @@ def _flow_pattern(subject: str | None) -> str:
 
 def _infer_interaction_chains(rows: list[dict]) -> list[dict]:
     chain_rows = [row for row in rows if row.get("interaction_role") not in {None, "other", "broadcast", "cc-for-awareness"}]
-    grouped: dict[str, list[dict]] = {}
+    id_index = {row.get("message_id_header"): row for row in chain_rows if row.get("message_id_header")}
+    groups: dict[str, list[dict]] = {}
+
+    def group_key(row: dict) -> str:
+        refs = row.get("references") or []
+        if refs:
+            return refs[0]
+        if row.get("in_reply_to"):
+            current = row.get("in_reply_to")
+            seen = set()
+            while current and current not in seen:
+                seen.add(current)
+                parent = id_index.get(current)
+                if not parent:
+                    return current
+                parent_refs = parent.get("references") or []
+                if parent_refs:
+                    return parent_refs[0]
+                current = parent.get("in_reply_to")
+            return row.get("in_reply_to")
+        if row.get("message_id_header"):
+            return row.get("message_id_header")
+        return _dedup_subject_key(row.get("subject"))
+
     for row in chain_rows:
-        key = _dedup_subject_key(row.get("subject"))
-        grouped.setdefault(key, []).append(row)
+        groups.setdefault(group_key(row), []).append(row)
+
     results: list[dict] = []
-    for key, items in grouped.items():
+    for key, items in groups.items():
         ordered = sorted(items, key=lambda row: row.get("sent_at") or "")
         last = ordered[-1]
         has_self_reply = any(row.get("self_role") == "sent-by-me" and row.get("interaction_role") == "status-reply" for row in ordered)
@@ -618,7 +658,8 @@ def _infer_interaction_chains(rows: list[dict]) -> list[dict]:
         else:
             state = "pending"
         results.append({
-            "subject_key": key,
+            "subject_key": _dedup_subject_key(last.get("subject")),
+            "thread_key": key,
             "state": state,
             "last_sent_at": last.get("sent_at"),
             "latest_subject": last.get("subject"),
