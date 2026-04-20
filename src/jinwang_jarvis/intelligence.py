@@ -68,11 +68,15 @@ HIGH_SIGNAL_SENDERS = {
 }
 INTELLIGENCE_NOTE_DIR = "queries/jinwang-jarvis-intelligence"
 CATEGORY_NOTE_DIR = f"{INTELLIGENCE_NOTE_DIR}/categories"
+PRIORITY_NOTE_DIR = f"{INTELLIGENCE_NOTE_DIR}/priority"
 INDEX_NOTE = f"{INTELLIGENCE_NOTE_DIR}/index.md"
+JONGWON_SMARTX_FLOW_NOTE = f"{PRIORITY_NOTE_DIR}/jongwon-smartx-flow.md"
 MONTHLY_TIMELINE_NOTE = "queries/jinwang-jarvis-monthly-timeline-36m.md"
 DEFAULT_LOOKBACK_DAYS = 7
 MAX_PAGES = 200
 PAGE_SIZE = 100
+JONGWON_ADDRESSES = {"jongwon@smartx.kr"}
+SMARTX_SHARED_ADDRESSES = {"info@smartx.kr"}
 
 
 def _utc_now() -> datetime:
@@ -321,6 +325,130 @@ def _dedup_rows(rows: list[dict], *, limit: int) -> list[dict]:
     return kept
 
 
+def _is_jongwon_message(row: dict) -> bool:
+    return (row.get("from_addr") or "").strip().lower() in JONGWON_ADDRESSES
+
+
+def _is_smartx_shared_message(row: dict) -> bool:
+    sender = (row.get("from_addr") or "").strip().lower()
+    subject = _clean_subject(row.get("subject")).casefold()
+    return sender in SMARTX_SHARED_ADDRESSES or "[smartx info]" in subject or "smartx info" in subject
+
+
+def _flow_pattern(subject: str | None) -> str:
+    lowered = _clean_subject(subject).casefold()
+    if any(keyword in lowered for keyword in ["요청", "문의", "검토", "회신", "확인", "submit", "review"]):
+        return "action-or-review"
+    if any(keyword in lowered for keyword in ["예산", "연구비", "과제", "협약", "구매", "장비", "집행"]):
+        return "budget-or-admin"
+    if any(keyword in lowered for keyword in ["smartx info", "nvidia", "iceberg", "dgx", "dpu", "storage", "data-bahn", "mcp", "openusd", "hammerspace"]):
+        return "technical-flow"
+    if any(keyword in lowered for keyword in ["fwd:", "meetup", "summit", "모집", "공고", "행사", "심포지엄"]):
+        return "opportunity-or-event"
+    return "general"
+
+
+def _load_jongwon_smartx_flow_rows(database_path: Path, *, as_of: datetime, months: int = 36) -> list[dict]:
+    start = (as_of - timedelta(days=months * 30)).isoformat()
+    with sqlite3.connect(database_path) as conn:
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute(
+            """
+            SELECT knowledge_id, account, subject, from_addr, sent_at, category, tags_json,
+                   importance_score, opportunity_score, summary_text
+            FROM knowledge_messages
+            WHERE COALESCE(sent_at, '') >= ?
+              AND (
+                    LOWER(COALESCE(from_addr, '')) = 'jongwon@smartx.kr'
+                 OR LOWER(COALESCE(from_addr, '')) = 'info@smartx.kr'
+                 OR LOWER(COALESCE(subject, '')) LIKE '%[smartx info]%'
+                 OR LOWER(COALESCE(subject, '')) LIKE '%smartx info%'
+              )
+            ORDER BY sent_at DESC, knowledge_id DESC
+            """,
+            (start,),
+        ).fetchall()
+    payload = []
+    for row in rows:
+        item = dict(row)
+        item["tags"] = json.loads(item.get("tags_json") or "[]")
+        payload.append(item)
+    return payload
+
+
+def _write_jongwon_smartx_flow_note(config: PipelineConfig, rows: list[dict], generated_at: str) -> Path:
+    path = config.wiki_root / JONGWON_SMARTX_FLOW_NOTE
+    path.parent.mkdir(parents=True, exist_ok=True)
+    jongwon_rows = [row for row in rows if _is_jongwon_message(row)]
+    smartx_rows = [row for row in rows if _is_smartx_shared_message(row)]
+    pattern_counts: dict[str, int] = {}
+    monthly_counts: dict[str, int] = {}
+    monthly_split: dict[str, dict[str, int]] = {}
+    for row in rows:
+        pattern = _flow_pattern(row.get("subject"))
+        pattern_counts[pattern] = pattern_counts.get(pattern, 0) + 1
+        ym = (row.get("sent_at") or "")[:7]
+        if ym:
+            monthly_counts[ym] = monthly_counts.get(ym, 0) + 1
+            slot = monthly_split.setdefault(ym, {"jongwon": 0, "smartx_shared": 0, "total": 0})
+            slot["total"] += 1
+            if _is_jongwon_message(row):
+                slot["jongwon"] += 1
+            if _is_smartx_shared_message(row):
+                slot["smartx_shared"] += 1
+    top_months = sorted(monthly_counts.items(), key=lambda item: (-item[1], item[0]))[:12]
+    recent_jongwon = _dedup_rows(jongwon_rows, limit=12)
+    recent_smartx = _dedup_rows(smartx_rows, limit=12)
+    lines = [
+        "---",
+        "title: Jongwon + SmartX mail flow",
+        f"created: {generated_at[:10]}",
+        f"updated: {generated_at[:10]}",
+        "type: query",
+        "tags: [jarvis, intelligence, jongwon, smartx, priority]",
+        "sources: []",
+        "---",
+        "",
+        "# Jongwon + SmartX mail flow",
+        "",
+        "> Priority note: 교수님 직접 메일과 SmartX 전체 기술 공유 흐름을 장기적으로 추적하는 핵심 note.",
+        "",
+        "## Summary",
+        f"- direct mails from jongwon@smartx.kr (36m): {len(jongwon_rows)}",
+        f"- SmartX shared / [SmartX Info] mails (36m): {len(smartx_rows)}",
+        f"- total tracked priority flow items (36m): {len(rows)}",
+        "",
+        "## Pattern mix",
+    ]
+    for name, count in sorted(pattern_counts.items(), key=lambda item: (-item[1], item[0])):
+        lines.append(f"- {name}: {count}")
+    lines.extend(["", "## Recent direct mails from jongwon@smartx.kr"])
+    if recent_jongwon:
+        for row in recent_jongwon:
+            lines.append(f"- {row['sent_at']} — {row['subject']} ({row['category']})")
+    else:
+        lines.append("- none")
+    lines.extend(["", "## Recent SmartX shared flow"])
+    if recent_smartx:
+        for row in recent_smartx:
+            lines.append(f"- {row['sent_at']} — {row['subject']} ({row['from_addr'] or 'unknown'})")
+    else:
+        lines.append("- none")
+    lines.extend(["", "## Monthly direct vs shared flow", "- Note: direct and shared counts can overlap when jongwon@smartx.kr forwarded or sent SmartX shared flow."])
+    for ym in sorted(monthly_split):
+        slot = monthly_split[ym]
+        lines.append(
+            f"- {ym}: direct={slot['jongwon']}, shared={slot['smartx_shared']}, total={slot['total']}"
+        )
+    lines.extend(["", "## Monthly flow hotspots"])
+    for ym, count in top_months:
+        month_examples = _dedup_rows([row for row in rows if (row.get("sent_at") or "")[:7] == ym], limit=3)
+        example_text = "; ".join(_clean_subject(item.get("subject")) for item in month_examples)
+        lines.append(f"- {ym}: {count} mails — {example_text}")
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return path
+
+
 def _write_category_notes(config: PipelineConfig, rows: list[dict], generated_at: str) -> dict[str, Path]:
     base = config.wiki_root / CATEGORY_NOTE_DIR
     base.mkdir(parents=True, exist_ok=True)
@@ -352,7 +480,14 @@ def _write_category_notes(config: PipelineConfig, rows: list[dict], generated_at
     return note_paths
 
 
-def _write_intelligence_index(config: PipelineConfig, note_paths: dict[str, Path], generated_at: str, report_rel_path: str) -> Path:
+def _write_intelligence_index(
+    config: PipelineConfig,
+    note_paths: dict[str, Path],
+    generated_at: str,
+    report_rel_path: str,
+    *,
+    priority_links: list[str] | None = None,
+) -> Path:
     path = config.wiki_root / INDEX_NOTE
     path.parent.mkdir(parents=True, exist_ok=True)
     lines = [
@@ -368,9 +503,12 @@ def _write_intelligence_index(config: PipelineConfig, note_paths: dict[str, Path
         "# Jarvis intelligence index",
         "",
         f"- latest daily report: [[{report_rel_path.removesuffix('.md')}]]",
-        "",
-        "## Categories",
     ]
+    if priority_links:
+        lines.extend(["", "## Priority flows"])
+        for rel in priority_links:
+            lines.append(f"- [[{rel.removesuffix('.md')}]]")
+    lines.extend(["", "## Categories"])
     for category in sorted(note_paths):
         rel = f"{CATEGORY_NOTE_DIR}/{category}"
         lines.append(f"- [[{rel}]]")
@@ -424,7 +562,15 @@ def generate_daily_intelligence_report(
     artifact_path.write_text(text, encoding="utf-8")
     wiki_path.write_text(text, encoding="utf-8")
     note_paths = _write_category_notes(config, rows, moment.date().isoformat())
-    index_path = _write_intelligence_index(config, note_paths, moment.date().isoformat(), report_rel_path)
+    priority_flow_rows = _load_jongwon_smartx_flow_rows(config.database_path, as_of=moment)
+    priority_flow_path = _write_jongwon_smartx_flow_note(config, priority_flow_rows, moment.date().isoformat())
+    index_path = _write_intelligence_index(
+        config,
+        note_paths,
+        moment.date().isoformat(),
+        report_rel_path,
+        priority_links=[JONGWON_SMARTX_FLOW_NOTE],
+    )
     with sqlite3.connect(config.database_path) as conn:
         conn.execute(
             """

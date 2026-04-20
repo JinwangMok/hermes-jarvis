@@ -85,3 +85,82 @@ def test_collect_knowledge_mail_and_generate_daily_intelligence(tmp_path: Path):
     checkpoints = json.loads((tmp_path / "state" / "checkpoints.json").read_text(encoding="utf-8"))
     assert checkpoints["knowledge_mail"]["personal"]["message_count"] == 4
     assert checkpoints["daily_intelligence"]["latest"]["item_count"] == 2
+
+
+def test_generate_daily_intelligence_promotes_jongwon_and_smartx_flow_notes(tmp_path: Path):
+    config = load_pipeline_config(_write_config(tmp_path))
+    runner = FakeKnowledgeRunner()
+    collect_knowledge_mail(config, months=36, runner=runner)
+
+    import sqlite3
+
+    with sqlite3.connect(config.database_path) as conn:
+        conn.execute(
+            """
+            INSERT OR REPLACE INTO knowledge_messages (
+                knowledge_id, account, folder_name, source_id, subject, from_addr, to_addr,
+                sent_at, has_attachment, category, tags_json, importance_score,
+                opportunity_score, summary_text, collected_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "jongwon-1",
+                "personal",
+                "[Gmail]/전체보관함",
+                "301",
+                "Re: 데이터 파이프라인 검토 요청",
+                "jongwon@smartx.kr",
+                "you@example.com",
+                "2026-04-18T10:00:00+00:00",
+                0,
+                "technology",
+                "[]",
+                0.91,
+                0.18,
+                "[technology] Re: 데이터 파이프라인 검토 요청",
+                "2026-04-20T00:00:00+00:00",
+            ),
+        )
+        conn.execute(
+            """
+            INSERT OR REPLACE INTO knowledge_messages (
+                knowledge_id, account, folder_name, source_id, subject, from_addr, to_addr,
+                sent_at, has_attachment, category, tags_json, importance_score,
+                opportunity_score, summary_text, collected_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "smartx-1",
+                "personal",
+                "[Gmail]/전체보관함",
+                "302",
+                "[NetCS Announce] [SmartX Info] DGX Spark 관련 이슈 troubleshooting",
+                "ho.kim@smartx.kr",
+                "you@example.com",
+                "2026-04-17T10:00:00+00:00",
+                0,
+                "technology",
+                "[]",
+                0.89,
+                0.12,
+                "[technology] [NetCS Announce] [SmartX Info] DGX Spark 관련 이슈 troubleshooting",
+                "2026-04-20T00:00:00+00:00",
+            ),
+        )
+        conn.commit()
+
+    report_result = generate_daily_intelligence_report(config, lookback_days=7)
+
+    index_text = report_result["index_path"].read_text(encoding="utf-8")
+    assert "Priority flows" in index_text
+    assert "jongwon-smartx-flow" in index_text
+
+    flow_note = config.wiki_root / "queries/jinwang-jarvis-intelligence/priority/jongwon-smartx-flow.md"
+    assert flow_note.exists()
+    flow_text = flow_note.read_text(encoding="utf-8")
+    assert "jongwon@smartx.kr" in flow_text
+    assert "[SmartX Info] DGX Spark 관련 이슈 troubleshooting" in flow_text
+    assert "데이터 파이프라인 검토 요청" in flow_text
+    assert "## Monthly direct vs shared flow" in flow_text
+    assert "2026-04: direct=" in flow_text
+    assert "## Monthly flow hotspots" in flow_text
