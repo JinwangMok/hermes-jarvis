@@ -73,8 +73,9 @@ ADVISOR_REPORT_FYI_HINTS = (
 )
 
 
-def parse_sender_map_markdown(markdown: str) -> dict[str, dict]:
+def parse_sender_map_markdown(markdown: str, self_addresses: set[str] | None = None) -> dict[str, dict]:
     identities: dict[str, dict] = {}
+    self_addresses = self_addresses or set()
     for raw_line in markdown.splitlines():
         line = raw_line.strip()
         if not line.startswith("- "):
@@ -88,7 +89,7 @@ def parse_sender_map_markdown(markdown: str) -> dict[str, dict]:
             emails = [email.strip() for email in parts[2].split("/") if "@" in email]
             for email in emails:
                 normalized = email.strip().lower()
-                mapped_role = "self" if normalized in {"jinwang@smartx.kr", "jinwangmok@gm.gist.ac.kr", "jinwangmok@gmail.com"} else role
+                mapped_role = "self" if normalized in self_addresses else role
                 identities[normalized] = {
                     "email": normalized,
                     "display_name": display_name,
@@ -111,12 +112,6 @@ def parse_sender_map_markdown(markdown: str) -> dict[str, dict]:
 
 def _infer_organization(email: str) -> str:
     domain = email.split("@", 1)[-1].lower()
-    if domain.endswith("smartx.kr"):
-        return "smartx"
-    if domain.endswith("gist.ac.kr") or domain.endswith("gm.gist.ac.kr"):
-        return "gist"
-    if domain.endswith("gmail.com"):
-        return "gmail"
     return domain
 
 
@@ -124,18 +119,15 @@ def resolve_sender_identity(email: str | None, sender_map: dict[str, dict]) -> d
     normalized = (email or "").strip().lower()
     if normalized in sender_map:
         return dict(sender_map[normalized])
-    if normalized.endswith("@smartx.kr"):
-        return {"email": normalized, "display_name": normalized, "role": "lab-member", "organization": "smartx", "priority_base": PRIORITY_BY_ROLE["lab-member"]}
-    if normalized.endswith("@gm.gist.ac.kr") or normalized.endswith("@gist.ac.kr"):
-        return {"email": normalized, "display_name": normalized, "role": "lab-member", "organization": "gist", "priority_base": PRIORITY_BY_ROLE["lab-member"]}
     return {"email": normalized, "display_name": normalized, "role": "external", "organization": _infer_organization(normalized) if normalized else "unknown", "priority_base": PRIORITY_BY_ROLE["external"]}
 
 
-def classify_message(message: dict, sender_map: dict[str, dict]) -> dict:
+def classify_message(message: dict, sender_map: dict[str, dict], *, work_accounts: set[str] | None = None) -> dict:
     sender_identity = resolve_sender_identity(message.get("from_addr"), sender_map)
     subject = (message.get("subject") or "").strip()
     lowered = subject.casefold()
     labels: list[dict] = []
+    work_accounts = work_accounts or set()
 
     def add_label(label: str, score: float, reason: dict) -> None:
         labels.append({"label": label, "score": score, "reason": reason})
@@ -165,8 +157,8 @@ def classify_message(message: dict, sender_map: dict[str, dict]) -> dict:
         add_label("meeting", 40.0, {"matched": "meeting-keyword"})
     if any(keyword in lowered for keyword in ("vendor", "solution", "demo", "conference", "event", "광고")):
         add_label("promotional-reference", 15.0, {"matched": "promo-keyword"})
-    if message.get("account") == "smartx":
-        add_label("work-account", 10.0, {"account": "smartx"})
+    if str(message.get("account") or "") in work_accounts:
+        add_label("work-account", 10.0, {"account": message.get("account")})
 
     labels.sort(key=lambda item: (-item["score"], item["label"]))
     return {"sender_identity": sender_identity, "labels": labels}
@@ -175,7 +167,13 @@ def classify_message(message: dict, sender_map: dict[str, dict]) -> dict:
 def _load_sender_map(path: Path | None) -> dict[str, dict]:
     if not path or not path.exists():
         return {}
-    return parse_sender_map_markdown(path.read_text(encoding="utf-8"))
+    raise RuntimeError("_load_sender_map now requires self_addresses; use _load_sender_map_with_config")
+
+
+def _load_sender_map_with_config(path: Path | None, self_addresses: tuple[str, ...]) -> dict[str, dict]:
+    if not path or not path.exists():
+        return {}
+    return parse_sender_map_markdown(path.read_text(encoding="utf-8"), set(self_addresses))
 
 
 def _upsert_sender_identities(database_path: Path, identities: dict[str, dict], source_note: str | None) -> None:
@@ -219,12 +217,13 @@ def _replace_message_labels(database_path: Path, labels_by_message: dict[str, li
 
 def classify_messages(config: PipelineConfig) -> dict:
     bootstrap_workspace(config)
-    sender_map = _load_sender_map(config.sender_map_path)
+    sender_map = _load_sender_map_with_config(config.sender_map_path, config.self_addresses)
     _upsert_sender_identities(config.database_path, sender_map, str(config.sender_map_path) if config.sender_map_path else None)
+    work_accounts = set(config.work_accounts)
     messages = _load_messages(config.database_path)
     labels_by_message: dict[str, list[dict]] = {}
     for message in messages:
-        result = classify_message(message, sender_map)
+        result = classify_message(message, sender_map, work_accounts=work_accounts)
         labels_by_message[message["message_id"]] = result["labels"]
     _replace_message_labels(config.database_path, labels_by_message)
     checkpoints = {}

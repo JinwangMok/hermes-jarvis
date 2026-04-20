@@ -23,6 +23,13 @@ WEEKLY_TIMER_NAME = "jinwang-jarvis-weekly-review.timer"
 DEFAULT_POLL_MINUTES = 5
 
 
+def _config_arg(config: PipelineConfig) -> str:
+    try:
+        return str(config.config_path.relative_to(config.workspace_root))
+    except ValueError:
+        return str(config.config_path)
+
+
 def run_pipeline_cycle(config: PipelineConfig) -> dict:
     bootstrap_workspace(config)
     mail_result = collect_mail_snapshots(config)
@@ -55,6 +62,7 @@ def _python_exec() -> str:
 def build_systemd_unit_texts(config: PipelineConfig, *, poll_minutes: int = DEFAULT_POLL_MINUTES) -> dict[str, str]:
     workspace = config.workspace_root
     command_prefix = f"cd {workspace} && PYTHONPATH=src {_python_exec()} -m jinwang_jarvis.cli"
+    config_arg = _config_arg(config)
     service_path = os.environ.get("PATH", "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin")
     cycle_service = f"""[Unit]
 Description=Jinwang Jarvis pipeline polling cycle
@@ -65,7 +73,7 @@ Wants=network-online.target
 Type=oneshot
 WorkingDirectory={workspace}
 Environment=PATH={service_path}
-ExecStart=/bin/bash -lc '{command_prefix} run-cycle --config config/pipeline.yaml'
+ExecStart=/bin/bash -lc '{command_prefix} run-cycle --config {config_arg}'
 """
     cycle_timer = f"""[Unit]
 Description=Run Jinwang Jarvis pipeline every {poll_minutes} minutes
@@ -88,7 +96,7 @@ Wants=network-online.target
 Type=oneshot
 WorkingDirectory={workspace}
 Environment=PATH={service_path}
-ExecStart=/bin/bash -lc '{command_prefix} weekly-review --config config/pipeline.yaml'
+ExecStart=/bin/bash -lc '{command_prefix} weekly-review --config {config_arg}'
 """
     weekly_timer = """[Unit]
 Description=Run Jinwang Jarvis weekly review on Sunday evening

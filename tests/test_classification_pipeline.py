@@ -34,6 +34,10 @@ calendar:
   time_max: 2026-05-19T00:00:00+09:00
 classification:
   sender_map_path: {sender_map}
+  self_addresses:
+    - jinwangmok@gmail.com
+  work_accounts:
+    - smartx
 state:
   database: state/personal_intel.db
   checkpoints: state/checkpoints.json

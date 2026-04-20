@@ -9,6 +9,7 @@ import yaml
 
 @dataclass(frozen=True)
 class PipelineConfig:
+    config_path: Path
     project_name: str
     workspace_root: Path
     wiki_root: Path
@@ -26,11 +27,18 @@ class PipelineConfig:
     calendar_time_max: str
     hermes_integration_mode: str
     deliver_channel: str
+    self_addresses: tuple[str, ...]
+    work_accounts: tuple[str, ...]
 
 
 def _resolve_under_workspace(workspace_root: Path, value: str) -> Path:
     path = Path(value)
     return path if path.is_absolute() else workspace_root / path
+
+
+def _resolve_from_config_dir(config_path: Path, value: str) -> Path:
+    path = Path(value)
+    return path if path.is_absolute() else (config_path.parent / path).resolve()
 
 
 def _stringify_time_value(value: object) -> str:
@@ -48,11 +56,11 @@ def _default_calendar_window() -> tuple[str, str]:
 
 
 def load_pipeline_config(config_path: Path) -> PipelineConfig:
-    config_path = Path(config_path)
+    config_path = Path(config_path).resolve()
     with config_path.open("r", encoding="utf-8") as handle:
         raw = yaml.safe_load(handle)
 
-    workspace_root = Path(raw["workspace_root"])
+    workspace_root = _resolve_from_config_dir(config_path, str(raw["workspace_root"]))
     state = raw["state"]
     mail = raw["mail"]
     calendar = raw["calendar"]
@@ -62,9 +70,10 @@ def load_pipeline_config(config_path: Path) -> PipelineConfig:
     default_time_min, default_time_max = _default_calendar_window()
 
     return PipelineConfig(
+        config_path=config_path,
         project_name=reproducibility["project_name"],
         workspace_root=workspace_root,
-        wiki_root=Path(raw["wiki_root"]),
+        wiki_root=_resolve_from_config_dir(config_path, str(raw["wiki_root"])),
         accounts=tuple(raw.get("accounts", [])),
         database_path=_resolve_under_workspace(workspace_root, state["database"]),
         checkpoints_path=_resolve_under_workspace(workspace_root, state["checkpoints"]),
@@ -79,4 +88,6 @@ def load_pipeline_config(config_path: Path) -> PipelineConfig:
         calendar_time_max=_stringify_time_value(calendar.get("time_max", default_time_max)),
         hermes_integration_mode=hermes["integration_mode"],
         deliver_channel=hermes["deliver_channel"],
+        self_addresses=tuple(email.strip().lower() for email in classification.get("self_addresses", []) if str(email).strip()),
+        work_accounts=tuple(str(account).strip() for account in classification.get("work_accounts", []) if str(account).strip()),
     )

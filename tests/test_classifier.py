@@ -17,7 +17,7 @@ def test_parse_sender_map_markdown_extracts_roles_and_emails():
 - `jongwon@gist.ac.kr`
 """
 
-    identities = parse_sender_map_markdown(markdown)
+    identities = parse_sender_map_markdown(markdown, {"jinwangmok@gmail.com"})
 
     assert identities["jongwon@smartx.kr"]["role"] == "advisor"
     assert identities["sunpark@smartx.kr"]["role"] == "research-professor"
@@ -36,8 +36,8 @@ def test_resolve_sender_identity_uses_exact_match_then_domain_defaults():
     unknown = resolve_sender_identity("person@example.org", sender_map)
 
     assert exact["role"] == "advisor"
-    assert domain["role"] == "lab-member"
-    assert domain["organization"] == "smartx"
+    assert domain["role"] == "external"
+    assert domain["organization"] == "smartx.kr"
     assert unknown["role"] == "external"
 
 
@@ -53,12 +53,13 @@ def test_classify_message_marks_advisor_and_security_routine_labels():
         "subject": "Security alert for your account",
     }
 
-    result = classify_message(message, sender_map)
+    result = classify_message(message, sender_map, work_accounts={"smartx"})
     labels = {entry["label"]: entry for entry in result["labels"]}
 
     assert result["sender_identity"]["role"] == "advisor"
     assert "advisor-request" in labels
     assert "security-routine" in labels
+    assert "work-account" in labels
     assert labels["advisor-request"]["score"] > labels["security-routine"]["score"]
 
 

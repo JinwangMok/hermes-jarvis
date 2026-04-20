@@ -1,8 +1,8 @@
-workspace_root: /home/jinwang/workspace/jinwang-jarvis
-wiki_root: /home/jinwang/wiki
+workspace_root: ..
+wiki_root: ../wiki
 accounts:
   - personal
-  - smartx
+  - work
 mail:
   snapshot_dir: data/snapshots/mail
   page_size: 50
@@ -11,16 +11,18 @@ calendar:
   snapshot_dir: data/snapshots/calendar
   calendar_id: primary
   max_results: 50
-  time_min: 2026-04-19T00:00:00+09:00
-  time_max: 2026-05-19T00:00:00+09:00
 classification:
-  sender_map_path: /home/jinwang/wiki/raw/articles/netai-members-contact-information-sanitized-2026-04-19.md
+  sender_map_path: config/sender-map.example.md
+  self_addresses:
+    - you@example.com
+  work_accounts:
+    - work
 state:
   database: state/personal_intel.db
   checkpoints: state/checkpoints.json
 hermes:
   integration_mode: boundary-cli
-  deliver_channel: discord:1493529569926578276
+  deliver_channel: discord-origin
 reproducibility:
   packaging: pyproject
   config_format: yaml

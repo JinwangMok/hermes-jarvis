@@ -44,6 +44,6 @@ reproducibility:
 
     assert "Persistent=true" in units["jinwang-jarvis-cycle.timer"]
     assert "OnUnitActiveSec=15min" in units["jinwang-jarvis-cycle.timer"]
-    assert "run-cycle --config config/pipeline.yaml" in units["jinwang-jarvis-cycle.service"]
+    assert "run-cycle --config pipeline.yaml" in units["jinwang-jarvis-cycle.service"]
     assert "Environment=PATH=" in units["jinwang-jarvis-cycle.service"]
     assert "OnCalendar=Sun *-*-* 20:00:00" in units["jinwang-jarvis-weekly-review.timer"]

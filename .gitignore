@@ -13,3 +13,5 @@ data/briefings/
 data/feedback/
 data/watchlists/
 state/*.txt
+config/pipeline.local.yaml
+config/sender-map.md
