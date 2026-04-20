@@ -419,15 +419,137 @@ def _header_addresses(values: list[str] | None) -> list[str]:
     return _normalize_address_list(parsed)
 
 
-def _load_message_participants(row: dict) -> dict[str, object]:
+def _parse_participant_headers(raw: bytes) -> dict[str, object]:
+    parser = BytesHeaderParser(policy=policy.default)
+    headers = parser.parsebytes(raw)
+    delivered = (headers.get("Delivered-To") or "").strip().lower()
+    refs = re.findall(r"<[^>]+>", " ".join(headers.get_all("References", [])))
+    return {
+        "to": _header_addresses(headers.get_all("To", [])),
+        "cc": _header_addresses(headers.get_all("Cc", [])),
+        "reply_to": _header_addresses(headers.get_all("Reply-To", [])),
+        "delivered_to": delivered,
+        "references": refs,
+    }
+
+
+def _get_cached_message_participants(database_path: Path, row: dict) -> dict[str, object] | None:
+    message_id = row.get("message_id")
+    if not message_id:
+        return None
+    with sqlite3.connect(database_path) as conn:
+        conn.row_factory = sqlite3.Row
+        cached = conn.execute(
+            "SELECT to_addrs_json, cc_addrs_json, reply_to_addrs_json, delivered_to, references_json FROM message_participant_cache WHERE message_id = ?",
+            (message_id,),
+        ).fetchone()
+    if not cached:
+        return None
+    item = dict(cached)
+    return {
+        "to": json.loads(item.get("to_addrs_json") or "[]"),
+        "cc": json.loads(item.get("cc_addrs_json") or "[]"),
+        "reply_to": json.loads(item.get("reply_to_addrs_json") or "[]"),
+        "delivered_to": item.get("delivered_to") or "",
+        "references": json.loads(item.get("references_json") or "[]"),
+    }
+
+
+def _store_cached_message_participants(database_path: Path, row: dict, participants: dict[str, object], *, header_hash: str = "") -> None:
+    with sqlite3.connect(database_path) as conn:
+        conn.execute(
+            """
+            INSERT OR REPLACE INTO message_participant_cache (
+                message_id, account, folder_name, source_id, to_addrs_json, cc_addrs_json,
+                reply_to_addrs_json, delivered_to, references_json, header_hash, cached_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                row.get("message_id"),
+                row.get("account"),
+                row.get("folder_name"),
+                row.get("source_id"),
+                json.dumps(participants.get("to") or [], ensure_ascii=False),
+                json.dumps(participants.get("cc") or [], ensure_ascii=False),
+                json.dumps(participants.get("reply_to") or [], ensure_ascii=False),
+                participants.get("delivered_to") or "",
+                json.dumps(participants.get("references") or [], ensure_ascii=False),
+                header_hash,
+                _utc_now().isoformat(),
+            ),
+        )
+        conn.commit()
+
+
+def _export_message_raw(row: dict) -> bytes:
     account = row.get("account")
     folder_name = row.get("folder_name")
     source_id = row.get("source_id")
+    if not account or not folder_name or not source_id:
+        return b""
+    with tempfile.NamedTemporaryFile(suffix=".eml", delete=False) as tmp:
+        temp_path = Path(tmp.name)
+    try:
+        subprocess.run(
+            [
+                "himalaya", "message", "export",
+                "-a", str(account),
+                str(source_id),
+                "--folder", str(folder_name),
+                "--full",
+                "--destination", str(temp_path),
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        return temp_path.read_bytes()
+    finally:
+        temp_path.unlink(missing_ok=True)
+
+
+def _backfill_message_participant_cache(
+    database_path: Path,
+    rows: list[dict],
+    *,
+    exporter: Callable[[dict], bytes] | None = None,
+    limit: int = 100,
+) -> dict:
+    exporter = exporter or _export_message_raw
+    cached_count = 0
+    scanned = 0
+    for row in rows[:limit]:
+        scanned += 1
+        if _get_cached_message_participants(database_path, row):
+            continue
+        try:
+            raw = exporter(row)
+        except Exception:
+            continue
+        if not raw:
+            continue
+        participants = _parse_participant_headers(raw)
+        _store_cached_message_participants(database_path, row, participants)
+        cached_count += 1
+    return {"scanned": scanned, "cached_count": cached_count}
+
+
+def _load_message_participants(database_path: Path, row: dict) -> dict[str, object]:
+    cached = _get_cached_message_participants(database_path, row)
     fallback = {
-        "to": _normalize_address_list([row.get("to_addr") or ""]),
-        "cc": [],
+        "to": _normalize_address_list(row.get("to_addrs") if isinstance(row.get("to_addrs"), list) else [row.get("to_addr") or ""]),
+        "cc": _normalize_address_list(row.get("cc_addrs") if isinstance(row.get("cc_addrs"), list) else []),
+        "reply_to": [],
         "delivered_to": (row.get("to_addr") or "").strip().lower(),
+        "references": [],
     }
+    if cached:
+        merged = dict(fallback)
+        merged.update({k: v for k, v in cached.items() if v not in (None, [], "")})
+        return merged
+    account = row.get("account")
+    folder_name = row.get("folder_name")
+    source_id = row.get("source_id")
     if not account or not folder_name or not source_id:
         return fallback
     try:
@@ -447,14 +569,11 @@ def _load_message_participants(row: dict) -> dict[str, object]:
             text=True,
         )
         raw = temp_path.read_bytes()
-        parser = BytesHeaderParser(policy=policy.default)
-        headers = parser.parsebytes(raw)
-        delivered = headers.get("Delivered-To") or fallback["delivered_to"]
-        return {
-            "to": _header_addresses(headers.get_all("To", [])) or fallback["to"],
-            "cc": _header_addresses(headers.get_all("Cc", [])),
-            "delivered_to": (delivered or "").strip().lower(),
-        }
+        participants = _parse_participant_headers(raw)
+        _store_cached_message_participants(database_path, row, participants)
+        merged = dict(fallback)
+        merged.update({k: v for k, v in participants.items() if v not in (None, [], "")})
+        return merged
     except Exception:
         return fallback
     finally:
@@ -719,7 +838,7 @@ def _write_jongwon_context_cases_note(config: PipelineConfig, rows: list[dict], 
     grouped: dict[str, list[dict]] = {}
     self_addresses = set(config.self_addresses)
     for row in candidate_rows:
-        relation = _classify_jongwon_context(row, _load_message_participants(row), self_addresses)
+        relation = _classify_jongwon_context(row, _load_message_participants(config.database_path, row), self_addresses)
         grouped.setdefault(relation, []).append(row)
     lines = [
         "---",
@@ -869,6 +988,7 @@ def generate_daily_intelligence_report(
     text = "\n".join(lines) + "\n"
     artifact_path.write_text(text, encoding="utf-8")
     wiki_path.write_text(text, encoding="utf-8")
+    _backfill_message_participant_cache(config.database_path, rows, limit=80)
     note_paths = _write_category_notes(config, rows, moment.date().isoformat())
     priority_flow_rows = _load_jongwon_smartx_flow_rows(config.database_path, as_of=moment)
     priority_flow_path = _write_jongwon_smartx_flow_note(config, priority_flow_rows, moment.date().isoformat())

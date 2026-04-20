@@ -3,7 +3,10 @@ from pathlib import Path
 
 from jinwang_jarvis.config import load_pipeline_config
 from jinwang_jarvis.intelligence import (
+    _backfill_message_participant_cache,
     _classify_jongwon_context,
+    _get_cached_message_participants,
+    _parse_participant_headers,
     collect_knowledge_mail,
     generate_daily_intelligence_report,
 )
@@ -62,6 +65,78 @@ reproducibility:
         encoding="utf-8",
     )
     return config_file
+
+
+def test_parse_participant_headers_extracts_to_cc_reply_to_and_references():
+    raw = b"""From: sender@example.com\nTo: me@example.com, team@example.com\nCc: boss@example.com\nReply-To: reply@example.com\nDelivered-To: me@example.com\nReferences: <a@example.com> <b@example.com>\nSubject: test\n\nbody\n"""
+    parsed = _parse_participant_headers(raw)
+    assert parsed["to"] == ["me@example.com", "team@example.com"]
+    assert parsed["cc"] == ["boss@example.com"]
+    assert parsed["reply_to"] == ["reply@example.com"]
+    assert parsed["delivered_to"] == "me@example.com"
+    assert parsed["references"] == ["<a@example.com>", "<b@example.com>"]
+
+
+def test_cached_message_participants_roundtrip(tmp_path: Path):
+    from jinwang_jarvis.bootstrap import bootstrap_workspace
+    from jinwang_jarvis.config import load_pipeline_config
+    import sqlite3
+
+    config = load_pipeline_config(_write_config(tmp_path))
+    bootstrap_workspace(config)
+    with sqlite3.connect(config.database_path) as conn:
+        conn.execute(
+            "INSERT OR REPLACE INTO message_participant_cache (message_id, account, folder_name, source_id, to_addrs_json, cc_addrs_json, reply_to_addrs_json, delivered_to, references_json, header_hash, cached_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                "personal:[Gmail]/전체보관함:201",
+                "personal",
+                "[Gmail]/전체보관함",
+                "201",
+                '["you@example.com"]',
+                '["boss@example.com"]',
+                '["reply@example.com"]',
+                "you@example.com",
+                '["<a@example.com>"]',
+                "hash-1",
+                "2026-04-20T00:00:00+00:00",
+            ),
+        )
+        conn.commit()
+
+    cached = _get_cached_message_participants(config.database_path, {"message_id": "personal:[Gmail]/전체보관함:201"})
+    assert cached is not None
+    assert cached["to"] == ["you@example.com"]
+    assert cached["cc"] == ["boss@example.com"]
+    assert cached["reply_to"] == ["reply@example.com"]
+    assert cached["references"] == ["<a@example.com>"]
+
+
+def test_backfill_message_participant_cache_stores_exported_headers(tmp_path: Path):
+    from jinwang_jarvis.bootstrap import bootstrap_workspace
+    from jinwang_jarvis.config import load_pipeline_config
+    import sqlite3
+
+    config = load_pipeline_config(_write_config(tmp_path))
+    bootstrap_workspace(config)
+    rows = [{
+        "message_id": "personal:[Gmail]/전체보관함:201",
+        "account": "personal",
+        "folder_name": "[Gmail]/전체보관함",
+        "source_id": "201",
+        "to_addr": "you@example.com",
+    }]
+
+    def exporter(row):
+        return b"To: you@example.com\nCc: boss@example.com\nReply-To: reply@example.com\nDelivered-To: you@example.com\nReferences: <a@example.com>\n\n"
+
+    result = _backfill_message_participant_cache(config.database_path, rows, exporter=exporter, limit=10)
+    assert result["cached_count"] == 1
+    with sqlite3.connect(config.database_path) as conn:
+        record = conn.execute("SELECT to_addrs_json, cc_addrs_json, reply_to_addrs_json FROM message_participant_cache WHERE message_id = ?", ("personal:[Gmail]/전체보관함:201",)).fetchone()
+    assert record is not None
+    assert json.loads(record[0]) == ["you@example.com"]
+    assert json.loads(record[1]) == ["boss@example.com"]
+    assert json.loads(record[2]) == ["reply@example.com"]
 
 
 def test_classify_jongwon_context_distinguishes_sender_recipient_and_cc_cases():

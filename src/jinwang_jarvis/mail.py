@@ -121,6 +121,14 @@ def _derive_interaction_role(*, subject: str | None, folder_kind: str | None = N
         return "fyi-forward"
     if any(keyword in lowered for keyword in ["review", "검토", "proofreading"]):
         return "review-request"
+    if any(keyword in lowered for keyword in ["status report 요청", "status 요청", "현황 요청", "상태 요청"]):
+        return "status-request"
+    if any(keyword in lowered for keyword in ["결정 부탁", "decision", "approve", "승인 부탁"]):
+        return "decision-request"
+    if self_role == "cc-me" and any(keyword in lowered for keyword in ["공유", "update", "진행", "상황"]):
+        return "cc-for-awareness"
+    if lowered.startswith("re:") and any(keyword in lowered for keyword in ["update", "thread", "weekly", "meeting", "미팅"]):
+        return "team-thread-update"
     if self_role == "sent-by-me" and any(keyword in lowered for keyword in ["status", "보고", "제출", "reply", "re:"]):
         return "status-reply"
     if any(keyword in lowered for keyword in ["요청", "문의", "부탁", "확인", "작성", "submit"]):

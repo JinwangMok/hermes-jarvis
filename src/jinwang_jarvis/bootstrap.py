@@ -135,6 +135,21 @@ SCHEMA_STATEMENTS = [
     )
     """,
     """
+    CREATE TABLE IF NOT EXISTS message_participant_cache (
+        message_id TEXT PRIMARY KEY,
+        account TEXT,
+        folder_name TEXT,
+        source_id TEXT,
+        to_addrs_json TEXT,
+        cc_addrs_json TEXT,
+        reply_to_addrs_json TEXT,
+        delivered_to TEXT,
+        references_json TEXT,
+        header_hash TEXT,
+        cached_at TEXT NOT NULL
+    )
+    """,
+    """
     CREATE TABLE IF NOT EXISTS knowledge_messages (
         knowledge_id TEXT PRIMARY KEY,
         account TEXT NOT NULL,
