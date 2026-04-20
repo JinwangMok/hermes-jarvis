@@ -4,6 +4,7 @@ from pathlib import Path
 from jinwang_jarvis.config import load_pipeline_config
 from jinwang_jarvis.intelligence import (
     _backfill_message_participant_cache,
+    _build_education_memory_records,
     _classify_jongwon_context,
     _get_cached_message_participants,
     _infer_interaction_chains,
@@ -189,6 +190,67 @@ def test_classify_jongwon_context_distinguishes_sender_recipient_and_cc_cases():
         self_addresses,
     )
     assert professor_cced == "professor-cced"
+
+
+def test_build_education_memory_records_promotes_career_like_items_and_filters_generic_notices():
+    rows = [
+        {
+            "knowledge_id": "edu-1",
+            "subject": "2026년도 교원연수 강사료 관련 서류 작성 요청",
+            "from_addr": "gaeun218@gist.ac.kr",
+            "self_role": "other",
+            "interaction_role": "direct-ask",
+            "sent_at": "2026-02-10T11:53:00+09:00",
+        },
+        {
+            "knowledge_id": "edu-2",
+            "subject": "고등학교 음악 교과서.zip",
+            "from_addr": "editor@example.com",
+            "self_role": "other",
+            "interaction_role": "other",
+            "sent_at": "2024-11-19T09:00:00+09:00",
+        },
+        {
+            "knowledge_id": "edu-3",
+            "subject": "4차산업혁명 트렌드분석 11월 5일 강의 자료공유 및 사전질문 요청",
+            "from_addr": "host@example.com",
+            "self_role": "other",
+            "interaction_role": "direct-ask",
+            "sent_at": "2024-10-28T09:00:00+09:00",
+        },
+        {
+            "knowledge_id": "edu-4",
+            "subject": "[학술정보팀] 2026 봄학기 도서관 이용자 교육(3월~4월)",
+            "from_addr": "library@example.com",
+            "self_role": "direct-to-me",
+            "interaction_role": "other",
+            "sent_at": "2026-03-12T17:05:00+09:00",
+        },
+        {
+            "knowledge_id": "edu-5",
+            "subject": "[상담센터] 2025년 정신건강특강(\"잠은 타협의 대상이 아니다\") 실시 안내",
+            "from_addr": "notice@example.com",
+            "self_role": "direct-to-me",
+            "interaction_role": "other",
+            "sent_at": "2025-11-21T17:18:00+09:00",
+        },
+    ]
+
+    records = _build_education_memory_records(rows)
+
+    titles = [record["event_name"] for record in records]
+    assert "2026년도 교원연수 강사료 관련 서류 작성 요청" in titles
+    assert "고등학교 음악 교과서" in titles
+    assert "4차산업혁명 트렌드분석 11월 5일 강의 자료공유 및 사전질문 요청" in titles
+    assert "[학술정보팀] 2026 봄학기 도서관 이용자 교육(3월~4월)" not in titles
+    assert "[상담센터] 2025년 정신건강특강(\"잠은 타협의 대상이 아니다\") 실시 안내" not in titles
+
+    by_title = {record["event_name"]: record for record in records}
+    assert by_title["2026년도 교원연수 강사료 관련 서류 작성 요청"]["audience"] == "teachers"
+    assert by_title["2026년도 교원연수 강사료 관련 서류 작성 요청"]["role"] == "instruction-support"
+    assert by_title["고등학교 음악 교과서"]["audience"] == "high-school"
+    assert by_title["고등학교 음악 교과서"]["role"] == "textbook-development"
+    assert by_title["4차산업혁명 트렌드분석 11월 5일 강의 자료공유 및 사전질문 요청"]["role"] == "teaching-delivery"
 
 
 def test_collect_knowledge_mail_and_generate_daily_intelligence(tmp_path: Path):
@@ -428,5 +490,9 @@ def test_generate_daily_intelligence_creates_dedicated_jongwon_smartx_lane_notes
     assert "교수님" in advisor_action_text
 
     education_text = education_note.read_text(encoding="utf-8")
-    assert "교원연수" in education_text
-    assert "교과서" in education_text
+    assert "## Career-like education records" in education_text
+    assert "audience=teachers" in education_text
+    assert "role=textbook-development" in education_text
+    assert "광주 인공지능 교과서 및 Star-MOOC 관련 인턴 지원 요청드립니다." in education_text
+    assert "도서관 이용자 교육" not in education_text
+    assert "정신건강특강" not in education_text

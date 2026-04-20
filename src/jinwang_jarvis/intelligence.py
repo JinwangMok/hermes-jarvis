@@ -678,7 +678,8 @@ def _load_jongwon_smartx_flow_rows(database_path: Path, *, as_of: datetime, mont
         conn.row_factory = sqlite3.Row
         rows = conn.execute(
             """
-            SELECT knowledge_id, account, folder_name, source_id, subject, from_addr, to_addr, sent_at, category, tags_json,
+            SELECT knowledge_id, account, folder_name, source_id, subject, from_addr, to_addr, to_addrs_json, cc_addrs_json,
+                   self_role, interaction_role, sent_at, category, tags_json,
                    importance_score, opportunity_score, summary_text
             FROM knowledge_messages
             WHERE COALESCE(sent_at, '') >= ?
@@ -1050,15 +1051,116 @@ def _load_education_memory_rows(database_path: Path, *, months: int = 36) -> lis
     return payload
 
 
+def _normalize_education_event_name(subject: str | None) -> str:
+    text = _clean_subject(subject)
+    text = re.sub(r'^(re|fw|fwd)\s*:\s*', '', text, flags=re.I)
+    text = re.sub(r'\.(zip|pdf|pptx|ppt|docx|doc|xlsx|xls)$', '', text, flags=re.I)
+    return text.strip()
+
+
+def _is_generic_education_notice(subject: str | None, sender: str | None) -> bool:
+    lowered = _normalize_education_event_name(subject).casefold()
+    sender_value = (sender or '').strip().lower()
+    generic_keywords = [
+        '도서관 이용자 교육', '이용자 교육', '정기교육', '법정의무교육', '폭력예방교육',
+        'proquest', 'refworks', 'web of science', 'scopus', 'sci val', 'scival', 'riss',
+        '클래리베이트', '안전교육', '보안교육', '연구윤리 교육', '수강 안내', '모집 안내',
+        '교육생 모집', '파견 교육생 모집', '대국민 공공데이터 인식 제고 교육',
+        '정신건강특강', '상담센터', '여교수회 기획특강',
+    ]
+    if any(keyword.casefold() in lowered for keyword in generic_keywords):
+        return True
+    if sender_value.endswith('discover.clarivate.com'):
+        return True
+    if '광고' in lowered and '교육' in lowered:
+        return True
+    return False
+
+
+def _education_audience(subject: str | None) -> str:
+    lowered = _normalize_education_event_name(subject).casefold()
+    if any(keyword in lowered for keyword in ['고등학교', '고교', '중등']):
+        return 'high-school'
+    if any(keyword in lowered for keyword in ['교원연수', '교원 연수', '교원']):
+        return 'teachers'
+    if any(keyword in lowered for keyword in ['직장인', '기업가정신교육', 'ict insight day']):
+        return 'workers'
+    if any(keyword in lowered for keyword in ['일반인', '대국민', '시민']):
+        return 'public'
+    if any(keyword in lowered for keyword in ['대학원생', '학부생', '학생용', '학생']):
+        return 'students'
+    return 'mixed'
+
+
+def _education_role(subject: str | None, row: dict) -> str:
+    lowered = _normalize_education_event_name(subject).casefold()
+    if any(keyword in lowered for keyword in ['교과서', '교육자료', '교수학습 모델', '프루프리딩', '원격 피드백']):
+        return 'textbook-development'
+    if any(keyword in lowered for keyword in ['강의 자료', '강의자료', '교안', '사전질문', 'star-mooc', '촬영', '인강', '교수학습자료']):
+        return 'teaching-delivery'
+    if any(keyword in lowered for keyword in ['교원연수', '강사료', '운영', '일정 조정', '일정표', '결과 보고', '준비 관련 안내', '기업가정신교육']):
+        return 'instruction-support'
+    interaction_role = (row.get('interaction_role') or '').strip().lower()
+    if interaction_role in {'direct-ask', 'review-request', 'status-request', 'decision-request'} and any(
+        keyword in lowered for keyword in ['교육자료', '교과서', '교원연수', '강의 자료', '강의자료', '교안', '사전질문', '촬영', '인강', '기업가정신교육']
+    ):
+        return 'instruction-support'
+    return 'education-other'
+
+
+def _education_summary(subject: str | None, role: str) -> str:
+    lowered = _normalize_education_event_name(subject).casefold()
+    if role == 'textbook-development':
+        return '교과서/교육자료 개발 또는 검토 흐름'
+    if role == 'teaching-delivery':
+        return '강의/교안/콘텐츠 전달 준비 흐름'
+    if role == 'instruction-support':
+        if '교원연수' in lowered:
+            return '교원연수 운영·정산·보고 관련 흐름'
+        return '교육 운영·조율·행정 지원 흐름'
+    return '교육 관련 흔적'
+
+
+def _build_education_memory_records(rows: list[dict]) -> list[dict]:
+    records: list[dict] = []
+    seen: set[str] = set()
+    for row in sorted(rows, key=lambda item: item.get('sent_at') or '', reverse=True):
+        subject = row.get('subject')
+        if _is_generic_education_notice(subject, row.get('from_addr')):
+            continue
+        role = _education_role(subject, row)
+        if role == 'education-other':
+            continue
+        event_name = _normalize_education_event_name(subject)
+        key = _dedup_subject_key(event_name)
+        if key in seen:
+            continue
+        seen.add(key)
+        records.append({
+            'knowledge_id': row.get('knowledge_id'),
+            'sent_at': row.get('sent_at'),
+            'month': (row.get('sent_at') or '')[:7],
+            'event_name': event_name,
+            'audience': _education_audience(subject),
+            'role': role,
+            'summary': _education_summary(subject, role),
+            'from_addr': row.get('from_addr') or 'unknown',
+            'subject': _clean_subject(subject),
+        })
+    return records
+
+
 def _write_education_teaching_memory_note(config: PipelineConfig, rows: list[dict], generated_at: str) -> Path:
     path = config.wiki_root / EDUCATION_TEACHING_MEMORY_NOTE
     path.parent.mkdir(parents=True, exist_ok=True)
     edu_rows = _load_education_memory_rows(config.database_path)
-    monthly = {}
-    for row in edu_rows:
-        ym = (row.get('sent_at') or '')[:7]
-        if ym:
-            monthly.setdefault(ym, []).append(row)
+    records = _build_education_memory_records(edu_rows)
+    by_month: dict[str, list[dict]] = {}
+    by_audience: dict[str, list[dict]] = {}
+    for record in records:
+        if record['month']:
+            by_month.setdefault(record['month'], []).append(record)
+        by_audience.setdefault(record['audience'], []).append(record)
     lines = [
         "---",
         "title: Education and teaching memory",
@@ -1071,19 +1173,26 @@ def _write_education_teaching_memory_note(config: PipelineConfig, rows: list[dic
         "",
         "# Education and teaching memory",
         "",
-        "> 직장인/일반인/고등학생 대상 교육강의 및 교과서/교원연수 작업 흔적을 장기 기억용으로 모아둔 note.",
+        "> 직장인/일반인/고등학생 대상 교육강의 및 교과서/교원연수 작업을 행사명/날짜/대상/역할 중심으로 남기는 memory note.",
         "",
         f"- captured education-like traces: {len(edu_rows)}",
+        f"- retained career-like records: {len(records)}",
         "",
-        "## Highlighted traces",
+        "## Career-like education records",
     ]
-    for row in _dedup_rows(edu_rows, limit=30):
-        lines.append(f"- {row.get('sent_at')} — {row.get('subject')} ({row.get('from_addr') or 'unknown'})")
-    lines.extend(["", "## Monthly memory"])
-    for ym in sorted(monthly):
-        items = _dedup_rows(monthly[ym], limit=3)
-        summary = '; '.join(_clean_subject(item.get('subject')) for item in items)
-        lines.append(f"- {ym}: {len(monthly[ym])} traces — {summary}")
+    for record in records[:40]:
+        lines.append(
+            f"- {record['sent_at']} | audience={record['audience']} | role={record['role']} | event={record['event_name']} | summary={record['summary']}"
+        )
+    lines.extend(["", "## Audience map"])
+    for audience in sorted(by_audience):
+        sample = '; '.join(item['event_name'] for item in by_audience[audience][:3])
+        lines.append(f"- {audience}: {len(by_audience[audience])} records — {sample}")
+    lines.extend(["", "## Monthly career memory"])
+    for ym in sorted(by_month):
+        items = by_month[ym][:3]
+        summary = '; '.join(f"{item['event_name']} ({item['role']})" for item in items)
+        lines.append(f"- {ym}: {len(by_month[ym])} records — {summary}")
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return path
 
