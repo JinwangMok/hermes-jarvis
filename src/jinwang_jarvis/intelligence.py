@@ -3,9 +3,11 @@ from __future__ import annotations
 import json
 import re
 import sqlite3
+import statistics
 import subprocess
 import tempfile
 from datetime import UTC, datetime, timedelta
+from difflib import SequenceMatcher
 from email import policy
 from zoneinfo import ZoneInfo
 from email.parser import BytesHeaderParser
@@ -85,6 +87,7 @@ ADVISOR_ACTION_STATUS_NOTE = f"{PRIORITY_NOTE_DIR}/advisor-action-status.md"
 PROJECT_WORK_ITEMS_NOTE = f"{PRIORITY_NOTE_DIR}/project-work-items.md"
 RECENT_ACTION_ALERTS_NOTE = f"{PRIORITY_NOTE_DIR}/recent-action-alerts.md"
 NEXT_DAY_MAIL_TODOS_NOTE = f"{PRIORITY_NOTE_DIR}/next-day-mail-todos.md"
+IMPORTANT_MAIL_RECOMMENDATIONS_NOTE = f"{PRIORITY_NOTE_DIR}/important-mail-recommendations.md"
 EDUCATION_TEACHING_MEMORY_NOTE = f"{PRIORITY_NOTE_DIR}/education-teaching-memory.md"
 MONTHLY_TIMELINE_NOTE = "queries/jinwang-jarvis-monthly-timeline-36m.md"
 DEFAULT_LOOKBACK_DAYS = 7
@@ -1028,6 +1031,318 @@ def _write_next_day_mail_todos_note(config: PipelineConfig, generated_at: str, *
     return path
 
 
+def _load_calendar_events_for_window(database_path: Path, *, start: datetime, end: datetime) -> list[dict]:
+    with sqlite3.connect(database_path) as conn:
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute(
+            """
+            SELECT event_id, summary, start_ts, end_ts, location, status
+            FROM calendar_events
+            WHERE COALESCE(status, 'confirmed') != 'cancelled'
+              AND datetime(COALESCE(end_ts, start_ts, '')) > datetime(?)
+              AND datetime(COALESCE(start_ts, end_ts, '')) < datetime(?)
+            ORDER BY datetime(start_ts) ASC, event_id ASC
+            """,
+            (start.isoformat(), end.isoformat()),
+        ).fetchall()
+    return [dict(row) for row in rows]
+
+
+def _load_event_proposal_rows(database_path: Path) -> dict[str, dict]:
+    with sqlite3.connect(database_path) as conn:
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute(
+            """
+            SELECT proposal_id, source_message_id, title, start_ts, end_ts, location, confidence, status, created_at
+            FROM event_proposals
+            WHERE COALESCE(source_message_id, '') != ''
+              AND status IN ('proposed', 'allowed')
+            ORDER BY datetime(created_at) DESC, proposal_id DESC
+            """
+        ).fetchall()
+    payload: dict[str, dict] = {}
+    for row in rows:
+        data = dict(row)
+        payload.setdefault(str(data['source_message_id']), data)
+    return payload
+
+
+def _subject_similarity(subject_a: str | None, subject_b: str | None) -> float:
+    return SequenceMatcher(a=_dedup_subject_key(subject_a), b=_dedup_subject_key(subject_b)).ratio()
+
+
+def _load_message_history_rows(database_path: Path, *, before: datetime, lookback_days: int = 365) -> list[dict]:
+    start = (before - timedelta(days=lookback_days)).isoformat()
+    with sqlite3.connect(database_path) as conn:
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute(
+            """
+            SELECT message_id, account, folder_kind, subject, from_addr, to_addrs, cc_addrs,
+                   sent_at, self_role, interaction_role, is_seen
+            FROM messages
+            WHERE datetime(COALESCE(sent_at, '')) >= datetime(?)
+              AND datetime(COALESCE(sent_at, '')) < datetime(?)
+            ORDER BY datetime(sent_at) DESC, message_id DESC
+            """,
+            (start, before.isoformat()),
+        ).fetchall()
+    payload: list[dict] = []
+    for row in rows:
+        item = dict(row)
+        for key in ('to_addrs', 'cc_addrs'):
+            try:
+                item[key] = json.loads(item.get(key) or '[]')
+            except Exception:
+                item[key] = []
+        payload.append(item)
+    return payload
+
+
+def _find_matching_reply(history_rows: list[dict], inbox_row: dict) -> dict | None:
+    inbox_sent_at = _parse_himalaya_date(inbox_row.get('sent_at'))
+    if inbox_sent_at is None:
+        return None
+    sender = (inbox_row.get('from_addr') or '').strip().lower()
+    subject = inbox_row.get('subject') or ''
+    candidates: list[dict] = []
+    for row in history_rows:
+        if row.get('folder_kind') != 'sent':
+            continue
+        sent_at = _parse_himalaya_date(row.get('sent_at'))
+        if sent_at is None or sent_at <= inbox_sent_at:
+            continue
+        if sent_at > inbox_sent_at + timedelta(days=14):
+            continue
+        to_addrs = {str(addr).strip().lower() for addr in row.get('to_addrs') or []}
+        similarity = _subject_similarity(subject, row.get('subject'))
+        if similarity < 0.72 and sender not in to_addrs:
+            continue
+        candidates.append({**row, 'subject_similarity': similarity})
+    if not candidates:
+        return None
+    candidates.sort(key=lambda item: (_parse_himalaya_date(item.get('sent_at')) or datetime.max.replace(tzinfo=UTC), -float(item.get('subject_similarity') or 0.0)))
+    return candidates[0]
+
+
+def _history_stats_for_candidate(candidate: dict, history_rows: list[dict]) -> dict:
+    candidate_sent_at = _parse_himalaya_date(candidate.get('sent_at')) or _utc_now()
+    candidate_sender = (candidate.get('from_addr') or '').strip().lower()
+    subject = candidate.get('subject') or ''
+    similar_inbox_rows: list[dict] = []
+    for row in history_rows:
+        if row.get('folder_kind') != 'inbox':
+            continue
+        if row.get('message_id') == candidate.get('message_id'):
+            continue
+        row_sent_at = _parse_himalaya_date(row.get('sent_at'))
+        if row_sent_at is None or row_sent_at >= candidate_sent_at:
+            continue
+        same_sender = candidate_sender and candidate_sender == (row.get('from_addr') or '').strip().lower()
+        similarity = _subject_similarity(subject, row.get('subject'))
+        if not same_sender and similarity < 0.72:
+            continue
+        similar_inbox_rows.append({**row, 'same_sender': same_sender, 'subject_similarity': similarity})
+    similar_inbox_rows.sort(key=lambda item: (_parse_himalaya_date(item.get('sent_at')) or datetime.min.replace(tzinfo=UTC)), reverse=True)
+    matched_examples: list[dict] = []
+    latencies_hours: list[float] = []
+    replied_count = 0
+    for row in similar_inbox_rows[:12]:
+        reply = _find_matching_reply(history_rows, row)
+        latency_hours = None
+        if reply is not None:
+            replied_count += 1
+            inbox_dt = _parse_himalaya_date(row.get('sent_at'))
+            reply_dt = _parse_himalaya_date(reply.get('sent_at'))
+            if inbox_dt and reply_dt:
+                latency_hours = round((reply_dt - inbox_dt).total_seconds() / 3600.0, 2)
+                latencies_hours.append(latency_hours)
+        matched_examples.append({
+            'subject': row.get('subject') or '(제목 없음)',
+            'from_addr': row.get('from_addr') or 'unknown',
+            'sent_at': row.get('sent_at'),
+            'same_sender': row.get('same_sender'),
+            'subject_similarity': round(float(row.get('subject_similarity') or 0.0), 3),
+            'replied': reply is not None,
+            'reply_subject': reply.get('subject') if reply else None,
+            'reply_sent_at': reply.get('sent_at') if reply else None,
+            'response_latency_hours': latency_hours,
+        })
+    total = len(matched_examples)
+    return {
+        'similar_count': total,
+        'replied_count': replied_count,
+        'unreplied_count': max(0, total - replied_count),
+        'reply_rate': round(replied_count / total, 3) if total else None,
+        'median_response_hours': round(statistics.median(latencies_hours), 2) if latencies_hours else None,
+        'min_response_hours': round(min(latencies_hours), 2) if latencies_hours else None,
+        'max_response_hours': round(max(latencies_hours), 2) if latencies_hours else None,
+        'examples': matched_examples[:5],
+    }
+
+
+def _infer_intent_from_history(candidate: dict, history: dict) -> str:
+    if candidate.get('alert_type') == 'self-relay-action':
+        base = '스스로 relay한 메일이라 단순 FYI보다 작업 전환/보존용일 가능성이 큼.'
+    elif candidate.get('alert_type') == 'direct-action':
+        base = '직접 요청/확인 성격이 강해 우선 대응 후보로 봐야 함.'
+    else:
+        base = '중요 신호가 있어 검토 필요.'
+    reply_rate = history.get('reply_rate')
+    median_hours = history.get('median_response_hours')
+    if reply_rate is None:
+        return base + ' 유사 과거 사례가 거의 없어 이번 메일은 직접 판단 비중이 큼.'
+    if reply_rate >= 0.7 and median_hours is not None and median_hours <= 24:
+        return base + f' 과거 유사 메일엔 대체로 답했고(응답률 {reply_rate:.0%}), 보통 {median_hours:g}시간 안에 처리했음.'
+    if reply_rate >= 0.5:
+        if median_hours is not None:
+            return base + f' 과거엔 절반 이상 답했으며, 평균적으로 빠른 편은 아니지만 약 {median_hours:g}시간 내 처리 패턴이 있음.'
+        return base + f' 과거 유사 메일에 절반 이상 답한 편이라 이번에도 후속 조치 가능성이 높음.'
+    return base + f' 과거 유사 메일의 응답률이 낮아({reply_rate:.0%}) 즉시 회신보다 검토/보류 성격일 수 있음.'
+
+
+def _tomorrow_local_window(as_of: datetime) -> tuple[datetime, datetime]:
+    local = as_of.astimezone(MAIL_TODO_TIMEZONE)
+    day = (local + timedelta(days=1)).date()
+    start = datetime(day.year, day.month, day.day, 9, 0, tzinfo=MAIL_TODO_TIMEZONE)
+    end = datetime(day.year, day.month, day.day, 18, 0, tzinfo=MAIL_TODO_TIMEZONE)
+    return start, end
+
+
+def _build_free_slots(calendar_rows: list[dict], *, as_of: datetime) -> list[tuple[datetime, datetime]]:
+    day_start, day_end = _tomorrow_local_window(as_of)
+    intervals: list[tuple[datetime, datetime]] = []
+    for row in calendar_rows:
+        start = _parse_himalaya_date(row.get('start_ts'))
+        end = _parse_himalaya_date(row.get('end_ts')) or start
+        if start is None or end is None:
+            continue
+        start_local = start.astimezone(MAIL_TODO_TIMEZONE)
+        end_local = end.astimezone(MAIL_TODO_TIMEZONE)
+        clipped_start = max(start_local, day_start)
+        clipped_end = min(end_local, day_end)
+        if clipped_end <= clipped_start:
+            continue
+        intervals.append((clipped_start, clipped_end))
+    intervals.sort(key=lambda item: item[0])
+    merged: list[tuple[datetime, datetime]] = []
+    for start, end in intervals:
+        if not merged or start > merged[-1][1]:
+            merged.append((start, end))
+        else:
+            merged[-1] = (merged[-1][0], max(merged[-1][1], end))
+    free_slots: list[tuple[datetime, datetime]] = []
+    cursor = day_start
+    for start, end in merged:
+        if start - cursor >= timedelta(minutes=45):
+            free_slots.append((cursor, start))
+        cursor = max(cursor, end)
+    if day_end - cursor >= timedelta(minutes=45):
+        free_slots.append((cursor, day_end))
+    return free_slots
+
+
+def _select_schedule_recommendation(candidate: dict, history: dict, proposal_row: dict | None, free_slots: list[tuple[datetime, datetime]]) -> str:
+    if proposal_row and proposal_row.get('start_ts'):
+        start = _parse_himalaya_date(proposal_row.get('start_ts'))
+        end = _parse_himalaya_date(proposal_row.get('end_ts'))
+        if start is not None:
+            start_local = start.astimezone(MAIL_TODO_TIMEZONE)
+            end_local = (end.astimezone(MAIL_TODO_TIMEZONE) if end is not None else start_local + timedelta(hours=1))
+            return f"메일에서 추출된 일정 후보 우선: {start_local.strftime('%m-%d %H:%M')}~{end_local.strftime('%H:%M')}"
+    reply_rate = history.get('reply_rate') or 0.0
+    median_hours = history.get('median_response_hours')
+    urgent = candidate.get('alert_type') == 'direct-action' or (median_hours is not None and median_hours <= 12) or reply_rate >= 0.7
+    target_slot = None
+    if urgent and free_slots:
+        target_slot = free_slots[0]
+    elif free_slots:
+        target_slot = free_slots[min(1, len(free_slots) - 1)]
+    if target_slot is None:
+        return '내일 캘린더에 뚜렷한 빈 시간이 적어 수동 조정 필요'
+    start, end = target_slot
+    length_minutes = int((min(end, start + timedelta(minutes=60 if urgent else 90)) - start).total_seconds() // 60)
+    return f"내일 캘린더 빈 시간 기준 추천: {start.strftime('%m-%d %H:%M')}부터 {length_minutes}분 검토/회신 블록"
+
+
+def _build_important_mail_recommendations(config: PipelineConfig, *, as_of: datetime) -> list[dict]:
+    window_rows = _load_mail_rows_for_todo_window(config.database_path, as_of=as_of)
+    actionable, _ = _build_next_day_mail_todos(window_rows)
+    history_rows = _load_message_history_rows(config.database_path, before=as_of, lookback_days=365)
+    tomorrow_start, tomorrow_end = _tomorrow_local_window(as_of)
+    calendar_rows = _load_calendar_events_for_window(config.database_path, start=tomorrow_start.astimezone(UTC), end=tomorrow_end.astimezone(UTC))
+    free_slots = _build_free_slots(calendar_rows, as_of=as_of)
+    proposal_rows = _load_event_proposal_rows(config.database_path)
+    recommendations: list[dict] = []
+    for candidate in actionable[:8]:
+        history = _history_stats_for_candidate(candidate, history_rows)
+        proposal_row = proposal_rows.get(str(candidate.get('message_id')))
+        recommendations.append({
+            **candidate,
+            'history': history,
+            'intent_inference': _infer_intent_from_history(candidate, history),
+            'schedule_recommendation': _select_schedule_recommendation(candidate, history, proposal_row, free_slots),
+            'proposal': proposal_row,
+        })
+    return recommendations
+
+
+def _write_important_mail_recommendations_note(config: PipelineConfig, generated_at: str, *, as_of: datetime) -> tuple[Path, list[dict]]:
+    path = config.wiki_root / IMPORTANT_MAIL_RECOMMENDATIONS_NOTE
+    path.parent.mkdir(parents=True, exist_ok=True)
+    recommendations = _build_important_mail_recommendations(config, as_of=as_of)
+    lines = [
+        '---',
+        'title: Important mail recommendations',
+        f'created: {generated_at[:10]}',
+        f'updated: {generated_at[:10]}',
+        'type: query',
+        'tags: [jarvis, intelligence, important-mail, recommendations, priority]',
+        'sources: []',
+        '---',
+        '',
+        '# Important mail recommendations',
+        '',
+        '> 중요해 보이는 메일을 추려, 과거 유사 대응/응답 지연/응답 여부와 내일 캘린더를 함께 보고 액션을 추천한 note.',
+        '',
+        f'- candidate_count: {len(recommendations)}',
+        '',
+    ]
+    if not recommendations:
+        lines.extend(['## Candidates', '- none'])
+    for item in recommendations:
+        history = item['history']
+        lines.extend([
+            f"## {item['subject']}",
+            f"- message_id: {item['message_id']}",
+            f"- sender: {item['from_addr']}",
+            f"- sent_at: {item['sent_at']}",
+            f"- alert_type: {item.get('alert_type') or 'mail'}",
+            f"- recommended_action: {item['todo']}",
+            f"- intent_inference: {item['intent_inference']}",
+            f"- schedule_recommendation: {item['schedule_recommendation']}",
+            '',
+            '### Past similar handling',
+            f"- similar_count: {history.get('similar_count', 0)}",
+            f"- replied_count: {history.get('replied_count', 0)}",
+            f"- unreplied_count: {history.get('unreplied_count', 0)}",
+            f"- reply_rate: {history.get('reply_rate')}",
+            f"- median_response_hours: {history.get('median_response_hours')}",
+            '',
+            '### Similar examples',
+        ])
+        examples = history.get('examples') or []
+        if examples:
+            for example in examples:
+                lines.append(
+                    f"- replied={example['replied']} | latency_h={example['response_latency_hours']} | subject={example['subject']} | sent={example['sent_at']} | reply={example['reply_subject'] or 'none'}"
+                )
+        else:
+            lines.append('- none')
+        lines.append('')
+    path.write_text('\n'.join(lines) + '\n', encoding='utf-8')
+    return path, recommendations
+
+
 def _write_jongwon_smartx_flow_note(config: PipelineConfig, rows: list[dict], generated_at: str) -> Path:
     path = config.wiki_root / JONGWON_SMARTX_FLOW_NOTE
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -1758,6 +2073,7 @@ def generate_daily_intelligence_report(
     project_work_items_path = _write_project_work_items_note(config, priority_flow_rows, moment.date().isoformat())
     recent_action_alerts_path = _write_recent_action_alerts_note(config, rows, moment.date().isoformat(), as_of=moment)
     next_day_mail_todos_path = _write_next_day_mail_todos_note(config, moment.date().isoformat(), as_of=moment)
+    important_mail_recommendations_path, important_mail_recommendations = _write_important_mail_recommendations_note(config, moment.date().isoformat(), as_of=moment)
     education_memory_path = _write_education_teaching_memory_note(config, rows, moment.date().isoformat())
     index_path = _write_intelligence_index(
         config,
@@ -1775,6 +2091,7 @@ def generate_daily_intelligence_report(
             PROJECT_WORK_ITEMS_NOTE,
             RECENT_ACTION_ALERTS_NOTE,
             NEXT_DAY_MAIL_TODOS_NOTE,
+            IMPORTANT_MAIL_RECOMMENDATIONS_NOTE,
             EDUCATION_TEACHING_MEMORY_NOTE,
         ],
     )
@@ -1805,6 +2122,8 @@ def generate_daily_intelligence_report(
         "item_count": len(rows),
         "opportunity_count": len(opportunities),
         "index_path": str(index_path),
+        "important_mail_note_path": str(important_mail_recommendations_path),
+        "important_mail_candidate_ids": [item.get("message_id") for item in important_mail_recommendations],
     }
     config.checkpoints_path.write_text(json.dumps(checkpoints, ensure_ascii=False, indent=2), encoding="utf-8")
     return {

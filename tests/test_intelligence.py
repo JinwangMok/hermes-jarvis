@@ -616,6 +616,21 @@ def test_generate_daily_intelligence_creates_dedicated_jongwon_smartx_lane_notes
                 "FW: [2026 GIST AI융합학과 X AI정책전략대학원 체육대회] 경기 참가 및 관람여부 설문조사 응답 요청 (~4/24(금)까지)", "jinwangmok@gm.gist.ac.kr", '["jinwang@smartx.kr"]', '[]',
                 "2026-04-20T18:21:00+09:00", None, None, None, 0, "2026-04-20T00:00:00+00:00", "sent-by-me", "fyi-forward",
             ),
+            (
+                "smartx:INBOX:hist1", "smartx", "inbox", None,
+                "[산자부E2E] (카이스트) GIST 서버 접근 안내 요청의 건", "seonmyeong.lee@kaist.ac.kr", '["jinwang@smartx.kr"]', '[]',
+                "2026-03-10T09:00:00+09:00", None, None, None, 1, "2026-03-10T00:00:00+00:00", "direct-to-me", "direct-ask",
+            ),
+            (
+                "smartx:SENT:hist1-reply", "smartx", "sent", None,
+                "Re: [산자부E2E] (카이스트) GIST 서버 접근 안내 요청의 건", "jinwang@smartx.kr", '["seonmyeong.lee@kaist.ac.kr"]', '[]',
+                "2026-03-10T15:30:00+09:00", None, None, None, 1, "2026-03-10T00:00:00+00:00", "sent-by-me", "status-reply",
+            ),
+            (
+                "smartx:INBOX:hist2", "smartx", "inbox", None,
+                "FW: [2025 GIST AI융합학과 X AI정책전략대학원 체육대회] 경기 참가 및 관람여부 설문조사 응답 요청", "jinwangmok@gm.gist.ac.kr", '["jinwang@smartx.kr"]', '[]',
+                "2026-03-20T11:00:00+09:00", None, None, None, 1, "2026-03-20T00:00:00+00:00", "sent-by-me", "fyi-forward",
+            ),
         ]
         for row in message_rows:
             conn.execute(
@@ -627,6 +642,28 @@ def test_generate_daily_intelligence_creates_dedicated_jongwon_smartx_lane_notes
                 """,
                 row,
             )
+        conn.execute(
+            """
+            INSERT OR REPLACE INTO calendar_events (
+                event_id, calendar_id, summary, status, start_ts, end_ts, location, html_link, dedup_key, raw_json_path, ingested_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "evt-1", "primary", "Existing meeting", "confirmed",
+                "2026-04-21T10:00:00+09:00", "2026-04-21T11:00:00+09:00", None, None, "existing-meeting-20260421-1000", None, "2026-04-20T00:00:00+00:00",
+            ),
+        )
+        conn.execute(
+            """
+            INSERT OR REPLACE INTO event_proposals (
+                proposal_id, source_message_id, title, start_ts, end_ts, location, description_md, confidence, status, dedup_key, reason_json, created_at, resolved_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "proposal-1", "smartx:INBOX:2", "체육대회 응답 관련 일정",
+                "2026-04-21T15:00:00+09:00", "2026-04-21T16:00:00+09:00", None, None, 0.88, "proposed", "sports-day-reply-20260421-1500", "{}", "2026-04-20T00:00:00+00:00", None,
+            ),
+        )
         conn.commit()
 
     report_result = generate_daily_intelligence_report(
@@ -646,6 +683,7 @@ def test_generate_daily_intelligence_creates_dedicated_jongwon_smartx_lane_notes
     assert "project-work-items" in index_text
     assert "recent-action-alerts" in index_text
     assert "next-day-mail-todos" in index_text
+    assert "important-mail-recommendations" in index_text
 
     direct_note = config.wiki_root / "queries/jinwang-jarvis-intelligence/priority/jongwon-direct-actions.md"
     weekly_note = config.wiki_root / "queries/jinwang-jarvis-intelligence/priority/smartx-weekly-briefing.md"
@@ -657,6 +695,7 @@ def test_generate_daily_intelligence_creates_dedicated_jongwon_smartx_lane_notes
     project_note = config.wiki_root / "queries/jinwang-jarvis-intelligence/priority/project-work-items.md"
     recent_action_note = config.wiki_root / "queries/jinwang-jarvis-intelligence/priority/recent-action-alerts.md"
     next_day_todo_note = config.wiki_root / "queries/jinwang-jarvis-intelligence/priority/next-day-mail-todos.md"
+    important_mail_note = config.wiki_root / "queries/jinwang-jarvis-intelligence/priority/important-mail-recommendations.md"
     assert direct_note.exists()
     assert weekly_note.exists()
     assert phase_note.exists()
@@ -667,6 +706,7 @@ def test_generate_daily_intelligence_creates_dedicated_jongwon_smartx_lane_notes
     assert project_note.exists()
     assert recent_action_note.exists()
     assert next_day_todo_note.exists()
+    assert important_mail_note.exists()
 
     direct_text = direct_note.read_text(encoding="utf-8")
     assert "데이터 파이프라인 검토 요청" in direct_text
@@ -708,6 +748,15 @@ def test_generate_daily_intelligence_creates_dedicated_jongwon_smartx_lane_notes
     assert "## Draft TODO for tomorrow" in next_day_todo_text
     assert "GIST 서버 접근 안내 요청의 건" in next_day_todo_text
     assert "설문조사 응답 요청" in next_day_todo_text
+
+    important_mail_text = important_mail_note.read_text(encoding="utf-8")
+    assert "# Important mail recommendations" in important_mail_text
+    assert "message_id: smartx:INBOX:1" in important_mail_text
+    assert "message_id: smartx:INBOX:2" in important_mail_text
+    assert "replied_count: 1" in important_mail_text
+    assert "median_response_hours: 6.5" in important_mail_text
+    assert "메일에서 추출된 일정 후보 우선: 04-21 15:00~16:00" in important_mail_text
+    assert "내일 캘린더 빈 시간 기준 추천:" in important_mail_text
 
     education_text = education_note.read_text(encoding="utf-8")
     assert "## Direct teaching / training" in education_text
