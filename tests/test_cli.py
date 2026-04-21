@@ -124,7 +124,7 @@ def test_cli_generate_proposals_and_record_feedback_commands_run_pipeline(tmp_pa
     with sqlite3.connect(tmp_path / "state" / "personal_intel.db") as conn:
         conn.execute("INSERT INTO sender_identities (email, display_name, role, organization, priority_base, source_note) VALUES (?, ?, ?, ?, ?, ?)", ("jongwon@smartx.kr", "김종원", "advisor", "smartx", 100, "test"))
         conn.execute("INSERT INTO sender_identities (email, display_name, role, organization, priority_base, source_note) VALUES (?, ?, ?, ?, ?, ?)", ("jinwang@smartx.kr", "목진왕", "self", "smartx", 90, "test"))
-        conn.execute("INSERT INTO messages (message_id, account, folder_kind, subject, from_addr, sent_at, ingested_at, is_seen) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", ("m1", "smartx", "inbox", "Please review meeting agenda 2026-04-21 13:00", "jongwon@smartx.kr", "2026-04-19T00:00:00+00:00", "2026-04-19T00:00:00+00:00", 0))
+        conn.execute("INSERT INTO messages (message_id, account, folder_kind, subject, from_addr, sent_at, ingested_at, is_seen) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", ("m1", "smartx", "inbox", "Please review meeting agenda 2027-04-21 13:00", "jongwon@smartx.kr", "2026-04-19T00:00:00+00:00", "2026-04-19T00:00:00+00:00", 0))
         conn.execute("INSERT INTO message_labels (message_id, label, score, reason_json) VALUES (?, ?, ?, ?)", ("m1", "advisor-request", 100.0, "{}"))
         conn.execute("INSERT INTO message_labels (message_id, label, score, reason_json) VALUES (?, ?, ?, ?)", ("m1", "meeting", 40.0, "{}"))
         conn.commit()
