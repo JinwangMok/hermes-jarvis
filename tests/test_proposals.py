@@ -189,7 +189,7 @@ def test_generate_proposals_persists_action_signals_and_artifact(tmp_path: Path)
         _insert_label(conn, "inbox-1", "meeting", 40.0)
         conn.commit()
 
-    result = generate_proposals(config)
+    result = generate_proposals(config, as_of=datetime.fromisoformat("2026-04-20T00:00:00+00:00"))
 
     assert result["proposal_count"] == 1
     assert result["action_signal_count"] >= 1

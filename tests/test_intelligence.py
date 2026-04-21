@@ -6,6 +6,7 @@ from jinwang_jarvis.intelligence import (
     _backfill_message_participant_cache,
     _build_education_cv_sections,
     _build_education_memory_records,
+    _build_recent_action_alerts,
     _classify_jongwon_context,
     _get_cached_message_participants,
     _infer_interaction_chains,
@@ -262,6 +263,63 @@ def test_classify_jongwon_context_distinguishes_sender_recipient_and_cc_cases():
         self_addresses,
     )
     assert professor_cced == "professor-cced"
+
+
+def test_build_recent_action_alerts_includes_direct_mail_and_self_relay_forward_candidates():
+    rows = [
+        {
+            "message_id": "m1",
+            "account": "smartx",
+            "subject": "[REMIND] [산자부E2E] GIST 서버 접근 안내 요청의 건",
+            "from_addr": "seonmyeong.lee@kaist.ac.kr",
+            "sent_at": "2026-04-16T11:25:00+00:00",
+            "self_role": "direct-to-me",
+            "interaction_role": "direct-ask",
+            "is_seen": 1,
+        },
+        {
+            "message_id": "m2",
+            "account": "smartx",
+            "subject": "FW: [2026 GIST AI융합학과 X AI정책전략대학원 체육대회] 경기 참가 및 관람여부 설문조사 응답 요청 (~4/24(금)까지)",
+            "from_addr": "jinwangmok@gm.gist.ac.kr",
+            "sent_at": "2026-04-20T11:21:00+00:00",
+            "self_role": "sent-by-me",
+            "interaction_role": "fyi-forward",
+            "is_seen": 0,
+        },
+        {
+            "message_id": "m3",
+            "account": "smartx",
+            "subject": "FW: (인재양성대전 2026) 부스 담당학생 대상 단톡방 개설 링크",
+            "from_addr": "jinwangmok@gm.gist.ac.kr",
+            "sent_at": "2026-04-21T02:14:00+00:00",
+            "self_role": "sent-by-me",
+            "interaction_role": "fyi-forward",
+            "is_seen": 0,
+        },
+        {
+            "message_id": "m4",
+            "account": "personal",
+            "subject": "일반 뉴스레터",
+            "from_addr": "news@example.com",
+            "sent_at": "2026-04-21T01:00:00+00:00",
+            "self_role": "direct-to-me",
+            "interaction_role": "other",
+            "is_seen": 0,
+        },
+    ]
+
+    alerts = _build_recent_action_alerts(rows)
+    subjects = [item["subject"] for item in alerts]
+    assert "[REMIND] [산자부E2E] GIST 서버 접근 안내 요청의 건" in subjects
+    assert "FW: [2026 GIST AI융합학과 X AI정책전략대학원 체육대회] 경기 참가 및 관람여부 설문조사 응답 요청 (~4/24(금)까지)" in subjects
+    assert "FW: (인재양성대전 2026) 부스 담당학생 대상 단톡방 개설 링크" in subjects
+    assert "일반 뉴스레터" not in subjects
+
+    by_subject = {item["subject"]: item for item in alerts}
+    assert by_subject["[REMIND] [산자부E2E] GIST 서버 접근 안내 요청의 건"]["alert_type"] == "direct-action"
+    assert by_subject["FW: [2026 GIST AI융합학과 X AI정책전략대학원 체육대회] 경기 참가 및 관람여부 설문조사 응답 요청 (~4/24(금)까지)"]["alert_type"] == "self-relay-action"
+    assert by_subject["FW: (인재양성대전 2026) 부스 담당학생 대상 단톡방 개설 링크"]["alert_type"] == "self-relay-action"
 
 
 def test_build_education_memory_records_promotes_career_like_items_and_filters_generic_notices():
@@ -546,6 +604,28 @@ def test_generate_daily_intelligence_creates_dedicated_jongwon_smartx_lane_notes
                 """,
                 row,
             )
+        message_rows = [
+            (
+                "smartx:INBOX:1", "smartx", "inbox", None,
+                "[REMIND] [산자부E2E] (카이스트) GIST 서버 접근 안내 요청의 건", "seonmyeong.lee@kaist.ac.kr", '["jinwang@smartx.kr"]', '[]',
+                "2026-04-16T20:25:00+09:00", None, None, None, 1, "2026-04-20T00:00:00+00:00", "direct-to-me", "direct-ask",
+            ),
+            (
+                "smartx:INBOX:2", "smartx", "inbox", None,
+                "FW: [2026 GIST AI융합학과 X AI정책전략대학원 체육대회] 경기 참가 및 관람여부 설문조사 응답 요청 (~4/24(금)까지)", "jinwangmok@gm.gist.ac.kr", '["jinwang@smartx.kr"]', '[]',
+                "2026-04-20T11:21:00+00:00", None, None, None, 0, "2026-04-20T00:00:00+00:00", "sent-by-me", "fyi-forward",
+            ),
+        ]
+        for row in message_rows:
+            conn.execute(
+                """
+                INSERT OR REPLACE INTO messages (
+                    message_id, account, folder_kind, thread_key, subject, from_addr, to_addrs, cc_addrs,
+                    sent_at, snippet, body_path, raw_json_path, is_seen, ingested_at, self_role, interaction_role
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                row,
+            )
         conn.commit()
 
     report_result = generate_daily_intelligence_report(config, lookback_days=7)
@@ -559,6 +639,7 @@ def test_generate_daily_intelligence_creates_dedicated_jongwon_smartx_lane_notes
     assert "advisor-action-status" in index_text
     assert "education-teaching-memory" in index_text
     assert "project-work-items" in index_text
+    assert "recent-action-alerts" in index_text
 
     direct_note = config.wiki_root / "queries/jinwang-jarvis-intelligence/priority/jongwon-direct-actions.md"
     weekly_note = config.wiki_root / "queries/jinwang-jarvis-intelligence/priority/smartx-weekly-briefing.md"
@@ -568,6 +649,7 @@ def test_generate_daily_intelligence_creates_dedicated_jongwon_smartx_lane_notes
     advisor_action_note = config.wiki_root / "queries/jinwang-jarvis-intelligence/priority/advisor-action-status.md"
     education_note = config.wiki_root / "queries/jinwang-jarvis-intelligence/priority/education-teaching-memory.md"
     project_note = config.wiki_root / "queries/jinwang-jarvis-intelligence/priority/project-work-items.md"
+    recent_action_note = config.wiki_root / "queries/jinwang-jarvis-intelligence/priority/recent-action-alerts.md"
     assert direct_note.exists()
     assert weekly_note.exists()
     assert phase_note.exists()
@@ -576,6 +658,7 @@ def test_generate_daily_intelligence_creates_dedicated_jongwon_smartx_lane_notes
     assert advisor_action_note.exists()
     assert education_note.exists()
     assert project_note.exists()
+    assert recent_action_note.exists()
 
     direct_text = direct_note.read_text(encoding="utf-8")
     assert "데이터 파이프라인 검토 요청" in direct_text
@@ -604,7 +687,12 @@ def test_generate_daily_intelligence_creates_dedicated_jongwon_smartx_lane_notes
 
     project_text = project_note.read_text(encoding="utf-8")
     assert "## Active work items" in project_text
-    assert "데이터 파이프라인" in project_text
+    assert "data-platform" in project_text
+
+    recent_action_text = recent_action_note.read_text(encoding="utf-8")
+    assert "## Direct action mail" in recent_action_text
+    assert "## Self-relay action candidates" in recent_action_text
+    assert "설문조사 응답 요청" in recent_action_text
 
     education_text = education_note.read_text(encoding="utf-8")
     assert "## Direct teaching / training" in education_text

@@ -82,6 +82,7 @@ JONGWON_CONTEXT_CASES_NOTE = f"{PRIORITY_NOTE_DIR}/jongwon-context-cases.md"
 INTERACTION_CHAIN_NOTE = f"{PRIORITY_NOTE_DIR}/interaction-chain-status.md"
 ADVISOR_ACTION_STATUS_NOTE = f"{PRIORITY_NOTE_DIR}/advisor-action-status.md"
 PROJECT_WORK_ITEMS_NOTE = f"{PRIORITY_NOTE_DIR}/project-work-items.md"
+RECENT_ACTION_ALERTS_NOTE = f"{PRIORITY_NOTE_DIR}/recent-action-alerts.md"
 EDUCATION_TEACHING_MEMORY_NOTE = f"{PRIORITY_NOTE_DIR}/education-teaching-memory.md"
 MONTHLY_TIMELINE_NOTE = "queries/jinwang-jarvis-monthly-timeline-36m.md"
 DEFAULT_LOOKBACK_DAYS = 7
@@ -762,6 +763,114 @@ def _load_jongwon_smartx_flow_rows(database_path: Path, *, as_of: datetime, mont
         item["tags"] = json.loads(item.get("tags_json") or "[]")
         payload.append(item)
     return payload
+
+
+def _load_recent_inbox_rows(database_path: Path, *, as_of: datetime, lookback_days: int = 7) -> list[dict]:
+    start = (as_of - timedelta(days=lookback_days)).isoformat()
+    with sqlite3.connect(database_path) as conn:
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute(
+            """
+            SELECT message_id, account, folder_kind, subject, from_addr, to_addrs, cc_addrs,
+                   sent_at, snippet, self_role, interaction_role, is_seen
+            FROM messages
+            WHERE folder_kind = 'inbox'
+              AND COALESCE(sent_at, '') >= ?
+            ORDER BY sent_at DESC, message_id DESC
+            """,
+            (start,),
+        ).fetchall()
+    payload = []
+    for row in rows:
+        item = dict(row)
+        try:
+            item['to_addrs'] = json.loads(item.get('to_addrs') or '[]')
+        except Exception:
+            item['to_addrs'] = []
+        try:
+            item['cc_addrs'] = json.loads(item.get('cc_addrs') or '[]')
+        except Exception:
+            item['cc_addrs'] = []
+        payload.append(item)
+    return payload
+
+
+def _is_self_relay_action_candidate(row: dict) -> bool:
+    subject = _clean_subject(row.get('subject')).casefold()
+    sender = (row.get('from_addr') or '').strip().lower()
+    if row.get('self_role') != 'sent-by-me' or row.get('interaction_role') != 'fyi-forward':
+        return False
+    if '@gm.gist.ac.kr' not in sender and '@gmail.com' not in sender:
+        return False
+    action_terms = [
+        '응답 요청', '회신', '요청', '설문', '설문조사', '제출', '참석', '확정', '링크', '단톡방',
+        'proposal', 'submission', 'shared', 'confirm', 'confirmed', 'remind', 'reminder', 'register',
+    ]
+    return any(term.casefold() in subject for term in action_terms)
+
+
+def _build_recent_action_alerts(rows: list[dict]) -> list[dict]:
+    alerts: list[dict] = []
+    seen: set[str] = set()
+    for row in sorted(rows, key=lambda item: item.get('sent_at') or '', reverse=True):
+        subject = _clean_subject(row.get('subject'))
+        key = _dedup_subject_key(subject)
+        alert_type = None
+        if row.get('self_role') in {'direct-to-me', 'cc-me'} and row.get('interaction_role') in {'direct-ask', 'review-request', 'status-request', 'decision-request'}:
+            alert_type = 'direct-action'
+        elif _is_self_relay_action_candidate(row):
+            alert_type = 'self-relay-action'
+        if not alert_type or key in seen:
+            continue
+        seen.add(key)
+        alerts.append({
+            'message_id': row.get('message_id'),
+            'account': row.get('account'),
+            'subject': subject,
+            'from_addr': row.get('from_addr') or 'unknown',
+            'sent_at': row.get('sent_at'),
+            'alert_type': alert_type,
+            'is_seen': row.get('is_seen'),
+        })
+    return alerts
+
+
+def _write_recent_action_alerts_note(config: PipelineConfig, rows: list[dict], generated_at: str, *, as_of: datetime) -> Path:
+    path = config.wiki_root / RECENT_ACTION_ALERTS_NOTE
+    path.parent.mkdir(parents=True, exist_ok=True)
+    inbox_rows = _load_recent_inbox_rows(config.database_path, as_of=as_of, lookback_days=7)
+    alerts = _build_recent_action_alerts(inbox_rows)
+    direct_items = [item for item in alerts if item['alert_type'] == 'direct-action']
+    relay_items = [item for item in alerts if item['alert_type'] == 'self-relay-action']
+    lines = [
+        '---',
+        'title: Recent action alerts',
+        f'created: {generated_at[:10]}',
+        f'updated: {generated_at[:10]}',
+        'type: query',
+        'tags: [jarvis, intelligence, alerts, inbox, priority]',
+        'sources: []',
+        '---',
+        '',
+        '# Recent action alerts',
+        '',
+        '> 최근 inbox에서 즉시 확인이 필요한 direct mail과 self-relay forward action 후보를 모은 note.',
+        '',
+        '## Direct action mail',
+    ]
+    if direct_items:
+        for item in direct_items[:20]:
+            lines.append(f"- {item['sent_at']} | {item['subject']} | from={item['from_addr']} | seen={item['is_seen']}")
+    else:
+        lines.append('- none')
+    lines.extend(['', '## Self-relay action candidates'])
+    if relay_items:
+        for item in relay_items[:20]:
+            lines.append(f"- {item['sent_at']} | {item['subject']} | from={item['from_addr']} | seen={item['is_seen']}")
+    else:
+        lines.append('- none')
+    path.write_text('\n'.join(lines) + '\n', encoding='utf-8')
+    return path
 
 
 def _write_jongwon_smartx_flow_note(config: PipelineConfig, rows: list[dict], generated_at: str) -> Path:
@@ -1481,7 +1590,7 @@ def generate_daily_intelligence_report(
     text = "\n".join(lines) + "\n"
     artifact_path.write_text(text, encoding="utf-8")
     wiki_path.write_text(text, encoding="utf-8")
-    _systematic_backfill_message_participant_cache(config.database_path, limit=120)
+    _systematic_backfill_message_participant_cache(config.database_path, limit=40)
     note_paths = _write_category_notes(config, rows, moment.date().isoformat())
     priority_flow_rows = _load_jongwon_smartx_flow_rows(config.database_path, as_of=moment)
     priority_flow_path = _write_jongwon_smartx_flow_note(config, priority_flow_rows, moment.date().isoformat())
@@ -1492,6 +1601,7 @@ def generate_daily_intelligence_report(
     chain_note_path = _write_interaction_chain_note(config, rows, moment.date().isoformat())
     advisor_action_path = _write_advisor_action_status_note(config, priority_flow_rows, moment.date().isoformat())
     project_work_items_path = _write_project_work_items_note(config, priority_flow_rows, moment.date().isoformat())
+    recent_action_alerts_path = _write_recent_action_alerts_note(config, rows, moment.date().isoformat(), as_of=moment)
     education_memory_path = _write_education_teaching_memory_note(config, rows, moment.date().isoformat())
     index_path = _write_intelligence_index(
         config,
@@ -1507,6 +1617,7 @@ def generate_daily_intelligence_report(
             INTERACTION_CHAIN_NOTE,
             ADVISOR_ACTION_STATUS_NOTE,
             PROJECT_WORK_ITEMS_NOTE,
+            RECENT_ACTION_ALERTS_NOTE,
             EDUCATION_TEACHING_MEMORY_NOTE,
         ],
     )
