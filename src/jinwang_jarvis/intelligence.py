@@ -7,6 +7,7 @@ import subprocess
 import tempfile
 from datetime import UTC, datetime, timedelta
 from email import policy
+from zoneinfo import ZoneInfo
 from email.parser import BytesHeaderParser
 from email.utils import getaddresses
 from pathlib import Path
@@ -83,9 +84,12 @@ INTERACTION_CHAIN_NOTE = f"{PRIORITY_NOTE_DIR}/interaction-chain-status.md"
 ADVISOR_ACTION_STATUS_NOTE = f"{PRIORITY_NOTE_DIR}/advisor-action-status.md"
 PROJECT_WORK_ITEMS_NOTE = f"{PRIORITY_NOTE_DIR}/project-work-items.md"
 RECENT_ACTION_ALERTS_NOTE = f"{PRIORITY_NOTE_DIR}/recent-action-alerts.md"
+NEXT_DAY_MAIL_TODOS_NOTE = f"{PRIORITY_NOTE_DIR}/next-day-mail-todos.md"
 EDUCATION_TEACHING_MEMORY_NOTE = f"{PRIORITY_NOTE_DIR}/education-teaching-memory.md"
 MONTHLY_TIMELINE_NOTE = "queries/jinwang-jarvis-monthly-timeline-36m.md"
 DEFAULT_LOOKBACK_DAYS = 7
+MAIL_TODO_TIMEZONE = ZoneInfo("Asia/Seoul")
+MAIL_TODO_CUTOFF_HOUR = 19
 MAX_PAGES = 200
 PAGE_SIZE = 100
 JONGWON_ADDRESSES = {"jongwon@smartx.kr"}
@@ -873,6 +877,157 @@ def _write_recent_action_alerts_note(config: PipelineConfig, rows: list[dict], g
     return path
 
 
+def _mail_todo_window(as_of: datetime) -> tuple[datetime, datetime, datetime, datetime]:
+    local_as_of = as_of.astimezone(MAIL_TODO_TIMEZONE)
+    local_cutoff = local_as_of.replace(hour=MAIL_TODO_CUTOFF_HOUR, minute=0, second=0, microsecond=0)
+    if local_as_of < local_cutoff:
+        local_cutoff -= timedelta(days=1)
+    local_start = local_cutoff - timedelta(days=1)
+    return (
+        local_start.astimezone(UTC),
+        local_cutoff.astimezone(UTC),
+        local_start,
+        local_cutoff,
+    )
+
+
+def _load_mail_rows_for_todo_window(database_path: Path, *, as_of: datetime) -> list[dict]:
+    start_utc, end_utc, _, _ = _mail_todo_window(as_of)
+    with sqlite3.connect(database_path) as conn:
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute(
+            """
+            SELECT message_id, account, folder_kind, subject, from_addr, to_addrs, cc_addrs,
+                   sent_at, snippet, self_role, interaction_role, is_seen
+            FROM messages
+            WHERE datetime(COALESCE(sent_at, '')) >= datetime(?)
+              AND datetime(COALESCE(sent_at, '')) < datetime(?)
+            ORDER BY datetime(sent_at) DESC, message_id DESC
+            """,
+            (start_utc.isoformat(), end_utc.isoformat()),
+        ).fetchall()
+    payload: list[dict] = []
+    for row in rows:
+        item = dict(row)
+        try:
+            item['to_addrs'] = json.loads(item.get('to_addrs') or '[]')
+        except Exception:
+            item['to_addrs'] = []
+        try:
+            item['cc_addrs'] = json.loads(item.get('cc_addrs') or '[]')
+        except Exception:
+            item['cc_addrs'] = []
+        payload.append(item)
+    return payload
+
+
+def _infer_mail_todo_action(subject: str) -> str:
+    lowered = _clean_subject(subject).casefold()
+    if any(term in lowered for term in ['google account', 'account settings', 'security', 'verify', 'review your google account']):
+        return '계정/보안 설정을 검토하고 필요한 조치를 정리'
+    if any(term in lowered for term in ['서버 접근', '접근 안내', 'access', 'server']):
+        return '접근 요청/안내 상태를 확인하고 필요한 회신·후속 조치를 정리'
+    if any(term in lowered for term in ['설문', '응답 요청', '응답', 'survey']):
+        return '응답/설문 제출 여부를 결정하고 처리'
+    if any(term in lowered for term in ['참석', 'confirmed', 'confirm', 'registration', 'register', '참가']):
+        return '참석 여부·등록 상태를 확인하고 필요한 준비를 정리'
+    if any(term in lowered for term in ['proposal', 'submission', 'shared', 'compilation']):
+        return '공유된 제안/제출 자료를 확인하고 필요한 후속 작업을 정리'
+    if any(term in lowered for term in ['링크', '단톡방', 'link']):
+        return '전달된 링크를 확인하고 참여/공유가 필요한지 정리'
+    if any(term in lowered for term in ['일지', '보고']):
+        return '정기 보고/업무 일지 관련 남은 조치를 확인'
+    if any(term in lowered for term in ['remind', 'reminder', '요청']):
+        return '요청 메일의 남은 액션을 확인하고 우선순위를 정리'
+    return '메일 내용을 확인하고 필요한 후속 조치를 정리'
+
+
+def _build_next_day_mail_todos(rows: list[dict]) -> tuple[list[dict], list[dict]]:
+    actionable: list[dict] = []
+    awareness: list[dict] = []
+    seen_subjects: set[str] = set()
+    alerts = _build_recent_action_alerts(rows)
+    alert_index = {item['message_id']: item for item in alerts if item.get('message_id')}
+    for row in sorted(rows, key=lambda item: item.get('sent_at') or '', reverse=True):
+        subject = _clean_subject(row.get('subject'))
+        if subject == '(제목 없음)':
+            continue
+        dedup_key = _dedup_subject_key(subject)
+        if dedup_key in seen_subjects:
+            continue
+        seen_subjects.add(dedup_key)
+        alert = alert_index.get(row.get('message_id'))
+        lowered = subject.casefold()
+        is_action = alert is not None or row.get('interaction_role') in {'direct-ask', 'review-request', 'status-request', 'decision-request'}
+        if not is_action:
+            is_action = any(term in lowered for term in ['응답 요청', '설문', 'proposal', 'submission', 'confirmed', '참석', '링크', '단톡방', 'server', 'access', 'review'])
+        item = {
+            'message_id': row.get('message_id'),
+            'account': row.get('account'),
+            'folder_kind': row.get('folder_kind'),
+            'subject': subject,
+            'from_addr': row.get('from_addr') or 'unknown',
+            'sent_at': row.get('sent_at') or 'unknown',
+            'alert_type': alert.get('alert_type') if alert else None,
+            'todo': _infer_mail_todo_action(subject),
+        }
+        if is_action:
+            actionable.append(item)
+        elif row.get('folder_kind') == 'inbox':
+            awareness.append(item)
+    return actionable[:12], awareness[:8]
+
+
+def _write_next_day_mail_todos_note(config: PipelineConfig, generated_at: str, *, as_of: datetime) -> Path:
+    path = config.wiki_root / NEXT_DAY_MAIL_TODOS_NOTE
+    path.parent.mkdir(parents=True, exist_ok=True)
+    window_rows = _load_mail_rows_for_todo_window(config.database_path, as_of=as_of)
+    actionable, awareness = _build_next_day_mail_todos(window_rows)
+    _, _, local_start, local_end = _mail_todo_window(as_of)
+    inbox_count = sum(1 for row in window_rows if row.get('folder_kind') == 'inbox')
+    sent_count = sum(1 for row in window_rows if row.get('folder_kind') == 'sent')
+    lines = [
+        '---',
+        'title: Next-day TODO from mail',
+        f'created: {generated_at[:10]}',
+        f'updated: {generated_at[:10]}',
+        'type: query',
+        'tags: [jarvis, intelligence, todo, mail, priority]',
+        'sources: []',
+        '---',
+        '',
+        '# Next-day TODO from mail',
+        '',
+        '> 전날 19시부터 오늘 19시까지 들어오고 오간 메일만 기준으로, 다음날 챙길 TODO를 메일 중심으로 정리한 note.',
+        '',
+        f"- Window (KST): {local_start.strftime('%Y-%m-%d %H:%M')} ~ {local_end.strftime('%Y-%m-%d %H:%M')}",
+        f"- Messages reviewed: total={len(window_rows)}, inbox={inbox_count}, sent={sent_count}",
+        f"- Strong action candidates: {len(actionable)}",
+        '',
+        '## Strong mail signals',
+    ]
+    if actionable:
+        for item in actionable:
+            signal = item['alert_type'] or item['folder_kind'] or 'mail'
+            lines.append(f"- [{signal}] {item['subject']} | from={item['from_addr']} | sent={item['sent_at']}")
+    else:
+        lines.append('- none')
+    lines.extend(['', '## Draft TODO for tomorrow'])
+    if actionable:
+        for item in actionable:
+            lines.append(f"- [ ] {item['todo']} — 근거: {item['subject']}")
+    else:
+        lines.append('- [ ] 특별히 급한 메일 TODO는 보이지 않음. 미처리 direct/self-relay 메일만 다시 확인')
+    lines.extend(['', '## Lower-priority awareness'])
+    if awareness:
+        for item in awareness:
+            lines.append(f"- {item['subject']} | from={item['from_addr']} | sent={item['sent_at']}")
+    else:
+        lines.append('- none')
+    path.write_text('\n'.join(lines) + '\n', encoding='utf-8')
+    return path
+
+
 def _write_jongwon_smartx_flow_note(config: PipelineConfig, rows: list[dict], generated_at: str) -> Path:
     path = config.wiki_root / JONGWON_SMARTX_FLOW_NOTE
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -1602,6 +1757,7 @@ def generate_daily_intelligence_report(
     advisor_action_path = _write_advisor_action_status_note(config, priority_flow_rows, moment.date().isoformat())
     project_work_items_path = _write_project_work_items_note(config, priority_flow_rows, moment.date().isoformat())
     recent_action_alerts_path = _write_recent_action_alerts_note(config, rows, moment.date().isoformat(), as_of=moment)
+    next_day_mail_todos_path = _write_next_day_mail_todos_note(config, moment.date().isoformat(), as_of=moment)
     education_memory_path = _write_education_teaching_memory_note(config, rows, moment.date().isoformat())
     index_path = _write_intelligence_index(
         config,
@@ -1618,6 +1774,7 @@ def generate_daily_intelligence_report(
             ADVISOR_ACTION_STATUS_NOTE,
             PROJECT_WORK_ITEMS_NOTE,
             RECENT_ACTION_ALERTS_NOTE,
+            NEXT_DAY_MAIL_TODOS_NOTE,
             EDUCATION_TEACHING_MEMORY_NOTE,
         ],
     )

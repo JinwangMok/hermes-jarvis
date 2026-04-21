@@ -7,4 +7,4 @@ Wants=network-online.target
 Type=oneshot
 WorkingDirectory=/home/jinwang/workspace/jinwang-jarvis
 Environment=PATH=/home/jinwang/.cargo/bin:/home/jinwang/.local/bin:/home/jinwang/.hermes/hermes-agent/venv/bin:/home/jinwang/.hermes/hermes-agent/node_modules/.bin:/home/jinwang/.local/share/fnm/node-versions/v24.14.1/installation/bin:/home/jinwang/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/snap/bin
-ExecStart=/bin/bash -lc 'cd /home/jinwang/workspace/jinwang-jarvis && PYTHONPATH=src python3 -m jinwang_jarvis.cli weekly-review --config config/pipeline.yaml'
+ExecStart=/bin/bash -lc 'cd /home/jinwang/workspace/jinwang-jarvis && PYTHONPATH=src python3 -m jinwang_jarvis.cli weekly-review --config config/pipeline.local.yaml'

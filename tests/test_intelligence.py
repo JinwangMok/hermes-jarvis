@@ -1,4 +1,5 @@
 import json
+from datetime import UTC, datetime
 from pathlib import Path
 
 from jinwang_jarvis.config import load_pipeline_config
@@ -608,12 +609,12 @@ def test_generate_daily_intelligence_creates_dedicated_jongwon_smartx_lane_notes
             (
                 "smartx:INBOX:1", "smartx", "inbox", None,
                 "[REMIND] [산자부E2E] (카이스트) GIST 서버 접근 안내 요청의 건", "seonmyeong.lee@kaist.ac.kr", '["jinwang@smartx.kr"]', '[]',
-                "2026-04-16T20:25:00+09:00", None, None, None, 1, "2026-04-20T00:00:00+00:00", "direct-to-me", "direct-ask",
+                "2026-04-20T08:25:00+09:00", None, None, None, 1, "2026-04-20T00:00:00+00:00", "direct-to-me", "direct-ask",
             ),
             (
                 "smartx:INBOX:2", "smartx", "inbox", None,
                 "FW: [2026 GIST AI융합학과 X AI정책전략대학원 체육대회] 경기 참가 및 관람여부 설문조사 응답 요청 (~4/24(금)까지)", "jinwangmok@gm.gist.ac.kr", '["jinwang@smartx.kr"]', '[]',
-                "2026-04-20T11:21:00+00:00", None, None, None, 0, "2026-04-20T00:00:00+00:00", "sent-by-me", "fyi-forward",
+                "2026-04-20T18:21:00+09:00", None, None, None, 0, "2026-04-20T00:00:00+00:00", "sent-by-me", "fyi-forward",
             ),
         ]
         for row in message_rows:
@@ -628,7 +629,11 @@ def test_generate_daily_intelligence_creates_dedicated_jongwon_smartx_lane_notes
             )
         conn.commit()
 
-    report_result = generate_daily_intelligence_report(config, lookback_days=7)
+    report_result = generate_daily_intelligence_report(
+        config,
+        lookback_days=7,
+        as_of=datetime(2026, 4, 20, 10, 5, tzinfo=UTC),
+    )
 
     index_text = report_result["index_path"].read_text(encoding="utf-8")
     assert "jongwon-direct-actions" in index_text
@@ -640,6 +645,7 @@ def test_generate_daily_intelligence_creates_dedicated_jongwon_smartx_lane_notes
     assert "education-teaching-memory" in index_text
     assert "project-work-items" in index_text
     assert "recent-action-alerts" in index_text
+    assert "next-day-mail-todos" in index_text
 
     direct_note = config.wiki_root / "queries/jinwang-jarvis-intelligence/priority/jongwon-direct-actions.md"
     weekly_note = config.wiki_root / "queries/jinwang-jarvis-intelligence/priority/smartx-weekly-briefing.md"
@@ -650,6 +656,7 @@ def test_generate_daily_intelligence_creates_dedicated_jongwon_smartx_lane_notes
     education_note = config.wiki_root / "queries/jinwang-jarvis-intelligence/priority/education-teaching-memory.md"
     project_note = config.wiki_root / "queries/jinwang-jarvis-intelligence/priority/project-work-items.md"
     recent_action_note = config.wiki_root / "queries/jinwang-jarvis-intelligence/priority/recent-action-alerts.md"
+    next_day_todo_note = config.wiki_root / "queries/jinwang-jarvis-intelligence/priority/next-day-mail-todos.md"
     assert direct_note.exists()
     assert weekly_note.exists()
     assert phase_note.exists()
@@ -659,6 +666,7 @@ def test_generate_daily_intelligence_creates_dedicated_jongwon_smartx_lane_notes
     assert education_note.exists()
     assert project_note.exists()
     assert recent_action_note.exists()
+    assert next_day_todo_note.exists()
 
     direct_text = direct_note.read_text(encoding="utf-8")
     assert "데이터 파이프라인 검토 요청" in direct_text
@@ -693,6 +701,13 @@ def test_generate_daily_intelligence_creates_dedicated_jongwon_smartx_lane_notes
     assert "## Direct action mail" in recent_action_text
     assert "## Self-relay action candidates" in recent_action_text
     assert "설문조사 응답 요청" in recent_action_text
+
+    next_day_todo_text = next_day_todo_note.read_text(encoding="utf-8")
+    assert "# Next-day TODO from mail" in next_day_todo_text
+    assert "Window (KST): 2026-04-19 19:00 ~ 2026-04-20 19:00" in next_day_todo_text
+    assert "## Draft TODO for tomorrow" in next_day_todo_text
+    assert "GIST 서버 접근 안내 요청의 건" in next_day_todo_text
+    assert "설문조사 응답 요청" in next_day_todo_text
 
     education_text = education_note.read_text(encoding="utf-8")
     assert "## Direct teaching / training" in education_text
