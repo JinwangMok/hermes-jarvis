@@ -10,6 +10,7 @@ from .calendar import collect_calendar_snapshots
 from .classifier import classify_messages
 from .config import PipelineConfig
 from .digest import generate_digest
+from .intelligence import generate_daily_intelligence_report
 from .mail import collect_mail_snapshots
 from .knowledge import synthesize_knowledge
 from .proposals import generate_proposals
@@ -38,6 +39,7 @@ def run_pipeline_cycle(config: PipelineConfig) -> dict:
     proposal_result = generate_proposals(config)
     knowledge_result = synthesize_knowledge(config, write_wiki=False)
     digest_result = generate_digest(config, proposal_result)
+    intelligence_result = generate_daily_intelligence_report(config)
     briefing_result = generate_briefing(config)
     return {
         "mail": mail_result,
@@ -46,6 +48,7 @@ def run_pipeline_cycle(config: PipelineConfig) -> dict:
         "proposals": proposal_result,
         "knowledge": knowledge_result,
         "digest": digest_result,
+        "intelligence": intelligence_result,
         "briefing": briefing_result,
     }
 

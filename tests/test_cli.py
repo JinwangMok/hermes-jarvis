@@ -97,6 +97,9 @@ def test_cli_run_cycle_and_install_systemd_commands(tmp_path: Path, monkeypatch)
 
     cycle_exit_code = main(["run-cycle", "--config", str(config_file)])
     assert cycle_exit_code == 0
+    checkpoints = json.loads((tmp_path / "state" / "checkpoints.json").read_text(encoding="utf-8"))
+    assert "daily_intelligence" in checkpoints
+    assert checkpoints["daily_intelligence"]["latest"]["index_path"]
 
     calls = []
 
