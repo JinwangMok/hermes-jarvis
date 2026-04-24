@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+from pathlib import Path
 from typing import Sequence
 
 from .backfill import run_next_backfill_step, run_progressive_backfill
@@ -18,7 +19,7 @@ from .mail import build_fake_mail_runner, collect_mail_snapshots
 from .proposals import generate_proposals
 from .review import generate_weekly_review
 from .runtime import install_systemd_user_units, run_pipeline_cycle
-from .watch import build_watch_stories, collect_watch_signals, generate_watch_report, judge_watch_issues, run_watch_cycle, sync_watch_sources
+from .watch import build_watch_stories, collect_watch_signals, generate_external_hot_issue_alert, generate_watch_report, judge_watch_issues, run_watch_cycle, sync_watch_sources
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -97,6 +98,10 @@ def build_parser() -> argparse.ArgumentParser:
     watch_report_parser = subparsers.add_parser("generate-watch-report", help="Generate a watch report artifact")
     watch_report_parser.add_argument("--config", required=True, help="Path to pipeline.yaml")
     watch_report_parser.add_argument("--report-kind", default="hourly-hot-issues", help="Report kind")
+
+    hot_alert_parser = subparsers.add_parser("generate-external-hot-issue-alert", help="Dedupe a watch report against external hot issue state and print the deliverable alert text")
+    hot_alert_parser.add_argument("--report-path", required=True, help="Path to generated watch report markdown")
+    hot_alert_parser.add_argument("--state-path", default="state/external_hot_issue_state.json", help="Path to external hot issue dedupe state JSON")
 
     watch_cycle_parser = subparsers.add_parser("run-watch-cycle", help="Run one full watch cycle")
     watch_cycle_parser.add_argument("--config", required=True, help="Path to pipeline.yaml")
@@ -295,6 +300,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         config = load_pipeline_config(args.config)
         result = generate_watch_report(config, report_kind=args.report_kind)
         print(json.dumps({**result, "artifact_path": str(result["artifact_path"])}, ensure_ascii=False))
+        return 0
+
+    if args.command == "generate-external-hot-issue-alert":
+        result = generate_external_hot_issue_alert(report_path=Path(args.report_path), state_path=Path(args.state_path))
+        print(json.dumps(result, ensure_ascii=False))
         return 0
 
     if args.command == "run-watch-cycle":

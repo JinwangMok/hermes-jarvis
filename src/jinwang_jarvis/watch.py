@@ -139,6 +139,16 @@ def _canonicalize_url(url: str | None, *, base_url: str | None = None) -> str:
     return urlunparse(cleaned)
 
 
+def _canonical_issue_key(url: str | None, title: str | None = None) -> str:
+    canonical = _canonicalize_url(url)
+    if canonical and canonical.lower() != "n/a":
+        parsed = urlparse(canonical)
+        path = parsed.path.rstrip("/") or parsed.path
+        cleaned = parsed._replace(netloc=parsed.netloc.lower(), path=path)
+        return urlunparse(cleaned)
+    return f"title:{_normalize_title(title)}"
+
+
 def _normalize_title(title: str | None) -> str:
     text = (title or "").strip()
     text = HN_PREFIX_RE.sub("", text)
@@ -909,6 +919,107 @@ def judge_watch_issues(config: PipelineConfig) -> dict:
             judged.append(row["issue_id"])
         conn.commit()
     return {"judged_count": len(judged), "issue_ids": judged}
+
+
+def _external_hot_issue_window_key(now: datetime | None = None) -> str:
+    current = now or _utc_now()
+    current = (current if current.tzinfo else current.replace(tzinfo=UTC)).astimezone(UTC)
+    kst = current + timedelta(hours=9)
+    window_end = kst.date() + (timedelta(days=1) if kst.hour >= 19 else timedelta(days=0))
+    return window_end.isoformat()
+
+
+def _parse_watch_report_issues(report_text: str) -> list[dict[str, str]]:
+    issues: list[dict[str, str]] = []
+    current: dict[str, str] | None = None
+    for line in report_text.splitlines():
+        heading = re.match(r"^##\s+\d+\.\s+(.+?)\s*$", line)
+        if heading:
+            if current:
+                current["key"] = _canonical_issue_key(current.get("origin"), current.get("title"))
+                issues.append(current)
+            current = {"title": heading.group(1).strip()}
+            continue
+        if current is None:
+            continue
+        if line.startswith("- origin:"):
+            current["origin"] = line.split(":", 1)[1].strip()
+        elif line.startswith("- company:"):
+            current["company"] = line.split(":", 1)[1].strip()
+        elif line.startswith("- importance:"):
+            current["score"] = line[2:].strip()
+    if current:
+        current["key"] = _canonical_issue_key(current.get("origin"), current.get("title"))
+        issues.append(current)
+    return [issue for issue in issues if issue.get("key")]
+
+
+def _read_external_hot_issue_state(state_path: Path) -> dict:
+    if not state_path.exists():
+        return {"window_end_day_kst": None, "seen_issue_keys": [], "day_issue_records": []}
+    try:
+        state = json.loads(state_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return {"window_end_day_kst": None, "seen_issue_keys": [], "day_issue_records": []}
+    state.setdefault("seen_issue_keys", [])
+    state.setdefault("day_issue_records", [])
+    return state
+
+
+def _write_external_hot_issue_state_atomic(state_path: Path, state: dict) -> None:
+    state_path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path = state_path.with_suffix(state_path.suffix + ".tmp")
+    tmp_path.write_text(json.dumps(state, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    os.replace(tmp_path, state_path)
+
+
+def generate_external_hot_issue_alert(report_path: Path, state_path: Path, now: datetime | None = None) -> dict:
+    report_text = report_path.read_text(encoding="utf-8")
+    issues = _parse_watch_report_issues(report_text)
+    window_key = _external_hot_issue_window_key(now)
+    state = _read_external_hot_issue_state(state_path)
+    state_window = state.get("window_end_day_kst")
+    if state_window is None or str(state_window) < window_key:
+        state = {"window_end_day_kst": window_key, "seen_issue_keys": [], "day_issue_records": []}
+    elif str(state_window) > window_key:
+        window_key = str(state_window)
+
+    seen = set(str(key) for key in state.get("seen_issue_keys", []))
+    new_issues = [issue for issue in issues if issue["key"] not in seen]
+    for issue in new_issues:
+        seen.add(issue["key"])
+        state.setdefault("day_issue_records", []).append(
+            {
+                "key": issue["key"],
+                "title": issue.get("title"),
+                "origin": issue.get("origin"),
+                "reported_at": (now or _utc_now()).isoformat(),
+                "window_end_day_kst": window_key,
+            }
+        )
+    state["window_end_day_kst"] = window_key
+    state["seen_issue_keys"] = sorted(seen)
+    _write_external_hot_issue_state_atomic(state_path, state)
+
+    if not new_issues:
+        message_text = "[SILENT]"
+    else:
+        lines = ["외부 핫이슈 업데이트", f"window_end_day_kst: {window_key}", ""]
+        for index, issue in enumerate(new_issues, start=1):
+            lines.append(f"{index}) {issue.get('title', 'Untitled')}")
+            if issue.get("score"):
+                lines.append(f"- {issue['score']}")
+            if issue.get("origin"):
+                lines.append(f"- origin: {issue['origin']}")
+            lines.append("")
+        message_text = "\n".join(lines).strip()
+
+    return {
+        "message_text": message_text,
+        "new_count": len(new_issues),
+        "seen_count": len(seen),
+        "window_end_day_kst": window_key,
+    }
 
 
 def generate_watch_report(config: PipelineConfig, report_kind: str = "hourly-hot-issues") -> dict:

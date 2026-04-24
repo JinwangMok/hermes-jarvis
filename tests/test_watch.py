@@ -10,6 +10,7 @@ from jinwang_jarvis.watch import (
     collect_watch_signals,
     extract_x_status_id,
     fetch_source_items,
+    generate_external_hot_issue_alert,
     generate_watch_report,
     judge_watch_issues,
     load_watch_sources,
@@ -394,3 +395,105 @@ def test_watch_pipeline_loads_sources_dedups_reactions_and_generates_report(tmp_
     text = report_result["artifact_path"].read_text(encoding="utf-8")
     assert "OpenAI launches new enterprise API tier" in text
     assert report_result["issue_count"] >= 1
+
+
+def test_generate_external_hot_issue_alert_advances_new_window_and_dedupes_repeats(tmp_path: Path):
+    state_path = tmp_path / "state/external_hot_issue_state.json"
+    report_path = tmp_path / "data/watch/reports/hourly-hot-issues-20260424T100234+0000.md"
+    report_path.parent.mkdir(parents=True)
+    report_path.write_text(
+        """# hourly-hot-issues
+generated_at: 2026-04-24T10:02:34+00:00
+
+## 1. GPT-5.5
+- company: unknown | heat: low
+- importance: 0.642 | momentum: 0.401
+- signals: total=2, official=0, community=2, sources=2
+- engagement: 1374.0 | reaction: 904.0
+- origin: https://openai.com/index/introducing-gpt-5-5/
+
+## 2. Meta tells staff it will cut 10% of jobs
+- company: meta | heat: low
+- importance: 0.364 | momentum: 0.175
+- signals: total=1, official=0, community=1, sources=1
+- engagement: 584.0 | reaction: 559.0
+- origin: https://www.bloomberg.com/news/articles/2026-04-23/meta-tells-staff-it-will-cut-10-of-jobs-in-push-for-efficiency
+""",
+        encoding="utf-8",
+    )
+    state_path.parent.mkdir(parents=True)
+    state_path.write_text(
+        json.dumps(
+            {
+                "window_end_day_kst": "2026-04-24",
+                "seen_issue_keys": ["https://old.example/issue"],
+                "day_issue_records": [{"key": "https://old.example/issue", "title": "old"}],
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+
+    first = generate_external_hot_issue_alert(
+        report_path=report_path,
+        state_path=state_path,
+        now=datetime(2026, 4, 24, 19, 3, tzinfo=UTC).astimezone().replace(tzinfo=UTC),
+    )
+    second = generate_external_hot_issue_alert(
+        report_path=report_path,
+        state_path=state_path,
+        now=datetime(2026, 4, 24, 19, 33, tzinfo=UTC).astimezone().replace(tzinfo=UTC),
+    )
+
+    assert first["window_end_day_kst"] == "2026-04-25"
+    assert first["new_count"] == 2
+    assert "GPT-5.5" in first["message_text"]
+    assert second["new_count"] == 0
+    assert second["message_text"] == "[SILENT]"
+    state = json.loads(state_path.read_text(encoding="utf-8"))
+    assert state["window_end_day_kst"] == "2026-04-25"
+    assert "https://openai.com/index/introducing-gpt-5-5" in state["seen_issue_keys"]
+    assert "https://old.example/issue" not in state["seen_issue_keys"]
+
+
+def test_generate_external_hot_issue_alert_does_not_roll_back_newer_window_state(tmp_path: Path):
+    state_path = tmp_path / "state/external_hot_issue_state.json"
+    report_path = tmp_path / "report.md"
+    report_path.write_text(
+        """# hourly-hot-issues
+generated_at: 2026-04-24T10:33:16+00:00
+
+## 1. GPT-5.5
+- company: unknown | heat: low
+- importance: 0.642 | momentum: 0.401
+- signals: total=2, official=0, community=2, sources=2
+- engagement: 1374.0 | reaction: 904.0
+- origin: https://openai.com/index/introducing-gpt-5-5/
+""",
+        encoding="utf-8",
+    )
+    state_path.parent.mkdir(parents=True)
+    state_path.write_text(
+        json.dumps(
+            {
+                "window_end_day_kst": "2026-04-25",
+                "seen_issue_keys": ["https://openai.com/index/introducing-gpt-5-5"],
+                "day_issue_records": [
+                    {"key": "https://openai.com/index/introducing-gpt-5-5", "title": "GPT-5.5"}
+                ],
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+
+    result = generate_external_hot_issue_alert(
+        report_path=report_path,
+        state_path=state_path,
+        now=datetime(2026, 4, 24, 19, 34, tzinfo=UTC).astimezone().replace(tzinfo=UTC),
+    )
+
+    assert result["message_text"] == "[SILENT]"
+    state = json.loads(state_path.read_text(encoding="utf-8"))
+    assert state["window_end_day_kst"] == "2026-04-25"
+    assert state["seen_issue_keys"] == ["https://openai.com/index/introducing-gpt-5-5"]
