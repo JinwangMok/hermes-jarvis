@@ -20,7 +20,7 @@ REQUIRED_DIRECTORIES = [
 ]
 
 SCHEMA_STATEMENTS = [
-        """
+    """
     CREATE TABLE IF NOT EXISTS messages (
         message_id TEXT PRIMARY KEY,
         account TEXT NOT NULL,
@@ -185,13 +185,118 @@ SCHEMA_STATEMENTS = [
         wiki_note_path TEXT
     )
     """,
+    """
+    CREATE TABLE IF NOT EXISTS watch_sources (
+        source_id TEXT PRIMARY KEY,
+        display_name TEXT NOT NULL,
+        company_tag TEXT,
+        source_class TEXT,
+        source_role TEXT NOT NULL,
+        source_type TEXT NOT NULL,
+        ingest_strategy TEXT NOT NULL,
+        base_url TEXT NOT NULL,
+        feed_url TEXT,
+        html_list_url TEXT,
+        poll_minutes INTEGER NOT NULL,
+        enabled INTEGER NOT NULL DEFAULT 1,
+        validation_status TEXT,
+        validation_notes_json TEXT,
+        browser_required INTEGER NOT NULL DEFAULT 0,
+        anti_bot_risk TEXT,
+        priority_weight REAL NOT NULL DEFAULT 0,
+        reaction_weight REAL NOT NULL DEFAULT 0,
+        cooldown_minutes INTEGER NOT NULL DEFAULT 60,
+        topic_tags_json TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS watch_signals (
+        signal_id TEXT PRIMARY KEY,
+        source_id TEXT NOT NULL,
+        source_type TEXT NOT NULL,
+        signal_kind TEXT NOT NULL,
+        company_tag TEXT,
+        external_id TEXT,
+        title TEXT,
+        url TEXT,
+        author TEXT,
+        summary_text TEXT,
+        published_at TEXT,
+        collected_at TEXT NOT NULL,
+        engagement_json TEXT,
+        topic_tags_json TEXT,
+        entity_tags_json TEXT,
+        language TEXT,
+        canonical_key TEXT,
+        content_hash TEXT,
+        raw_payload_json TEXT
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS watch_issue_stories (
+        issue_id TEXT PRIMARY KEY,
+        story_key TEXT UNIQUE,
+        canonical_title TEXT,
+        canonical_summary TEXT,
+        primary_company_tag TEXT,
+        topic_ids_json TEXT,
+        entity_tags_json TEXT,
+        origin_signal_id TEXT,
+        origin_kind TEXT,
+        first_seen_at TEXT NOT NULL,
+        last_seen_at TEXT NOT NULL,
+        current_importance_score REAL NOT NULL DEFAULT 0,
+        current_momentum_score REAL NOT NULL DEFAULT 0,
+        current_heat_level TEXT NOT NULL DEFAULT 'low',
+        report_status TEXT NOT NULL DEFAULT 'unseen',
+        last_reported_at TEXT
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS watch_issue_signals (
+        issue_id TEXT NOT NULL,
+        signal_id TEXT NOT NULL,
+        role TEXT NOT NULL,
+        PRIMARY KEY (issue_id, signal_id)
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS watch_issue_snapshots (
+        snapshot_id TEXT PRIMARY KEY,
+        issue_id TEXT NOT NULL,
+        snapshot_hour TEXT NOT NULL,
+        signal_count INTEGER NOT NULL,
+        official_signal_count INTEGER NOT NULL,
+        community_signal_count INTEGER NOT NULL,
+        unique_source_count INTEGER NOT NULL,
+        engagement_score REAL NOT NULL,
+        reaction_score REAL NOT NULL,
+        importance_score REAL NOT NULL,
+        momentum_score REAL NOT NULL,
+        heat_level TEXT NOT NULL,
+        llm_judgment_json TEXT
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS watch_reports (
+        report_id TEXT PRIMARY KEY,
+        generated_at TEXT NOT NULL,
+        report_kind TEXT NOT NULL,
+        issue_ids_json TEXT NOT NULL,
+        artifact_file TEXT NOT NULL,
+        delivered_channel TEXT
+    )
+    """,
 ]
 
 
 def bootstrap_workspace(config: PipelineConfig) -> None:
     for relative_dir in REQUIRED_DIRECTORIES:
         (config.workspace_root / relative_dir).mkdir(parents=True, exist_ok=True)
-
+    config.watch.snapshot_dir.mkdir(parents=True, exist_ok=True)
+    (config.watch.snapshot_dir / 'reports').mkdir(parents=True, exist_ok=True)
     config.database_path.parent.mkdir(parents=True, exist_ok=True)
     with sqlite3.connect(config.database_path) as conn:
         for statement in SCHEMA_STATEMENTS:

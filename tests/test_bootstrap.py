@@ -29,6 +29,10 @@ reproducibility:
   packaging: pyproject
   config_format: yaml
   project_name: jinwang-jarvis
+watch:
+  enabled: true
+  snapshot_dir: data/watch
+  source_config_dir: config/watch-sources
 """.format(root=tmp_path.as_posix()),
         encoding="utf-8",
     )
@@ -38,6 +42,8 @@ reproducibility:
 
     for relative_dir in REQUIRED_DIRECTORIES:
         assert (tmp_path / relative_dir).is_dir(), relative_dir
+    assert (tmp_path / 'data/watch').is_dir()
+    assert (tmp_path / 'data/watch/reports').is_dir()
 
     assert config.database_path.exists()
     with sqlite3.connect(config.database_path) as conn:
@@ -48,4 +54,8 @@ reproducibility:
             )
         }
 
-    assert {"messages", "sender_identities", "message_labels", "action_signals", "calendar_events", "event_proposals", "proposal_feedback", "backfill_runs"} <= table_names
+    assert {
+        "messages", "sender_identities", "message_labels", "action_signals", "calendar_events",
+        "event_proposals", "proposal_feedback", "backfill_runs", "watch_sources", "watch_signals",
+        "watch_issue_stories", "watch_issue_signals", "watch_issue_snapshots", "watch_reports"
+    } <= table_names

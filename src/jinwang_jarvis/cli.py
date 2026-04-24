@@ -18,6 +18,7 @@ from .mail import build_fake_mail_runner, collect_mail_snapshots
 from .proposals import generate_proposals
 from .review import generate_weekly_review
 from .runtime import install_systemd_user_units, run_pipeline_cycle
+from .watch import build_watch_stories, collect_watch_signals, generate_watch_report, judge_watch_issues, run_watch_cycle, sync_watch_sources
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -80,6 +81,25 @@ def build_parser() -> argparse.ArgumentParser:
     backfill_next_parser = subparsers.add_parser("backfill-next", help="Extend historical coverage by only the next 3-month slice (6m→9m→12m...)" )
     backfill_next_parser.add_argument("--config", required=True, help="Path to pipeline.yaml")
     backfill_next_parser.add_argument("--max-months", type=int, default=36, help="Stop staged extension once this month depth is reached")
+
+    sync_watch_parser = subparsers.add_parser("sync-watch-sources", help="Load watch source YAML definitions and sync them into SQLite")
+    sync_watch_parser.add_argument("--config", required=True, help="Path to pipeline.yaml")
+
+    collect_watch_parser = subparsers.add_parser("collect-watch-signals", help="Collect raw watch signals from enabled watch sources")
+    collect_watch_parser.add_argument("--config", required=True, help="Path to pipeline.yaml")
+
+    build_watch_parser = subparsers.add_parser("build-watch-stories", help="Group collected signals into issue stories")
+    build_watch_parser.add_argument("--config", required=True, help="Path to pipeline.yaml")
+
+    judge_watch_parser = subparsers.add_parser("judge-watch-issues", help="Judge watch issue importance and momentum")
+    judge_watch_parser.add_argument("--config", required=True, help="Path to pipeline.yaml")
+
+    watch_report_parser = subparsers.add_parser("generate-watch-report", help="Generate a watch report artifact")
+    watch_report_parser.add_argument("--config", required=True, help="Path to pipeline.yaml")
+    watch_report_parser.add_argument("--report-kind", default="hourly-hot-issues", help="Report kind")
+
+    watch_cycle_parser = subparsers.add_parser("run-watch-cycle", help="Run one full watch cycle")
+    watch_cycle_parser.add_argument("--config", required=True, help="Path to pipeline.yaml")
 
     install_parser = subparsers.add_parser("install-systemd", help="Install and enable systemd user timers for automatic polling and weekly review")
     install_parser.add_argument("--config", required=True, help="Path to pipeline.yaml")
@@ -244,6 +264,48 @@ def main(argv: Sequence[str] | None = None) -> int:
             "windows": [run["window_name"] for run in result["runs"]],
             "artifacts": [str(run["artifact_path"]) for run in result["runs"]],
             "completed_windows": result["completed_windows"],
+        }, ensure_ascii=False))
+        return 0
+
+    if args.command == "sync-watch-sources":
+        config = load_pipeline_config(args.config)
+        result = sync_watch_sources(config)
+        print(json.dumps(result, ensure_ascii=False))
+        return 0
+
+    if args.command == "collect-watch-signals":
+        config = load_pipeline_config(args.config)
+        result = collect_watch_signals(config)
+        print(json.dumps(result, ensure_ascii=False))
+        return 0
+
+    if args.command == "build-watch-stories":
+        config = load_pipeline_config(args.config)
+        result = build_watch_stories(config)
+        print(json.dumps(result, ensure_ascii=False))
+        return 0
+
+    if args.command == "judge-watch-issues":
+        config = load_pipeline_config(args.config)
+        result = judge_watch_issues(config)
+        print(json.dumps(result, ensure_ascii=False))
+        return 0
+
+    if args.command == "generate-watch-report":
+        config = load_pipeline_config(args.config)
+        result = generate_watch_report(config, report_kind=args.report_kind)
+        print(json.dumps({**result, "artifact_path": str(result["artifact_path"])}, ensure_ascii=False))
+        return 0
+
+    if args.command == "run-watch-cycle":
+        config = load_pipeline_config(args.config)
+        result = run_watch_cycle(config)
+        print(json.dumps({
+            "source_count": result["sync"]["source_count"],
+            "signal_count": result["collect"]["signal_count"],
+            "issue_count": result["build"]["issue_count"],
+            "judged_count": result["judge"]["judged_count"],
+            "report_path": str(result["report"]["artifact_path"]),
         }, ensure_ascii=False))
         return 0
 
