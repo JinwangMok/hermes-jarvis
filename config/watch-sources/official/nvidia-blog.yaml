@@ -1,0 +1,22 @@
+source_id: nvidia-blog
+display_name: NVIDIA Blog RSS
+company_tag: nvidia
+source_class: company
+source_role: official-origin
+source_type: rss
+ingest_strategy: rss
+base_url: https://blogs.nvidia.com/
+feed_url: https://blogs.nvidia.com/feed/
+html_list_url: null
+poll_minutes: 60
+enabled: true
+validation_status: verified
+validation_notes:
+  - RSS reachable over HTTP 200
+  - browser confirmed XML feed load
+browser_required: false
+anti_bot_risk: low
+priority_weight: 1.0
+reaction_weight: 0.0
+cooldown_minutes: 60
+topic_tags: [gpu, datacenter, semiconductor, ai-models]

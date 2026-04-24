@@ -1,0 +1,23 @@
+source_id: hpcwire
+display_name: HPCwire Feed
+company_tag: null
+source_class: analysis
+source_role: analysis
+source_type: rss
+ingest_strategy: rss
+base_url: https://www.hpcwire.com/
+feed_url: https://www.hpcwire.com/feed/
+html_list_url: null
+poll_minutes: 60
+enabled: false
+validation_status: blocked
+validation_notes:
+  - HTTP feed request returned 403
+  - browser shows Cloudflare security verification page
+  - keep staged only until a stable access strategy exists
+browser_required: false
+anti_bot_risk: high
+priority_weight: 0.6
+reaction_weight: 0.6
+cooldown_minutes: 180
+topic_tags: [analysis, hpc, datacenter, gpu]

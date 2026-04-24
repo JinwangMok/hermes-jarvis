@@ -1,0 +1,22 @@
+source_id: microsoft-blog
+display_name: Microsoft Blog RSS
+company_tag: microsoft
+source_class: company
+source_role: official-origin
+source_type: rss
+ingest_strategy: rss
+base_url: https://blogs.microsoft.com/
+feed_url: https://blogs.microsoft.com/feed/
+html_list_url: null
+poll_minutes: 60
+enabled: true
+validation_status: verified
+validation_notes:
+  - RSS reachable over HTTP 200
+  - browser confirmed XML feed load
+browser_required: false
+anti_bot_risk: low
+priority_weight: 0.9
+reaction_weight: 0.0
+cooldown_minutes: 60
+topic_tags: [cloud, ai-models, datacenter]

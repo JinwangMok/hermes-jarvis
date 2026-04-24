@@ -1,0 +1,22 @@
+source_id: geeknews
+display_name: GeekNews Atom Feed
+company_tag: null
+source_class: community
+source_role: reaction
+source_type: atom
+ingest_strategy: atom
+base_url: https://news.hada.io/
+feed_url: https://feeds.feedburner.com/geeknews-feed
+html_list_url: null
+poll_minutes: 60
+enabled: true
+validation_status: verified
+validation_notes:
+  - Atom feed reachable over HTTP 200
+  - browser confirmed XML feed load
+browser_required: false
+anti_bot_risk: low
+priority_weight: 0.0
+reaction_weight: 0.9
+cooldown_minutes: 60
+topic_tags: [community, korea, ai-models, cloud]

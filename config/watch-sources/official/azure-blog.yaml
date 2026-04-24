@@ -1,0 +1,22 @@
+source_id: azure-blog
+display_name: Azure Blog RSS
+company_tag: microsoft
+source_class: company
+source_role: official-origin
+source_type: rss
+ingest_strategy: rss
+base_url: https://azure.microsoft.com/en-us/blog/
+feed_url: https://azure.microsoft.com/en-us/blog/feed/
+html_list_url: null
+poll_minutes: 60
+enabled: true
+validation_status: verified
+validation_notes:
+  - RSS reachable over HTTP 200
+  - browser confirmed XML feed load
+browser_required: false
+anti_bot_risk: low
+priority_weight: 0.95
+reaction_weight: 0.0
+cooldown_minutes: 60
+topic_tags: [cloud, datacenter, ai-models]

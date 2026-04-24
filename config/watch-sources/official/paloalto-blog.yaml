@@ -1,0 +1,22 @@
+source_id: paloalto-blog
+display_name: Palo Alto Networks Blog RSS
+company_tag: paloalto
+source_class: company
+source_role: official-origin
+source_type: rss
+ingest_strategy: rss
+base_url: https://www.paloaltonetworks.com/blog/
+feed_url: https://www.paloaltonetworks.com/blog/feed/
+html_list_url: null
+poll_minutes: 60
+enabled: true
+validation_status: verified
+validation_notes:
+  - RSS reachable over HTTP 200
+  - useful for AI infra/security boundary events
+browser_required: false
+anti_bot_risk: low
+priority_weight: 0.75
+reaction_weight: 0.0
+cooldown_minutes: 60
+topic_tags: [security, cloud, ai-models]

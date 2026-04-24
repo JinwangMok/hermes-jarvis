@@ -1,0 +1,22 @@
+source_id: hackernews-topstories
+display_name: Hacker News Topstories API
+company_tag: null
+source_class: community
+source_role: reaction
+source_type: api
+ingest_strategy: api
+base_url: https://news.ycombinator.com/
+feed_url: https://hacker-news.firebaseio.com/v0/topstories.json
+html_list_url: null
+poll_minutes: 60
+enabled: true
+validation_status: verified
+validation_notes:
+  - JSON API reachable over HTTP 200
+  - browser confirmed API payload load
+browser_required: false
+anti_bot_risk: low
+priority_weight: 0.0
+reaction_weight: 1.0
+cooldown_minutes: 60
+topic_tags: [community, developer, ai-models, cloud]

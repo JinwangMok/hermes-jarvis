@@ -1,0 +1,22 @@
+source_id: apple-newsroom
+display_name: Apple Newsroom RSS
+company_tag: apple
+source_class: company
+source_role: official-origin
+source_type: rss
+ingest_strategy: rss
+base_url: https://www.apple.com/newsroom/
+feed_url: https://www.apple.com/newsroom/rss-feed.rss
+html_list_url: null
+poll_minutes: 60
+enabled: true
+validation_status: verified
+validation_notes:
+  - RSS/Atom reachable over HTTP 200
+  - browser confirmed feed load
+browser_required: false
+anti_bot_risk: low
+priority_weight: 0.8
+reaction_weight: 0.0
+cooldown_minutes: 60
+topic_tags: [ai-models, hardware, product]

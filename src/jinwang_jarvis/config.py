@@ -8,6 +8,25 @@ import yaml
 
 
 @dataclass(frozen=True)
+class WatchSettings:
+    enabled: bool
+    snapshot_dir: Path
+    source_config_dir: Path
+    default_poll_minutes: int
+    adjudicator_model: str
+    fallback_model: str | None
+    importance_alert_threshold: float
+    momentum_alert_threshold: float
+    digest_threshold: float
+    recency_hours: int
+    story_similarity: float
+    compare_window_hours: int
+    target_companies: tuple[str, ...]
+    subreddits: tuple[str, ...]
+    enable_sources: dict[str, bool]
+
+
+@dataclass(frozen=True)
 class PipelineConfig:
     config_path: Path
     project_name: str
@@ -29,6 +48,7 @@ class PipelineConfig:
     deliver_channel: str
     self_addresses: tuple[str, ...]
     work_accounts: tuple[str, ...]
+    watch: WatchSettings
 
 
 def _resolve_under_workspace(workspace_root: Path, value: str) -> Path:
@@ -67,7 +87,26 @@ def load_pipeline_config(config_path: Path) -> PipelineConfig:
     classification = raw.get("classification", {})
     hermes = raw["hermes"]
     reproducibility = raw["reproducibility"]
+    watch = raw.get("watch", {})
     default_time_min, default_time_max = _default_calendar_window()
+
+    watch_settings = WatchSettings(
+        enabled=bool(watch.get("enabled", False)),
+        snapshot_dir=_resolve_under_workspace(workspace_root, str(watch.get("snapshot_dir", "data/watch"))),
+        source_config_dir=_resolve_under_workspace(workspace_root, str(watch.get("source_config_dir", "config/watch-sources"))),
+        default_poll_minutes=int(watch.get("default_poll_minutes", 60)),
+        adjudicator_model=str(watch.get("adjudicator_model", "gpt-5.4")),
+        fallback_model=(str(watch["fallback_model"]) if watch.get("fallback_model") else None),
+        importance_alert_threshold=float(watch.get("importance_alert_threshold", 0.82)),
+        momentum_alert_threshold=float(watch.get("momentum_alert_threshold", 0.18)),
+        digest_threshold=float(watch.get("digest_threshold", 0.60)),
+        recency_hours=int(watch.get("recency_hours", 24)),
+        story_similarity=float(watch.get("story_similarity", 0.84)),
+        compare_window_hours=int(watch.get("compare_window_hours", 1)),
+        target_companies=tuple(str(item) for item in watch.get("target_companies", [])),
+        subreddits=tuple(str(item) for item in watch.get("subreddits", [])),
+        enable_sources=dict(watch.get("enable_sources", {})),
+    )
 
     return PipelineConfig(
         config_path=config_path,
@@ -90,4 +129,5 @@ def load_pipeline_config(config_path: Path) -> PipelineConfig:
         deliver_channel=hermes["deliver_channel"],
         self_addresses=tuple(email.strip().lower() for email in classification.get("self_addresses", []) if str(email).strip()),
         work_accounts=tuple(str(account).strip() for account in classification.get("work_accounts", []) if str(account).strip()),
+        watch=watch_settings,
     )

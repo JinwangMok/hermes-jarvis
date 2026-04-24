@@ -1,0 +1,26 @@
+source_id: anthropic-news
+display_name: Anthropic News HTML
+company_tag: anthropic
+source_class: company
+source_role: official-origin
+source_type: html
+ingest_strategy: html
+base_url: https://www.anthropic.com/news
+feed_url: null
+html_list_url: https://www.anthropic.com/news
+poll_minutes: 60
+enabled: false
+validation_status: partial
+validation_notes:
+  - HTML page reachable over HTTP 200
+  - browser confirmed latest news list
+  - no verified RSS feed found yet
+browser_required: false
+anti_bot_risk: medium
+priority_weight: 1.0
+reaction_weight: 0.0
+cooldown_minutes: 60
+selector_json:
+  item_link_selector: 'a[href^="/news/"]'
+  title_selector: 'h2, h4'
+topic_tags: [ai-models, agents, launch]

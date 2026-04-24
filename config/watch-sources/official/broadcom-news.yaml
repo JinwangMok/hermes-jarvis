@@ -1,0 +1,21 @@
+source_id: broadcom-news
+display_name: Broadcom News RSS
+company_tag: broadcom
+source_class: company
+source_role: official-origin
+source_type: rss
+ingest_strategy: rss
+base_url: https://news.broadcom.com/
+feed_url: https://news.broadcom.com/feed
+html_list_url: null
+poll_minutes: 60
+enabled: true
+validation_status: verified
+validation_notes:
+  - RSS reachable over HTTP 200
+browser_required: false
+anti_bot_risk: low
+priority_weight: 0.85
+reaction_weight: 0.0
+cooldown_minutes: 60
+topic_tags: [semiconductor, datacenter, networking]

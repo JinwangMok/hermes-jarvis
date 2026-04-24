@@ -20,3 +20,6 @@ def test_load_pipeline_config_exposes_reproducible_workspace_metadata():
     assert config.self_addresses == ("you@example.com",)
     assert config.work_accounts == ("work",)
     assert config.hermes_integration_mode == "boundary-cli"
+    assert config.watch.default_poll_minutes == 60
+    assert config.watch.source_config_dir == Path("/home/jinwang/workspace/jinwang-jarvis/config/watch-sources")
+    assert config.watch.adjudicator_model == "gpt-5.4"

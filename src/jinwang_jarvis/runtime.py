@@ -15,6 +15,7 @@ from .mail import collect_mail_snapshots
 from .knowledge import synthesize_knowledge
 from .proposals import generate_proposals
 from .review import generate_weekly_review
+from .watch import run_watch_cycle as run_external_watch_cycle
 
 
 CYCLE_SERVICE_NAME = "jinwang-jarvis-cycle.service"
@@ -51,6 +52,11 @@ def run_pipeline_cycle(config: PipelineConfig) -> dict:
         "intelligence": intelligence_result,
         "briefing": briefing_result,
     }
+
+
+def run_watch_cycle(config: PipelineConfig) -> dict:
+    bootstrap_workspace(config)
+    return run_external_watch_cycle(config)
 
 
 def run_weekly_review_cycle(config: PipelineConfig) -> dict:

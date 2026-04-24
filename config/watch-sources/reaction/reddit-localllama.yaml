@@ -1,0 +1,22 @@
+source_id: reddit-localllama
+display_name: Reddit LocalLLaMA Atom Feed
+company_tag: null
+source_class: community
+source_role: reaction
+source_type: atom
+ingest_strategy: atom
+base_url: https://www.reddit.com/r/LocalLLaMA/
+feed_url: https://www.reddit.com/r/LocalLLaMA/.rss
+html_list_url: null
+poll_minutes: 60
+enabled: false
+validation_status: partial
+validation_notes:
+  - feed reachable over HTTP 200
+  - browser access blocked by Reddit network security
+browser_required: false
+anti_bot_risk: high
+priority_weight: 0.0
+reaction_weight: 0.7
+cooldown_minutes: 90
+topic_tags: [community, local-models, inference, open-source]

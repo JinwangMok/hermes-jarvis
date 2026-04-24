@@ -1,0 +1,22 @@
+source_id: meta-ai-x
+display_name: Meta AI on X
+company_tag: meta
+source_class: company
+source_role: official-origin
+source_type: x
+ingest_strategy: rss
+base_url: https://x.com/AIatMeta
+feed_url: https://nitter.net/AIatMeta/rss
+html_list_url: null
+poll_minutes: 30
+enabled: true
+validation_status: verified
+validation_notes:
+  - nitter RSS reachable over HTTP 200
+  - x.com status HTML exposes public engagement counts
+browser_required: false
+anti_bot_risk: medium
+priority_weight: 1.0
+reaction_weight: 0.0
+cooldown_minutes: 30
+topic_tags: [ai-models, open-source, social]

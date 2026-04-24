@@ -1,0 +1,23 @@
+source_id: openai-news
+display_name: OpenAI News RSS
+company_tag: openai
+source_class: company
+source_role: official-origin
+source_type: rss
+ingest_strategy: rss
+base_url: https://openai.com/news/
+feed_url: https://openai.com/news/rss.xml
+html_list_url: null
+poll_minutes: 60
+enabled: true
+validation_status: verified
+validation_notes:
+  - rss.xml reachable over HTTP 200
+  - browser confirmed XML feed load
+  - /news/ page may trigger bot challenge, so RSS is canonical
+browser_required: false
+anti_bot_risk: low
+priority_weight: 1.0
+reaction_weight: 0.0
+cooldown_minutes: 60
+topic_tags: [ai-models, agents, launch]
