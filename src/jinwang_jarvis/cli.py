@@ -18,7 +18,7 @@ from .knowledge import synthesize_knowledge
 from .mail import build_fake_mail_runner, collect_mail_snapshots
 from .proposals import generate_proposals
 from .review import generate_weekly_review
-from .runtime import install_systemd_user_units, run_pipeline_cycle
+from .runtime import check_hermes_jarvis_health, install_hermes_standby_units, install_systemd_user_units, run_pipeline_cycle
 from .watch import build_watch_stories, collect_watch_signals, generate_external_hot_issue_alert, generate_watch_report, judge_watch_issues, run_watch_cycle, sync_watch_sources
 
 
@@ -110,6 +110,22 @@ def build_parser() -> argparse.ArgumentParser:
     install_parser.add_argument("--config", required=True, help="Path to pipeline.yaml")
     install_parser.add_argument("--poll-minutes", type=int, default=5, help="Polling interval in minutes")
     install_parser.add_argument("--no-enable", action="store_true", help="Only write units and daemon-reload; do not enable timers")
+
+    standby_parser = subparsers.add_parser("install-standby-systemd", help="Write/install Hermes+Jarvis always-on standby units and health-check timer")
+    standby_parser.add_argument("--config", required=True, help="Path to pipeline.yaml")
+    standby_parser.add_argument("--health-minutes", type=int, default=5, help="Health-check interval in minutes")
+    standby_parser.add_argument("--stale-minutes", type=int, default=15, help="Alert when an enabled Hermes cron job is this many minutes overdue")
+    standby_parser.add_argument("--discord-channel", default="", help="Discord channel ID for health alerts; defaults to hermes.deliver_channel if it is discord:<id>")
+    standby_parser.add_argument("--no-enable", action="store_true", help="Only write units and daemon-reload; do not enable health timer")
+    standby_parser.add_argument("--workspace-only", action="store_true", help="Only render units under the repo systemd/ directory; do not touch ~/.config/systemd/user")
+    standby_parser.add_argument("--install-gateway", action="store_true", help="Also install the repo-rendered hermes-gateway.service with Restart=always")
+
+    health_parser = subparsers.add_parser("hermes-health-check", help="Check Hermes gateway + Jarvis cron health and optionally alert Discord")
+    health_parser.add_argument("--config", required=True, help="Path to pipeline.yaml")
+    health_parser.add_argument("--stale-minutes", type=int, default=15, help="Alert when an enabled Hermes cron job is this many minutes overdue")
+    health_parser.add_argument("--discord-alert", action="store_true", help="Send Discord alert when health issues are detected")
+    health_parser.add_argument("--discord-channel", default="", help="Discord channel ID for health alerts")
+    health_parser.add_argument("--restart", action="store_true", help="Restart hermes-gateway.service if it is inactive/failed")
 
     return parser
 
@@ -322,6 +338,32 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.command == "install-systemd":
         config = load_pipeline_config(args.config)
         result = install_systemd_user_units(config, poll_minutes=args.poll_minutes, enable=not args.no_enable)
+        print(json.dumps(result, ensure_ascii=False))
+        return 0
+
+    if args.command == "install-standby-systemd":
+        config = load_pipeline_config(args.config)
+        result = install_hermes_standby_units(
+            config,
+            health_minutes=args.health_minutes,
+            discord_channel=args.discord_channel,
+            stale_minutes=args.stale_minutes,
+            enable=not args.no_enable,
+            install_gateway=args.install_gateway,
+            workspace_only=args.workspace_only,
+        )
+        print(json.dumps(result, ensure_ascii=False))
+        return 0
+
+    if args.command == "hermes-health-check":
+        config = load_pipeline_config(args.config)
+        result = check_hermes_jarvis_health(
+            config,
+            stale_minutes=args.stale_minutes,
+            restart=args.restart,
+            discord_alert=args.discord_alert,
+            discord_channel=args.discord_channel,
+        )
         print(json.dumps(result, ensure_ascii=False))
         return 0
 

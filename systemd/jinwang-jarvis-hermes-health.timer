@@ -1,0 +1,11 @@
+[Unit]
+Description=Run Hermes/Jarvis health check every 5 minutes
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=5min
+Persistent=true
+Unit=jinwang-jarvis-hermes-health.service
+
+[Install]
+WantedBy=timers.target

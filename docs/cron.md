@@ -85,6 +85,45 @@ sudo loginctl enable-linger $USER
 This writes user units to `~/.config/systemd/user/` and mirrors them under `systemd/` inside the workspace.
 If you want timers to continue after reboot **without an interactive login**, `loginctl enable-linger` is strongly recommended.
 
+## Hermes + Jarvis 24/7 standby units
+Current OpenBox operation runs Jarvis scheduled work through Hermes cron inside `hermes-gateway.service`, not through the older standalone `jinwang-jarvis-cycle.*` timers.
+For this model, render the repo-managed standby units:
+
+```bash
+cd /home/jinwang/workspace/jinwang-jarvis
+PYTHONPATH=src python3 -m jinwang_jarvis.cli install-standby-systemd \
+  --config config/pipeline.local.yaml \
+  --health-minutes 5 \
+  --stale-minutes 15 \
+  --workspace-only
+```
+
+This writes these reproducible unit files under `systemd/`:
+- `hermes-gateway.service` — gateway service template with `Restart=always`, `RestartSec=30`, and the Hermes venv path.
+- `jinwang-jarvis-hermes-health.service` — checks `hermes-gateway.service` and Hermes cron `jobs.json`; restarts the gateway if inactive/failed; sends Discord alerts when unhealthy.
+- `jinwang-jarvis-hermes-health.timer` — every 5 minutes, `Persistent=true`, starts 5 minutes after boot.
+
+To install the health watchdog live without replacing the existing gateway unit:
+
+```bash
+PYTHONPATH=src python3 -m jinwang_jarvis.cli install-standby-systemd \
+  --config config/pipeline.local.yaml \
+  --health-minutes 5 \
+  --stale-minutes 15
+```
+
+To also replace/install the gateway service template with `Restart=always`, add `--install-gateway` after reviewing the rendered `systemd/hermes-gateway.service`.
+Health alerts use `DISCORD_BOT_TOKEN` from `~/.hermes/.env` and the channel from `hermes.deliver_channel` when it is `discord:<id>`; override with `--discord-channel <id>` if needed.
+
+Manual health check:
+
+```bash
+PYTHONPATH=src python3 -m jinwang_jarvis.cli hermes-health-check \
+  --config config/pipeline.local.yaml \
+  --discord-alert \
+  --restart
+```
+
 ## Backfill command
 ```bash
 cd /home/jinwang/workspace/jinwang-jarvis

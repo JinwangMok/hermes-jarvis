@@ -1,0 +1,26 @@
+[Unit]
+Description=Hermes Agent Gateway - Messaging Platform Integration
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=600
+StartLimitBurst=10
+
+[Service]
+Type=simple
+WorkingDirectory=/home/jinwang/.hermes/hermes-agent
+Environment=PATH=/home/jinwang/.hermes/hermes-agent/venv/bin:/home/jinwang/.hermes/hermes-agent/node_modules/.bin:/home/jinwang/.local/bin:/home/jinwang/.local/bin:/home/jinwang/.hermes/hermes-agent/venv/bin:/home/jinwang/.hermes/hermes-agent/node_modules/.bin:/home/jinwang/.local/share/fnm/node-versions/v24.14.1/installation/bin:/home/jinwang/.local/bin:/home/jinwang/.cargo/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/snap/bin
+Environment=VIRTUAL_ENV=/home/jinwang/.hermes/hermes-agent/venv
+Environment=HERMES_HOME=/home/jinwang/.hermes
+ExecStart=/home/jinwang/.hermes/hermes-agent/venv/bin/python -m hermes_cli.main gateway run --replace
+Restart=always
+RestartSec=30
+RestartForceExitStatus=75
+KillMode=mixed
+KillSignal=SIGTERM
+ExecReload=/bin/kill -USR1 $MAINPID
+TimeoutStopSec=180
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target

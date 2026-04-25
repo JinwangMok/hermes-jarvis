@@ -103,10 +103,12 @@ def test_cli_run_cycle_and_install_systemd_commands(tmp_path: Path, monkeypatch)
 
     calls = []
 
-    def fake_run(cmd, check=True):
+    def fake_run(cmd, check=True, **kwargs):
         calls.append(cmd)
         class Result:
             returncode = 0
+            stdout = ""
+            stderr = ""
         return Result()
 
     monkeypatch.setattr("jinwang_jarvis.runtime.subprocess.run", fake_run)
@@ -114,6 +116,23 @@ def test_cli_run_cycle_and_install_systemd_commands(tmp_path: Path, monkeypatch)
     assert install_exit_code == 0
     assert calls == [["systemctl", "--user", "daemon-reload"]]
     assert (tmp_path / "systemd" / "jinwang-jarvis-cycle.timer").exists()
+
+    calls.clear()
+    standby_exit_code = main([
+        "install-standby-systemd",
+        "--config",
+        str(config_file),
+        "--health-minutes",
+        "5",
+        "--stale-minutes",
+        "15",
+        "--no-enable",
+        "--workspace-only",
+    ])
+    assert standby_exit_code == 0
+    assert calls == []
+    assert (tmp_path / "systemd" / "hermes-gateway.service").exists()
+    assert (tmp_path / "systemd" / "jinwang-jarvis-hermes-health.timer").exists()
 
 
 def test_cli_generate_proposals_and_record_feedback_commands_run_pipeline(tmp_path: Path):
