@@ -1,0 +1,10 @@
+stt:
+  enabled: true
+  provider: local
+  local:
+    model: base
+    language: ''
+  discord_voice:
+    provider: local_command
+    local:
+      model: large-v3-turbo

@@ -9,3 +9,14 @@ __pycache__/
 
 config/pipeline.local.yaml
 config/sender-map.md
+
+# Vendored Hermes skills should not carry generated/runtime payloads.
+/skills/**/.cache/
+/skills/**/.venv/
+/skills/**/venv/
+/skills/**/tmp/
+/skills/**/reports/*.log
+
+# Local work backups / private audio samples.
+/.work-backups/
+/data/styled-voice-samples/

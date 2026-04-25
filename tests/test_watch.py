@@ -397,7 +397,9 @@ def test_watch_pipeline_loads_sources_dedups_reactions_and_generates_report(tmp_
     assert "**신규 이슈:**" in text
     assert "### 1. OpenAI launches new enterprise API tier" in text
     assert "**관심도:** 중요도" in text
-    assert "**관측 신호:**" in text
+    assert "**내용 요약:**" in text
+    assert "**왜 중요한가:**" in text
+    assert "**정량 신호:**" in text
     assert "**출처:**" in text
     assert "외부 핫이슈" not in text
     assert "- importance:" not in text
@@ -421,6 +423,8 @@ def test_generate_external_hot_issue_alert_advances_new_window_and_dedupes_repea
 **관심도:** 중요도 **0.642** · 모멘텀 **0.401**
 **관측 신호:** 총 2 · 공식 0 · 커뮤니티 2 · 출처 2
 **반응:** 참여 1374.0 · 리액션 904.0
+**내용 요약:** OpenAI가 신규 모델/API를 공개했고 엔터프라이즈 사용자를 위한 배포 옵션을 설명했습니다.
+**왜 중요한가:** OpenAI의 신규 모델/API 공개로 개발자 생태계와 클라우드 사용량에 직접 영향이 있습니다.
 **출처:** https://openai.com/index/introducing-gpt-5-5/
 
 ### 2. Meta tells staff it will cut 10% of jobs
@@ -428,6 +432,7 @@ def test_generate_external_hot_issue_alert_advances_new_window_and_dedupes_repea
 **관심도:** 중요도 **0.364** · 모멘텀 **0.175**
 **관측 신호:** 총 1 · 공식 0 · 커뮤니티 1 · 출처 1
 **반응:** 참여 584.0 · 리액션 559.0
+**왜 이슈인가:** Meta 조직 축소는 AI 투자 우선순위와 비용 구조 변화의 신호입니다.
 **출처:** https://www.bloomberg.com/news/articles/2026-04-23/meta-tells-staff-it-will-cut-10-of-jobs-in-push-for-efficiency
 """,
         encoding="utf-8",
@@ -462,6 +467,8 @@ def test_generate_external_hot_issue_alert_advances_new_window_and_dedupes_repea
     assert "**신규 이슈:** 2건" in first["message_text"]
     assert "### 1. GPT-5.5" in first["message_text"]
     assert "**관심도:** 중요도 **0.642** · 모멘텀 **0.401**" in first["message_text"]
+    assert "**내용 요약:** OpenAI가 신규 모델/API를 공개했고 엔터프라이즈 사용자를 위한 배포 옵션을 설명했습니다." in first["message_text"]
+    assert "**왜 중요한가:** OpenAI의 신규 모델/API 공개로 개발자 생태계와 클라우드 사용량에 직접 영향이 있습니다." in first["message_text"]
     assert "**출처:** https://openai.com/index/introducing-gpt-5-5/" in first["message_text"]
     assert "외부 핫이슈" not in first["message_text"]
     assert "GPT-5.5" in first["message_text"]

@@ -13,12 +13,15 @@ from .classifier import classify_messages
 from .config import load_pipeline_config
 from .digest import generate_digest
 from .feedback import record_proposal_feedback
+from .hermes_continuity import check_hermes_customizations
 from .intelligence import collect_knowledge_mail, generate_daily_intelligence_report
 from .knowledge import synthesize_knowledge
 from .mail import build_fake_mail_runner, collect_mail_snapshots
 from .proposals import generate_proposals
 from .review import generate_weekly_review
 from .runtime import check_hermes_jarvis_health, install_hermes_standby_units, install_systemd_user_units, run_pipeline_cycle
+from .styled_voice_samples import add_samples as add_styled_voice_samples
+from .styled_voice_samples import collect_profile_audio, init_library as init_styled_voice_library, list_profiles as list_styled_voice_profiles, profile_dir as styled_voice_profile_dir
 from .watch import build_watch_stories, collect_watch_signals, generate_external_hot_issue_alert, generate_watch_report, judge_watch_issues, run_watch_cycle, sync_watch_sources
 
 
@@ -126,6 +129,36 @@ def build_parser() -> argparse.ArgumentParser:
     health_parser.add_argument("--discord-alert", action="store_true", help="Send Discord alert when health issues are detected")
     health_parser.add_argument("--discord-channel", default="", help="Discord channel ID for health alerts")
     health_parser.add_argument("--restart", action="store_true", help="Restart hermes-gateway.service if it is inactive/failed")
+
+    customization_parser = subparsers.add_parser("hermes-customization-check", help="Passively inspect the Hermes agent + jinwang-jarvis customization contract")
+    customization_parser.add_argument("--hermes-home", default=str(Path.home() / ".hermes"), help="Hermes home directory")
+    customization_parser.add_argument("--hermes-agent-dir", default=str(Path.home() / ".hermes/hermes-agent"), help="Hermes agent checkout directory")
+    customization_parser.add_argument("--hermes-config", default="", help="Hermes config.yaml path; defaults to <hermes-home>/config.yaml")
+    customization_parser.add_argument("--include-network", action="store_true", help="Also probe external backends such as VoxCPM health")
+
+    samples_parser = subparsers.add_parser("styled-voice-samples", help="Manage the Jarvis styled-voice sample library")
+    samples_subparsers = samples_parser.add_subparsers(dest="sample_command", required=True)
+
+    samples_init_parser = samples_subparsers.add_parser("init", help="Create the sample library and default profile directories")
+    samples_init_parser.add_argument("--library-dir", default="", help="Sample library root; defaults to data/styled-voice-samples")
+    samples_init_parser.add_argument("--profile", action="append", default=None, help="Profile to create, e.g. default or jongwon/calm")
+
+    samples_list_parser = samples_subparsers.add_parser("list", help="List stored voice profiles and sample files")
+    samples_list_parser.add_argument("--library-dir", default="", help="Sample library root; defaults to data/styled-voice-samples")
+
+    samples_path_parser = samples_subparsers.add_parser("path", help="Print the directory path for a profile")
+    samples_path_parser.add_argument("--library-dir", default="", help="Sample library root; defaults to data/styled-voice-samples")
+    samples_path_parser.add_argument("--profile", default="default", help="Profile, e.g. default, jongwon, jongwon/calm")
+
+    samples_add_parser = samples_subparsers.add_parser("add", help="Copy uploaded/local audio files into a person/style profile")
+    samples_add_parser.add_argument("--library-dir", default="", help="Sample library root; defaults to data/styled-voice-samples")
+    samples_add_parser.add_argument("--profile", default="default", help="Profile, e.g. default, jongwon, jongwon/calm")
+    samples_add_parser.add_argument("--audio", action="append", required=True, help="Audio file to copy into the profile; repeatable")
+    samples_add_parser.add_argument("--move", action="store_true", help="Move instead of copy")
+
+    samples_refs_parser = samples_subparsers.add_parser("refs", help="Print reference audio files for a profile")
+    samples_refs_parser.add_argument("--library-dir", default="", help="Sample library root; defaults to data/styled-voice-samples")
+    samples_refs_parser.add_argument("--profile", default="default", help="Profile, e.g. default, jongwon, jongwon/calm")
 
     return parser
 
@@ -364,6 +397,33 @@ def main(argv: Sequence[str] | None = None) -> int:
             discord_alert=args.discord_alert,
             discord_channel=args.discord_channel,
         )
+        print(json.dumps(result, ensure_ascii=False))
+        return 0
+
+    if args.command == "hermes-customization-check":
+        result = check_hermes_customizations(
+            hermes_home=args.hermes_home,
+            hermes_agent_dir=args.hermes_agent_dir,
+            hermes_config_path=args.hermes_config or None,
+            include_network=args.include_network,
+        )
+        print(json.dumps(result, ensure_ascii=False))
+        return 0 if result.get("ok") else 1
+
+    if args.command == "styled-voice-samples":
+        library_dir = args.library_dir or None
+        if args.sample_command == "init":
+            result = init_styled_voice_library(library_dir, profiles=args.profile or ["default"])
+        elif args.sample_command == "list":
+            result = {"profiles": list_styled_voice_profiles(library_dir)}
+        elif args.sample_command == "path":
+            result = {"profile": args.profile, "path": str(styled_voice_profile_dir(library_dir, args.profile).resolve())}
+        elif args.sample_command == "add":
+            result = add_styled_voice_samples(args.audio, library_dir, args.profile, copy=not args.move)
+        elif args.sample_command == "refs":
+            result = {"profile": args.profile, "references": [str(path) for path in collect_profile_audio(library_dir, args.profile)]}
+        else:  # pragma: no cover
+            parser.error(f"Unknown styled-voice-samples command: {args.sample_command}")
         print(json.dumps(result, ensure_ascii=False))
         return 0
 

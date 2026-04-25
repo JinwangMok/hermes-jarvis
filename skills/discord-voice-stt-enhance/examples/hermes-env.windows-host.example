@@ -1,0 +1,2 @@
+HERMES_LOCAL_STT_SERVER_URL=http://WINDOWS_HOST_IP:8177
+HERMES_LOCAL_STT_COMMAND=python /home/jinwang/workspace/discord-voice-stt-enhance/runtime/client.py --input {input_path} --output-dir {output_dir} --language {language} --model {model}

@@ -1,0 +1,14 @@
+[Unit]
+Description=Hermes Local STT Runtime
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/workspace/discord-voice-stt-enhance
+ExecStart=%h/workspace/discord-voice-stt-enhance/runtime/.venv/bin/python %h/workspace/discord-voice-stt-enhance/runtime/server.py --host 127.0.0.1 --port 8177
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=default.target

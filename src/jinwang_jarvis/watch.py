@@ -101,6 +101,61 @@ class _LinkCollector(HTMLParser):
         self._current_text = []
 
 
+class _ReadableTextExtractor(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__()
+        self.parts: list[str] = []
+        self._skip_depth = 0
+
+    def handle_starttag(self, tag: str, attrs) -> None:
+        if tag in {"script", "style", "noscript", "svg", "nav", "footer", "header"}:
+            self._skip_depth += 1
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag in {"script", "style", "noscript", "svg", "nav", "footer", "header"} and self._skip_depth:
+            self._skip_depth -= 1
+
+    def handle_data(self, data: str) -> None:
+        if self._skip_depth:
+            return
+        text = re.sub(r"\s+", " ", data).strip()
+        if len(text) >= 20:
+            self.parts.append(text)
+
+
+def _compact_excerpt(text: str | None, *, limit: int = 1200) -> str | None:
+    cleaned = re.sub(r"\s+", " ", text or "").strip()
+    if not cleaned:
+        return None
+    return cleaned[: limit - 1].rstrip() + "…" if len(cleaned) > limit else cleaned
+
+
+def _extract_readable_text(html: str) -> str | None:
+    parser = _ReadableTextExtractor()
+    try:
+        parser.feed(html)
+    except Exception:
+        return None
+    return _compact_excerpt(" ".join(parser.parts), limit=1600)
+
+
+def _enrich_item_content(item: dict, fetch_text) -> dict:
+    enriched = dict(item)
+    feed_summary = _compact_excerpt(str(item.get("summary_text") or ""), limit=900)
+    article_excerpt = None
+    url = str(item.get("url") or "").strip()
+    if url and url.lower() != "n/a":
+        try:
+            article_excerpt = _extract_readable_text(fetch_text(url))
+        except Exception:
+            article_excerpt = None
+    if article_excerpt:
+        enriched["content_excerpt"] = article_excerpt
+    if feed_summary and not enriched.get("summary_text"):
+        enriched["summary_text"] = feed_summary
+    return enriched
+
+
 def _utc_now() -> datetime:
     return datetime.now(UTC).replace(microsecond=0)
 
@@ -407,7 +462,7 @@ def _heuristic_judgment(config: PipelineConfig, *, title: str, primary_company_t
     }
 
 
-def _codex_judgment(config: PipelineConfig, *, title: str, primary_company_tag: str | None, signal_count: int, unique_source_count: int, engagement_score: float, reaction_score: float) -> dict | None:
+def _codex_judgment(config: PipelineConfig, *, title: str, primary_company_tag: str | None, signal_count: int, unique_source_count: int, engagement_score: float, reaction_score: float, content_context: str | None = None) -> dict | None:
     codex_path = shutil.which("codex")
     if not codex_path:
         return None
@@ -419,7 +474,11 @@ def _codex_judgment(config: PipelineConfig, *, title: str, primary_company_tag: 
         "unique_source_count": unique_source_count,
         "engagement_score": engagement_score,
         "reaction_score": reaction_score,
+        "source_content_excerpt": content_context,
         "rules": [
+            "read the source_content_excerpt first; judge substance before metrics",
+            "explain why this matters in terms of product, research, infrastructure, market, or policy impact",
+            "include a concise content summary, not only engagement/reaction counts",
             "official company posts can be hot issues by themselves",
             "community reaction is a separate lens, not the same event as origin",
             "X/Twitter is a core hotness signal surface when available",
@@ -432,6 +491,8 @@ def _codex_judgment(config: PipelineConfig, *, title: str, primary_company_tag: 
             "momentum_score_adjusted",
             "heat_level",
             "judgment_reason",
+            "content_summary",
+            "why_it_matters",
             "official_signal_importance",
             "community_reaction_state",
             "should_alert_now",
@@ -472,7 +533,7 @@ def fetch_source_items(source: WatchSource, fetch_text=_fetch_text, fetch_json=_
         items = _parse_rss_or_atom(fetch_text(source.feed_url or source.base_url), source)
         if _looks_like_x_source(source):
             return [_enrich_x_item(source, item, fetch_text) for item in items[:1]]
-        return items[:10]
+        return [_enrich_item_content(item, fetch_text) for item in items[:10]]
     if source.ingest_strategy == "api" and source.source_id == "hackernews-topstories":
         return _fetch_hackernews(source, fetch_json=fetch_json)
     if source.ingest_strategy == "html":
@@ -807,6 +868,24 @@ def _should_use_codex_for_issue(row: sqlite3.Row, heuristic: dict, *, rank: int)
     return bool(heuristic.get("is_true_hot_issue"))
 
 
+def _content_context_from_row(row: sqlite3.Row | dict) -> str | None:
+    if isinstance(row, dict):
+        summary = row.get("origin_summary_text") or row.get("summary_text") or row.get("canonical_summary")
+        raw_payload = row.get("origin_raw_payload_json") or row.get("raw_payload_json")
+    else:
+        keys = set(row.keys())
+        summary = row["origin_summary_text"] if "origin_summary_text" in keys else None
+        raw_payload = row["origin_raw_payload_json"] if "origin_raw_payload_json" in keys else None
+    content_excerpt = None
+    if raw_payload:
+        try:
+            payload = json.loads(raw_payload) if isinstance(raw_payload, str) else raw_payload
+            content_excerpt = payload.get("content_excerpt") if isinstance(payload, dict) else None
+        except (TypeError, json.JSONDecodeError):
+            content_excerpt = None
+    return _compact_excerpt("\n".join(part for part in [str(summary or ""), str(content_excerpt or "")] if part.strip()), limit=1400)
+
+
 def judge_watch_issues(config: PipelineConfig) -> dict:
     bootstrap_workspace(config)
     judged = []
@@ -826,7 +905,9 @@ def judge_watch_issues(config: PipelineConfig) -> dict:
                    latest.unique_source_count,
                    latest.engagement_score,
                    latest.reaction_score,
-                   ws.url AS origin_url
+                   ws.url AS origin_url,
+                   ws.summary_text AS origin_summary_text,
+                   ws.raw_payload_json AS origin_raw_payload_json
             FROM watch_issue_stories wis
             JOIN watch_issue_snapshots latest
               ON latest.issue_id = wis.issue_id
@@ -889,6 +970,7 @@ def judge_watch_issues(config: PipelineConfig) -> dict:
                     unique_source_count=int(current_snapshot["unique_source_count"] or 0),
                     engagement_score=float(current_snapshot["engagement_score"] or 0.0),
                     reaction_score=float(current_snapshot["reaction_score"] or 0.0),
+                    content_context=_content_context_from_row(row),
                 ) or heuristic
                 judgment["momentum_score_adjusted"] = round(
                     max(
@@ -954,6 +1036,12 @@ def _parse_watch_report_issues(report_text: str) -> list[dict[str, str]]:
             current["score"] = line[2:].strip()
         elif line.startswith("**관심도:**"):
             current["score"] = line.strip()
+        elif line.startswith("**왜 이슈인가:**"):
+            current["reason"] = line.split(":**", 1)[1].strip()
+        elif line.startswith("**왜 중요한가:**"):
+            current["reason"] = line.split(":**", 1)[1].strip()
+        elif line.startswith("**내용 요약:**"):
+            current["summary"] = line.split(":**", 1)[1].strip()
     if current:
         current["key"] = _canonical_issue_key(current.get("origin"), current.get("title"))
         issues.append(current)
@@ -967,6 +1055,73 @@ def _format_hot_issue_score(score: str) -> str:
     if match:
         return f"**관심도:** 중요도 **{match.group(1)}** · 모멘텀 **{match.group(2)}**"
     return f"**관심도:** {score}"
+
+
+def _format_issue_reason(issue: dict | sqlite3.Row) -> str:
+    if isinstance(issue, dict):
+        title = str(issue.get("title") or issue.get("canonical_title") or "이 이슈")
+        company = issue.get("company") or issue.get("primary_company_tag")
+        signal_count = issue.get("signal_count")
+        official_count = issue.get("official_signal_count")
+        unique_sources = issue.get("unique_source_count")
+        engagement = issue.get("engagement_score")
+        reaction = issue.get("reaction_score")
+        judgment_json = issue.get("llm_judgment_json")
+    else:
+        title = str(issue["canonical_title"] or "이 이슈")
+        company = issue["primary_company_tag"]
+        signal_count = issue["signal_count"]
+        official_count = issue["official_signal_count"]
+        unique_sources = issue["unique_source_count"]
+        engagement = issue["engagement_score"]
+        reaction = issue["reaction_score"]
+        judgment_json = issue["llm_judgment_json"]
+    try:
+        judgment = json.loads(judgment_json or "{}") if isinstance(judgment_json, str) else (judgment_json or {})
+    except (TypeError, json.JSONDecodeError):
+        judgment = {}
+    reason = str(judgment.get("judgment_reason") or "").strip()
+    if reason and not reason.startswith("heuristic fallback for"):
+        return reason
+    facts = []
+    if company and str(company) != "unknown":
+        facts.append(f"{company} 관련 공식/주요 신호")
+    if int(official_count or 0) > 0:
+        facts.append(f"공식 신호 {int(official_count or 0)}건")
+    if int(unique_sources or 0) > 1:
+        facts.append(f"복수 출처 {int(unique_sources or 0)}곳에서 관측")
+    if float(engagement or 0.0) > 0 or float(reaction or 0.0) > 0:
+        facts.append(f"참여 {float(engagement or 0.0):.0f} · 리액션 {float(reaction or 0.0):.0f}")
+    if not facts:
+        facts.append(f"최근 관측 신호 {int(signal_count or 0)}건")
+    return f"{title[:80]} — " + ", ".join(facts) + " 때문에 AI/클라우드/반도체/주요 테크 흐름에서 추적할 가치가 있습니다."
+
+
+def _format_issue_content_summary(issue: dict | sqlite3.Row) -> str:
+    try:
+        judgment_json = issue.get("llm_judgment_json") if isinstance(issue, dict) else issue["llm_judgment_json"]
+        judgment = json.loads(judgment_json or "{}") if isinstance(judgment_json, str) else (judgment_json or {})
+    except (TypeError, KeyError, json.JSONDecodeError):
+        judgment = {}
+    summary = str(judgment.get("content_summary") or "").strip()
+    if summary:
+        return summary
+    context = _content_context_from_row(issue)
+    if context:
+        return context[:360].rstrip() + ("…" if len(context) > 360 else "")
+    return "원문 요약을 확보하지 못했습니다. 제목과 출처 메타데이터만으로 추적 중입니다."
+
+
+def _format_issue_why_it_matters(issue: dict | sqlite3.Row) -> str:
+    try:
+        judgment_json = issue.get("llm_judgment_json") if isinstance(issue, dict) else issue["llm_judgment_json"]
+        judgment = json.loads(judgment_json or "{}") if isinstance(judgment_json, str) else (judgment_json or {})
+    except (TypeError, KeyError, json.JSONDecodeError):
+        judgment = {}
+    why = str(judgment.get("why_it_matters") or "").strip()
+    if why:
+        return why
+    return _format_issue_reason(issue)
 
 
 def _read_external_hot_issue_state(state_path: Path) -> dict:
@@ -1030,6 +1185,10 @@ def generate_external_hot_issue_alert(report_path: Path, state_path: Path, now: 
             lines.append(f"### {index}. {issue.get('title', '제목 없음')}")
             if issue.get("score"):
                 lines.append(_format_hot_issue_score(issue["score"]))
+            if issue.get("summary"):
+                lines.append(f"**내용 요약:** {issue['summary']}")
+            if issue.get("reason"):
+                lines.append(f"**왜 중요한가:** {issue['reason']}")
             if issue.get("origin"):
                 lines.append(f"**출처:** {issue['origin']}")
             lines.append("")
@@ -1069,7 +1228,10 @@ def generate_watch_report(config: PipelineConfig, report_kind: str = "hourly-hot
                    latest.unique_source_count,
                    latest.engagement_score,
                    latest.reaction_score,
-                   ws.url AS origin_url
+                   latest.llm_judgment_json,
+                   ws.url AS origin_url,
+                   ws.summary_text AS origin_summary_text,
+                   ws.raw_payload_json AS origin_raw_payload_json
             FROM watch_issue_stories wis
             JOIN watch_issue_snapshots latest
               ON latest.issue_id = wis.issue_id
@@ -1108,8 +1270,9 @@ def generate_watch_report(config: PipelineConfig, report_kind: str = "hourly-hot
                         f"### {index}. {row['canonical_title']}",
                         f"**분류:** {row['primary_company_tag'] or 'unknown'} · **열기:** {row['current_heat_level']}",
                         f"**관심도:** 중요도 **{row['current_importance_score']:.3f}** · 모멘텀 **{row['current_momentum_score']:.3f}**",
-                        f"**관측 신호:** 총 {int(row['signal_count'] or 0)} · 공식 {int(row['official_signal_count'] or 0)} · 커뮤니티 {int(row['community_signal_count'] or 0)} · 출처 {int(row['unique_source_count'] or 0)}",
-                        f"**반응:** 참여 {float(row['engagement_score'] or 0.0):.1f} · 리액션 {float(row['reaction_score'] or 0.0):.1f}",
+                        f"**내용 요약:** {_format_issue_content_summary(row)}",
+                        f"**왜 중요한가:** {_format_issue_why_it_matters(row)}",
+                        f"**정량 신호:** 관측 총 {int(row['signal_count'] or 0)} · 공식 {int(row['official_signal_count'] or 0)} · 커뮤니티 {int(row['community_signal_count'] or 0)} · 출처 {int(row['unique_source_count'] or 0)} · 참여 {float(row['engagement_score'] or 0.0):.1f} · 리액션 {float(row['reaction_score'] or 0.0):.1f}",
                         f"**출처:** {row['origin_url'] or 'n/a'}",
                         "",
                     ]
