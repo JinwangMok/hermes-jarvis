@@ -1,0 +1,26 @@
+source_id: import-ai
+display_name: Import AI Substack RSS
+company_tag: null
+source_class: analysis
+source_role: analysis
+source_type: rss
+ingest_strategy: rss
+base_url: https://importai.substack.com/
+feed_url: https://importai.substack.com/feed
+html_list_url: null
+poll_minutes: 60
+enabled: true
+validation_status: verified
+validation_notes:
+- RSS/XML feed reachable over HTTP 200
+- AI policy/research/industry analysis layer
+browser_required: false
+anti_bot_risk: low
+priority_weight: 0.5
+reaction_weight: 0.55
+cooldown_minutes: 60
+topic_tags:
+- analysis
+- research
+- policy
+- ai-models

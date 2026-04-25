@@ -1,0 +1,25 @@
+source_id: techcrunch-ai
+display_name: TechCrunch AI RSS
+company_tag: null
+source_class: media
+source_role: media
+source_type: rss
+ingest_strategy: rss
+base_url: https://techcrunch.com/category/artificial-intelligence/
+feed_url: https://techcrunch.com/category/artificial-intelligence/feed/
+html_list_url: null
+poll_minutes: 60
+enabled: true
+validation_status: verified
+validation_notes:
+- RSS reachable over HTTP 200
+- broad media signal; keep lower weight due to higher noise
+browser_required: false
+anti_bot_risk: low
+priority_weight: 0.35
+reaction_weight: 0.35
+cooldown_minutes: 60
+topic_tags:
+- media
+- ai-models
+- industry

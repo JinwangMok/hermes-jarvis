@@ -1,0 +1,25 @@
+source_id: docker-blog
+display_name: Docker Blog RSS
+company_tag: docker
+source_class: company
+source_role: official-origin
+source_type: rss
+ingest_strategy: rss
+base_url: https://www.docker.com/blog/
+feed_url: https://www.docker.com/blog/feed/
+html_list_url: null
+poll_minutes: 60
+enabled: true
+validation_status: verified
+validation_notes:
+- RSS reachable over HTTP 200
+- container/dev-infra signal relevant to AI deployment workflows
+browser_required: false
+anti_bot_risk: low
+priority_weight: 0.65
+reaction_weight: 0.1
+cooldown_minutes: 60
+topic_tags:
+- dev-infra
+- containers
+- cloud

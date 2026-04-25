@@ -1,0 +1,26 @@
+source_id: cncf-blog
+display_name: CNCF Blog RSS
+company_tag: null
+source_class: project
+source_role: official-origin
+source_type: rss
+ingest_strategy: rss
+base_url: https://www.cncf.io/blog/
+feed_url: https://www.cncf.io/feed/
+html_list_url: null
+poll_minutes: 60
+enabled: true
+validation_status: verified
+validation_notes:
+- RSS reachable over HTTP 200
+- cloud-native ecosystem signal
+browser_required: false
+anti_bot_risk: low
+priority_weight: 0.65
+reaction_weight: 0.15
+cooldown_minutes: 60
+topic_tags:
+- dev-infra
+- cloud
+- open-source
+- kubernetes

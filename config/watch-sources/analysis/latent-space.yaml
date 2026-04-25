@@ -1,0 +1,26 @@
+source_id: latent-space
+display_name: Latent Space RSS
+company_tag: null
+source_class: analysis
+source_role: analysis
+source_type: rss
+ingest_strategy: rss
+base_url: https://www.latent.space/
+feed_url: https://www.latent.space/feed
+html_list_url: null
+poll_minutes: 60
+enabled: true
+validation_status: verified
+validation_notes:
+- RSS/XML feed reachable over HTTP 200
+- high-signal practitioner analysis layer for AI engineering
+browser_required: false
+anti_bot_risk: low
+priority_weight: 0.55
+reaction_weight: 0.65
+cooldown_minutes: 60
+topic_tags:
+- analysis
+- ai-engineering
+- agents
+- developer-tools

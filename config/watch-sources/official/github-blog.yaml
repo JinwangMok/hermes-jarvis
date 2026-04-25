@@ -1,0 +1,26 @@
+source_id: github-blog
+display_name: GitHub Blog RSS
+company_tag: github
+source_class: company
+source_role: official-origin
+source_type: rss
+ingest_strategy: rss
+base_url: https://github.blog/
+feed_url: https://github.blog/feed/
+html_list_url: null
+poll_minutes: 60
+enabled: true
+validation_status: verified
+validation_notes:
+- RSS reachable over HTTP 200
+- developer ecosystem and AI coding workflow signal
+browser_required: false
+anti_bot_risk: low
+priority_weight: 0.85
+reaction_weight: 0.2
+cooldown_minutes: 60
+topic_tags:
+- dev-infra
+- developer-tools
+- agents
+- open-source

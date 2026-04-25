@@ -3,6 +3,7 @@ notes:
   - starter seed generated from validated registry design docs
   - prefer verified RSS/API sources first
   - staged HTML/high-risk sources remain disabled until implementation exists
+  - '2026-04-25: added verified dev-infra, OSS, practitioner-analysis, and media AI feeds requested by Jinwang'
 sources:
   - openai-news
   - google-blog
@@ -27,3 +28,15 @@ sources:
   - reddit-localllama
   - semianalysis
   - hpcwire
+  - github-blog
+  - github-changelog
+  - docker-blog
+  - kubernetes-blog
+  - cncf-blog
+  - pytorch-blog
+  - latent-space
+  - import-ai
+  - techcrunch-ai
+  - venturebeat-ai
+  - the-verge-ai
+  - mit-tech-review-ai

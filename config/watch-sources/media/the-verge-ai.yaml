@@ -1,0 +1,25 @@
+source_id: the-verge-ai
+display_name: The Verge AI RSS
+company_tag: null
+source_class: media
+source_role: media
+source_type: rss
+ingest_strategy: rss
+base_url: https://www.theverge.com/ai-artificial-intelligence
+feed_url: https://www.theverge.com/rss/ai-artificial-intelligence/index.xml
+html_list_url: null
+poll_minutes: 60
+enabled: true
+validation_status: verified
+validation_notes:
+- RSS/XML feed reachable over HTTP 200
+- consumer/product AI media signal; keep lower weight due to higher noise
+browser_required: false
+anti_bot_risk: low
+priority_weight: 0.3
+reaction_weight: 0.35
+cooldown_minutes: 60
+topic_tags:
+- media
+- ai-products
+- industry

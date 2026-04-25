@@ -1,0 +1,26 @@
+source_id: mit-tech-review-ai
+display_name: MIT Technology Review AI RSS
+company_tag: null
+source_class: media
+source_role: media
+source_type: rss
+ingest_strategy: rss
+base_url: https://www.technologyreview.com/topic/artificial-intelligence/
+feed_url: https://www.technologyreview.com/topic/artificial-intelligence/feed/
+html_list_url: null
+poll_minutes: 60
+enabled: true
+validation_status: verified
+validation_notes:
+- RSS reachable over HTTP 200
+- higher-quality media/research interpretation signal
+browser_required: false
+anti_bot_risk: low
+priority_weight: 0.45
+reaction_weight: 0.4
+cooldown_minutes: 60
+topic_tags:
+- media
+- research
+- policy
+- ai-models

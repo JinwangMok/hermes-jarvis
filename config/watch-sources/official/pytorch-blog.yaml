@@ -1,0 +1,26 @@
+source_id: pytorch-blog
+display_name: PyTorch Blog RSS
+company_tag: pytorch
+source_class: project
+source_role: official-origin
+source_type: rss
+ingest_strategy: rss
+base_url: https://pytorch.org/blog/
+feed_url: https://pytorch.org/blog/feed.xml
+html_list_url: null
+poll_minutes: 60
+enabled: true
+validation_status: verified
+validation_notes:
+- RSS/XML feed reachable over HTTP 200
+- ML framework ecosystem signal
+browser_required: false
+anti_bot_risk: low
+priority_weight: 0.8
+reaction_weight: 0.2
+cooldown_minutes: 60
+topic_tags:
+- ai-frameworks
+- mlops
+- open-source
+- research
