@@ -78,11 +78,27 @@ def _python_exec() -> str:
     return "python3"
 
 
+def _dedupe_path(path_value: str) -> str:
+    seen: set[str] = set()
+    parts: list[str] = []
+    for part in path_value.split(":"):
+        if not part or part in seen:
+            continue
+        seen.add(part)
+        parts.append(part)
+    return ":".join(parts)
+
+
+def _service_path(*prefixes: Path | str) -> str:
+    base = os.environ.get("PATH", "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin")
+    return _dedupe_path(":".join([*(str(prefix) for prefix in prefixes), base]))
+
+
 def build_systemd_unit_texts(config: PipelineConfig, *, poll_minutes: int = DEFAULT_POLL_MINUTES) -> dict[str, str]:
     workspace = config.workspace_root
     command_prefix = f"cd {workspace} && PYTHONPATH=src {_python_exec()} -m jinwang_jarvis.cli"
     config_arg = _config_arg(config)
-    service_path = os.environ.get("PATH", "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin")
+    service_path = _service_path()
     cycle_service = f"""[Unit]
 Description=Jinwang Jarvis pipeline polling cycle
 After=network-online.target
@@ -160,7 +176,7 @@ def build_hermes_standby_unit_texts(
     """
     workspace = config.workspace_root
     config_arg = _config_arg(config)
-    service_path = os.environ.get("PATH", "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin")
+    service_path = _service_path(Path.home() / ".hermes/hermes-agent/venv/bin", Path.home() / ".hermes/hermes-agent/node_modules/.bin")
     channel = discord_channel or _discord_channel_from_config(config)
     quoted_workspace = shlex.quote(str(workspace))
     quoted_config_arg = shlex.quote(config_arg)
@@ -182,7 +198,7 @@ StartLimitBurst=10
 [Service]
 Type=simple
 WorkingDirectory={home}/.hermes/hermes-agent
-Environment=PATH={home}/.hermes/hermes-agent/venv/bin:{home}/.hermes/hermes-agent/node_modules/.bin:{service_path}
+Environment=PATH={service_path}
 Environment=VIRTUAL_ENV={home}/.hermes/hermes-agent/venv
 Environment=HERMES_HOME={home}/.hermes
 ExecStart={home}/.hermes/hermes-agent/venv/bin/python -m hermes_cli.main gateway run --replace

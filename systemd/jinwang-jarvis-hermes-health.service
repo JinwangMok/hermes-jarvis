@@ -6,7 +6,7 @@ Wants=network-online.target
 [Service]
 Type=oneshot
 WorkingDirectory=/home/jinwang/workspace/jinwang-jarvis
-Environment=PATH=/home/jinwang/.local/bin:/home/jinwang/.local/bin:/home/jinwang/.hermes/hermes-agent/venv/bin:/home/jinwang/.hermes/hermes-agent/node_modules/.bin:/home/jinwang/.local/share/fnm/node-versions/v24.14.1/installation/bin:/home/jinwang/.local/bin:/home/jinwang/.cargo/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/snap/bin
+Environment=PATH=/home/jinwang/.hermes/hermes-agent/venv/bin:/home/jinwang/.hermes/hermes-agent/node_modules/.bin:/home/jinwang/.local/bin:/home/jinwang/.local/share/fnm/node-versions/v24.14.1/installation/bin:/home/jinwang/.cargo/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/snap/bin
 Environment=HERMES_HOME=/home/jinwang/.hermes
 Environment=JARVIS_HEALTH_DISCORD_CHANNEL=1496014213276241922
 EnvironmentFile=-/home/jinwang/.hermes/.env

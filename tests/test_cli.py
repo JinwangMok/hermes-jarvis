@@ -95,6 +95,8 @@ def test_cli_run_cycle_and_install_systemd_commands(tmp_path: Path, monkeypatch)
     (tmp_path / "sender-map.md").write_text("## Current members\n- Professor | 김종원(JongWon Kim) | jongwon@smartx.kr\n", encoding="utf-8")
     config_file.write_text(_config_text(tmp_path), encoding="utf-8")
 
+    monkeypatch.setattr("jinwang_jarvis.runtime.collect_mail_snapshots", lambda config: {"snapshots": [], "total_messages": 0})
+    monkeypatch.setattr("jinwang_jarvis.runtime.collect_calendar_snapshots", lambda config: {"snapshots": [], "event_count": 0})
     cycle_exit_code = main(["run-cycle", "--config", str(config_file)])
     assert cycle_exit_code == 0
     checkpoints = json.loads((tmp_path / "state" / "checkpoints.json").read_text(encoding="utf-8"))

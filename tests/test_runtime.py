@@ -49,7 +49,7 @@ reproducibility:
     assert "OnCalendar=Sun *-*-* 20:00:00" in units["jinwang-jarvis-weekly-review.timer"]
 
 
-def test_build_hermes_standby_unit_texts_contains_restart_and_health_alert_contract(tmp_path: Path):
+def test_build_hermes_standby_unit_texts_contains_restart_and_health_alert_contract(tmp_path: Path, monkeypatch):
     config_file = tmp_path / "pipeline.yaml"
     (tmp_path / "sender-map.md").write_text("## Current members\n- Professor | 김종원(JongWon Kim) | jongwon@smartx.kr\n", encoding="utf-8")
     config_file.write_text(
@@ -82,9 +82,11 @@ reproducibility:
         encoding="utf-8",
     )
 
+    monkeypatch.setenv("PATH", "/x/bin:/x/bin:/usr/bin")
     config = load_pipeline_config(config_file)
     units = build_hermes_standby_unit_texts(config, health_minutes=5, stale_minutes=15)
 
+    assert units["hermes-gateway.service"].count("/x/bin") == 1
     assert "Restart=always" in units["hermes-gateway.service"]
     assert "StartLimitBurst=10" in units["hermes-gateway.service"]
     assert "EnvironmentFile=-" in units["jinwang-jarvis-hermes-health.service"]
