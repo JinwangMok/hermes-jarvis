@@ -1,18 +1,11 @@
 __pycache__/
 .pytest_cache/
 *.pyc
-state/*.db
-state/*.sqlite
-state/*.sqlite3
-state/checkpoints.json
-data/snapshots/
-data/exports/
-data/proposals/
-data/digests/
-data/briefings/
-data/feedback/
-data/watchlists/
-data/intelligence/
-state/*.txt
+
+# Runtime/generated local artifacts. These may contain private mail/calendar/watch data.
+/data/
+/state/
+/wiki/
+
 config/pipeline.local.yaml
 config/sender-map.md

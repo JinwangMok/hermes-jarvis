@@ -933,7 +933,7 @@ def _parse_watch_report_issues(report_text: str) -> list[dict[str, str]]:
     issues: list[dict[str, str]] = []
     current: dict[str, str] | None = None
     for line in report_text.splitlines():
-        heading = re.match(r"^##\s+\d+\.\s+(.+?)\s*$", line)
+        heading = re.match(r"^#{2,3}\s+\d+\.\s+(.+?)\s*$", line)
         if heading:
             if current:
                 current["key"] = _canonical_issue_key(current.get("origin"), current.get("title"))
@@ -944,14 +944,29 @@ def _parse_watch_report_issues(report_text: str) -> list[dict[str, str]]:
             continue
         if line.startswith("- origin:"):
             current["origin"] = line.split(":", 1)[1].strip()
+        elif line.startswith("**출처:**"):
+            current["origin"] = line.split(":**", 1)[1].strip()
         elif line.startswith("- company:"):
             current["company"] = line.split(":", 1)[1].strip()
+        elif line.startswith("**분류:**"):
+            current["company"] = line.split(":**", 1)[1].strip().split("·", 1)[0].strip()
         elif line.startswith("- importance:"):
             current["score"] = line[2:].strip()
+        elif line.startswith("**관심도:**"):
+            current["score"] = line.strip()
     if current:
         current["key"] = _canonical_issue_key(current.get("origin"), current.get("title"))
         issues.append(current)
     return [issue for issue in issues if issue.get("key")]
+
+
+def _format_hot_issue_score(score: str) -> str:
+    if score.startswith("**관심도:**"):
+        return score
+    match = re.search(r"importance:\s*([0-9.]+)\s*\|\s*momentum:\s*([0-9.]+)", score)
+    if match:
+        return f"**관심도:** 중요도 **{match.group(1)}** · 모멘텀 **{match.group(2)}**"
+    return f"**관심도:** {score}"
 
 
 def _read_external_hot_issue_state(state_path: Path) -> dict:
@@ -1004,13 +1019,19 @@ def generate_external_hot_issue_alert(report_path: Path, state_path: Path, now: 
     if not new_issues:
         message_text = "[SILENT]"
     else:
-        lines = ["외부 핫이슈 업데이트", f"window_end_day_kst: {window_key}", ""]
+        lines = [
+            "## 🔥 핫이슈 업데이트",
+            "",
+            f"**기준 창:** {window_key} KST",
+            f"**신규 이슈:** {len(new_issues)}건",
+            "",
+        ]
         for index, issue in enumerate(new_issues, start=1):
-            lines.append(f"{index}) {issue.get('title', 'Untitled')}")
+            lines.append(f"### {index}. {issue.get('title', '제목 없음')}")
             if issue.get("score"):
-                lines.append(f"- {issue['score']}")
+                lines.append(_format_hot_issue_score(issue["score"]))
             if issue.get("origin"):
-                lines.append(f"- origin: {issue['origin']}")
+                lines.append(f"**출처:** {issue['origin']}")
             lines.append("")
         message_text = "\n".join(lines).strip()
 
@@ -1072,18 +1093,24 @@ def generate_watch_report(config: PipelineConfig, report_kind: str = "hourly-hot
             text = "[SILENT]"
             issue_ids = []
         else:
-            lines = [f"# {report_kind}", f"generated_at: {generated_at}", ""]
+            lines = [
+                "## 🔥 핫이슈 업데이트",
+                "",
+                f"**생성 시각:** {generated_at}",
+                f"**신규 이슈:** {len(issues)}건",
+                "",
+            ]
             issue_ids = []
             for index, row in enumerate(issues, start=1):
                 issue_ids.append(row["issue_id"])
                 lines.extend(
                     [
-                        f"## {index}. {row['canonical_title']}",
-                        f"- company: {row['primary_company_tag'] or 'unknown'} | heat: {row['current_heat_level']}",
-                        f"- importance: {row['current_importance_score']:.3f} | momentum: {row['current_momentum_score']:.3f}",
-                        f"- signals: total={int(row['signal_count'] or 0)}, official={int(row['official_signal_count'] or 0)}, community={int(row['community_signal_count'] or 0)}, sources={int(row['unique_source_count'] or 0)}",
-                        f"- engagement: {float(row['engagement_score'] or 0.0):.1f} | reaction: {float(row['reaction_score'] or 0.0):.1f}",
-                        f"- origin: {row['origin_url'] or 'n/a'}",
+                        f"### {index}. {row['canonical_title']}",
+                        f"**분류:** {row['primary_company_tag'] or 'unknown'} · **열기:** {row['current_heat_level']}",
+                        f"**관심도:** 중요도 **{row['current_importance_score']:.3f}** · 모멘텀 **{row['current_momentum_score']:.3f}**",
+                        f"**관측 신호:** 총 {int(row['signal_count'] or 0)} · 공식 {int(row['official_signal_count'] or 0)} · 커뮤니티 {int(row['community_signal_count'] or 0)} · 출처 {int(row['unique_source_count'] or 0)}",
+                        f"**반응:** 참여 {float(row['engagement_score'] or 0.0):.1f} · 리액션 {float(row['reaction_score'] or 0.0):.1f}",
+                        f"**출처:** {row['origin_url'] or 'n/a'}",
                         "",
                     ]
                 )

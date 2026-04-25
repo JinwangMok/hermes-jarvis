@@ -8,6 +8,7 @@ from pathlib import Path
 from .bootstrap import bootstrap_workspace
 from .briefing import generate_briefing
 from .config import PipelineConfig
+from .wiki_contract import run_wiki_lint_if_available, wiki_governance, wiki_operational_source
 
 WATCHLIST_NOTE_RELATIVE_PATH = "queries/jinwang-jarvis-importance-shift-watchlist.md"
 WATCHLIST_INDEX_LINE = "- [[jinwang-jarvis-importance-shift-watchlist]] — Rolling watchlist of suppressed-but-promotable mail threads and the current importance-shift patterns in Jinwang Jarvis."
@@ -198,12 +199,36 @@ def _update_index(index_path: Path, today: str) -> None:
 
 
 def _append_log(log_path: Path, today: str, wiki_rel_path: str, watchlist_count: int, artifact_name: str) -> None:
+    wiki_root = log_path.parent
+    runs_dir = wiki_root / "_meta" / "runs" / today
+    runs_dir.mkdir(parents=True, exist_ok=True)
+    run_path = runs_dir / f"jarvis-watchlist-{artifact_name.replace('watchlist-', '').replace('.json', '')}.json"
+    run_path.write_text(
+        json.dumps(
+            {
+                "kind": "jarvis-watchlist-refresh",
+                "date": today,
+                "wiki_rel_path": wiki_rel_path,
+                "watchlist_count": watchlist_count,
+                "artifact": f"data/watchlists/{artifact_name}",
+                "authority": "derived",
+                "generated": True,
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    marker = f"## [{today}] update | Jinwang Jarvis recurring watchlist rollup"
+    existing = log_path.read_text(encoding="utf-8") if log_path.exists() else "# Wiki Log\n"
+    if marker in existing:
+        return
     with log_path.open("a", encoding="utf-8") as handle:
         handle.write(
-            f"\n## [{today}] update | Jinwang Jarvis importance-shift watchlist\n"
-            f"- Updated `{wiki_rel_path}`\n"
-            f"- Watchlist candidates: {watchlist_count}\n"
-            f"- Source artifact: `data/watchlists/{artifact_name}`\n"
+            f"\n{marker}\n"
+            f"- Refreshed `{wiki_rel_path}` as a derived generated view.\n"
+            f"- Detailed per-run metadata is stored under `_meta/runs/{today}/`.\n"
+            f"- Latest source artifact at first rollup: `data/watchlists/{artifact_name}`.\n"
         )
 
 
@@ -218,8 +243,16 @@ def _write_wiki_summary(config: PipelineConfig, proposal_payload: dict, entries:
         f"created: {today}",
         f"updated: {today}",
         "type: query",
+        "subtype: generated-watchlist",
         "tags: [email, advisor, lab, filtering, automation, query]",
         "sources: []",
+        "owner: jarvis",
+        "authority: derived",
+        "generated: true",
+        "generator: jinwang-jarvis",
+        "refresh_policy: overwrite",
+        f"operational_source_of_truth: {wiki_operational_source(config)}",
+        "summary: Rolling derived watchlist of suppressed-but-promotable mail threads.",
         "---",
         "",
         "# Jinwang Jarvis Importance Shift Watchlist",
@@ -257,10 +290,10 @@ def _write_wiki_summary(config: PipelineConfig, proposal_payload: dict, entries:
         "- operational source of truth remains SQLite + artifacts; this page is the rolling synthesis layer.",
         "",
         "## Relationships",
-        "- [[jinwang-jarvis]]",
-        "- [[personal-intelligence-pipeline-mvp-implementation-plan-april-2026]]",
-        "- [[jinwang-jarvis-mvp-completion-april-2026]]",
-        "- [[jinwang-jarvis-memory/index]]",
+        "- [[entities/jinwang-jarvis]]",
+        "- [[queries/personal-intelligence-pipeline-mvp-implementation-plan-april-2026]]",
+        "- [[queries/jinwang-jarvis-mvp-completion-april-2026]]",
+        "- [[queries/jinwang-jarvis-memory/index]]",
     ])
     note_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     _update_index(config.wiki_root / "index.md", today)
@@ -278,7 +311,7 @@ def _memory_note_title(stem: str) -> str:
     return mapping.get(stem, stem.replace("-", " ").title())
 
 
-def _write_memory_section(note_path: Path, *, generated_at: str, heading: str, items: list[dict], empty_message: str) -> None:
+def _write_memory_section(note_path: Path, *, config: PipelineConfig, generated_at: str, heading: str, items: list[dict], empty_message: str) -> None:
     note_path.parent.mkdir(parents=True, exist_ok=True)
     title = _memory_note_title(note_path.stem)
     lines = [
@@ -287,8 +320,15 @@ def _write_memory_section(note_path: Path, *, generated_at: str, heading: str, i
         f"created: {generated_at[:10]}",
         f"updated: {generated_at[:10]}",
         "type: query",
+        "subtype: generated-memory-shard",
         "tags: [email, automation, memory, query]",
         "sources: []",
+        "owner: jarvis",
+        "authority: derived",
+        "generated: true",
+        "generator: jinwang-jarvis",
+        "refresh_policy: overwrite",
+        f"operational_source_of_truth: {wiki_operational_source(config)}",
         "---",
         "",
         f"# {heading}",
@@ -322,6 +362,7 @@ def _write_memory_notes(config: PipelineConfig, briefing_payload: dict, generate
         }[section_name]
         _write_memory_section(
             note_path,
+            config=config,
             generated_at=generated_at,
             heading=heading,
             items=briefing_payload.get("sections", {}).get(section_name, []),
@@ -337,8 +378,15 @@ def _write_memory_notes(config: PipelineConfig, briefing_payload: dict, generate
         f"created: {generated_at[:10]}",
         f"updated: {generated_at[:10]}",
         "type: query",
+        "subtype: generated-memory-shard",
         "tags: [email, automation, memory, query]",
         "sources: []",
+        "owner: jarvis",
+        "authority: derived",
+        "generated: true",
+        "generator: jinwang-jarvis",
+        "refresh_policy: overwrite",
+        f"operational_source_of_truth: {wiki_operational_source(config)}",
         "---",
         "",
         "# Jinwang Jarvis Memory Index",
@@ -346,11 +394,11 @@ def _write_memory_notes(config: PipelineConfig, briefing_payload: dict, generate
         "이 메모 묶음은 최근/지속/신규 중요 메일과 추천 일정 후보를 계층적으로 저장해, 이후 대화에서 빠르게 탐색하기 위한 장기 기억 레이어다.",
         "",
         "## Sections",
-        "- [[jinwang-jarvis-memory/recent-important]]",
-        "- [[jinwang-jarvis-memory/continuing-important]]",
-        "- [[jinwang-jarvis-memory/newly-important]]",
-        "- [[jinwang-jarvis-memory/schedule-recommendations]]",
-        "- [[jinwang-jarvis-importance-shift-watchlist]]",
+        "- [[queries/jinwang-jarvis-memory/recent-important]]",
+        "- [[queries/jinwang-jarvis-memory/continuing-important]]",
+        "- [[queries/jinwang-jarvis-memory/newly-important]]",
+        "- [[queries/jinwang-jarvis-memory/schedule-recommendations]]",
+        "- [[queries/jinwang-jarvis-importance-shift-watchlist]]",
     ]
     index_path.write_text("\n".join(index_lines) + "\n", encoding="utf-8")
     note_paths["index"] = index_path
@@ -359,6 +407,7 @@ def _write_memory_notes(config: PipelineConfig, briefing_payload: dict, generate
 
 def synthesize_knowledge(config: PipelineConfig, *, write_wiki: bool = True, as_of: datetime | None = None) -> dict:
     bootstrap_workspace(config)
+    governance = wiki_governance(config.wiki_root)
     generated_at = (as_of or _utc_now()).isoformat().replace("+00:00", "Z")
     proposal_payload, proposal_artifact_path = _load_latest_proposal_payload(config)
     entries = _build_watchlist_entries(proposal_payload)
@@ -383,6 +432,7 @@ def synthesize_knowledge(config: PipelineConfig, *, write_wiki: bool = True, as_
         "proposal_artifact_file": proposal_artifact_path.name,
     }
     _save_checkpoints(config.checkpoints_path, checkpoints)
+    wiki_lint = run_wiki_lint_if_available(config.wiki_root) if write_wiki else None
     return {
         "generated_at": generated_at,
         "artifact_path": artifact_path,
@@ -390,4 +440,6 @@ def synthesize_knowledge(config: PipelineConfig, *, write_wiki: bool = True, as_
         "wiki_page_path": wiki_page_path,
         "memory_note_paths": memory_note_paths,
         "proposal_artifact_path": proposal_artifact_path,
+        "wiki_governance": governance.policy_summary(),
+        "wiki_lint": wiki_lint,
     }

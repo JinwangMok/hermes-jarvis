@@ -393,6 +393,15 @@ def test_watch_pipeline_loads_sources_dedups_reactions_and_generates_report(tmp_
     report_result = generate_watch_report(config)
     assert report_result["artifact_path"].exists()
     text = report_result["artifact_path"].read_text(encoding="utf-8")
+    assert "## 🔥 핫이슈 업데이트" in text
+    assert "**신규 이슈:**" in text
+    assert "### 1. OpenAI launches new enterprise API tier" in text
+    assert "**관심도:** 중요도" in text
+    assert "**관측 신호:**" in text
+    assert "**출처:**" in text
+    assert "외부 핫이슈" not in text
+    assert "- importance:" not in text
+    assert "- origin:" not in text
     assert "OpenAI launches new enterprise API tier" in text
     assert report_result["issue_count"] >= 1
 
@@ -402,22 +411,24 @@ def test_generate_external_hot_issue_alert_advances_new_window_and_dedupes_repea
     report_path = tmp_path / "data/watch/reports/hourly-hot-issues-20260424T100234+0000.md"
     report_path.parent.mkdir(parents=True)
     report_path.write_text(
-        """# hourly-hot-issues
-generated_at: 2026-04-24T10:02:34+00:00
+        """## 🔥 핫이슈 업데이트
 
-## 1. GPT-5.5
-- company: unknown | heat: low
-- importance: 0.642 | momentum: 0.401
-- signals: total=2, official=0, community=2, sources=2
-- engagement: 1374.0 | reaction: 904.0
-- origin: https://openai.com/index/introducing-gpt-5-5/
+**생성 시각:** 2026-04-24T10:02:34+00:00
+**신규 이슈:** 2건
 
-## 2. Meta tells staff it will cut 10% of jobs
-- company: meta | heat: low
-- importance: 0.364 | momentum: 0.175
-- signals: total=1, official=0, community=1, sources=1
-- engagement: 584.0 | reaction: 559.0
-- origin: https://www.bloomberg.com/news/articles/2026-04-23/meta-tells-staff-it-will-cut-10-of-jobs-in-push-for-efficiency
+### 1. GPT-5.5
+**분류:** unknown · **열기:** low
+**관심도:** 중요도 **0.642** · 모멘텀 **0.401**
+**관측 신호:** 총 2 · 공식 0 · 커뮤니티 2 · 출처 2
+**반응:** 참여 1374.0 · 리액션 904.0
+**출처:** https://openai.com/index/introducing-gpt-5-5/
+
+### 2. Meta tells staff it will cut 10% of jobs
+**분류:** meta · **열기:** low
+**관심도:** 중요도 **0.364** · 모멘텀 **0.175**
+**관측 신호:** 총 1 · 공식 0 · 커뮤니티 1 · 출처 1
+**반응:** 참여 584.0 · 리액션 559.0
+**출처:** https://www.bloomberg.com/news/articles/2026-04-23/meta-tells-staff-it-will-cut-10-of-jobs-in-push-for-efficiency
 """,
         encoding="utf-8",
     )
@@ -447,6 +458,12 @@ generated_at: 2026-04-24T10:02:34+00:00
 
     assert first["window_end_day_kst"] == "2026-04-25"
     assert first["new_count"] == 2
+    assert "## 🔥 핫이슈 업데이트" in first["message_text"]
+    assert "**신규 이슈:** 2건" in first["message_text"]
+    assert "### 1. GPT-5.5" in first["message_text"]
+    assert "**관심도:** 중요도 **0.642** · 모멘텀 **0.401**" in first["message_text"]
+    assert "**출처:** https://openai.com/index/introducing-gpt-5-5/" in first["message_text"]
+    assert "외부 핫이슈" not in first["message_text"]
     assert "GPT-5.5" in first["message_text"]
     assert second["new_count"] == 0
     assert second["message_text"] == "[SILENT]"

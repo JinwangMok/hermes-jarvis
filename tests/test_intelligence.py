@@ -428,12 +428,22 @@ def test_collect_knowledge_mail_and_generate_daily_intelligence(tmp_path: Path):
     assert collect_result["message_count"] == 4
     assert collect_result["accounts"][0]["all_mail_folder"] == "[Gmail]/전체보관함"
 
-    report_result = generate_daily_intelligence_report(config, lookback_days=7)
+    report_result = generate_daily_intelligence_report(
+        config,
+        lookback_days=7,
+        as_of=datetime(2026, 4, 20, 12, 0, tzinfo=UTC),
+    )
     assert report_result["item_count"] == 2
     assert report_result["opportunity_count"] >= 1
     assert report_result["artifact_path"].exists()
     assert report_result["wiki_note_path"].exists()
     assert report_result["index_path"].exists()
+    wiki_text = report_result["wiki_note_path"].read_text(encoding="utf-8")
+    assert "generated: true" in wiki_text
+    assert "generator: jinwang-jarvis" in wiki_text
+    assert "authority: derived" in wiki_text
+    assert f"operational_source_of_truth: {config.database_path}" in wiki_text
+    assert report_result["wiki_governance"]["generated_report_contract"].endswith("generated-report-contract.md")
 
     import sqlite3
     with sqlite3.connect(config.database_path) as conn:

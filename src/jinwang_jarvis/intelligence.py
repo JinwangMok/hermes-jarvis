@@ -23,6 +23,7 @@ from .mail import (
     normalize_envelope,
     parse_folder_list_table,
 )
+from .wiki_contract import render_generated_report_frontmatter, run_wiki_lint_if_available, wiki_governance, wiki_operational_source
 
 COMMON_CATEGORY_ORDER = [
     "opportunity",
@@ -857,6 +858,12 @@ def _write_recent_action_alerts_note(config: PipelineConfig, rows: list[dict], g
         'type: query',
         'tags: [jarvis, intelligence, alerts, inbox, priority]',
         'sources: []',
+        'owner: jarvis',
+        'authority: derived',
+        'generated: true',
+        'generator: jinwang-jarvis',
+        'refresh_policy: overwrite',
+        f'operational_source_of_truth: {wiki_operational_source(config)}',
         '---',
         '',
         '# Recent action alerts',
@@ -997,6 +1004,12 @@ def _write_next_day_mail_todos_note(config: PipelineConfig, generated_at: str, *
         'type: query',
         'tags: [jarvis, intelligence, todo, mail, priority]',
         'sources: []',
+        'owner: jarvis',
+        'authority: derived',
+        'generated: true',
+        'generator: jinwang-jarvis',
+        'refresh_policy: overwrite',
+        f'operational_source_of_truth: {wiki_operational_source(config)}',
         '---',
         '',
         '# Next-day TODO from mail',
@@ -1298,6 +1311,12 @@ def _write_important_mail_recommendations_note(config: PipelineConfig, generated
         'type: query',
         'tags: [jarvis, intelligence, important-mail, recommendations, priority]',
         'sources: []',
+        'owner: jarvis',
+        'authority: derived',
+        'generated: true',
+        'generator: jinwang-jarvis',
+        'refresh_policy: overwrite',
+        f'operational_source_of_truth: {wiki_operational_source(config)}',
         '---',
         '',
         '# Important mail recommendations',
@@ -1374,6 +1393,12 @@ def _write_jongwon_smartx_flow_note(config: PipelineConfig, rows: list[dict], ge
         "type: query",
         "tags: [jarvis, intelligence, jongwon, smartx, priority]",
         "sources: []",
+        "owner: jarvis",
+        "authority: derived",
+        "generated: true",
+        "generator: jinwang-jarvis",
+        "refresh_policy: overwrite",
+        f"operational_source_of_truth: {wiki_operational_source(config)}",
         "---",
         "",
         "# Jongwon + SmartX mail flow",
@@ -1435,6 +1460,12 @@ def _write_jongwon_direct_actions_note(config: PipelineConfig, rows: list[dict],
         "type: query",
         "tags: [jarvis, intelligence, jongwon, actions, priority]",
         "sources: []",
+        "owner: jarvis",
+        "authority: derived",
+        "generated: true",
+        "generator: jinwang-jarvis",
+        "refresh_policy: overwrite",
+        f"operational_source_of_truth: {wiki_operational_source(config)}",
         "---",
         "",
         "# Jongwon direct actions",
@@ -1468,6 +1499,12 @@ def _write_smartx_weekly_briefing_note(config: PipelineConfig, rows: list[dict],
         "type: query",
         "tags: [jarvis, intelligence, smartx, weekly, priority]",
         "sources: []",
+        "owner: jarvis",
+        "authority: derived",
+        "generated: true",
+        "generator: jinwang-jarvis",
+        "refresh_policy: overwrite",
+        f"operational_source_of_truth: {wiki_operational_source(config)}",
         "---",
         "",
         "# SmartX weekly briefing",
@@ -1528,6 +1565,12 @@ def _write_jongwon_phase_map_note(config: PipelineConfig, rows: list[dict], gene
         "type: query",
         "tags: [jarvis, intelligence, jongwon, phase-map, priority]",
         "sources: []",
+        "owner: jarvis",
+        "authority: derived",
+        "generated: true",
+        "generator: jinwang-jarvis",
+        "refresh_policy: overwrite",
+        f"operational_source_of_truth: {wiki_operational_source(config)}",
         "---",
         "",
         "# Jongwon phase map",
@@ -1567,6 +1610,12 @@ def _write_jongwon_context_cases_note(config: PipelineConfig, rows: list[dict], 
         "type: query",
         "tags: [jarvis, intelligence, jongwon, context, priority]",
         "sources: []",
+        "owner: jarvis",
+        "authority: derived",
+        "generated: true",
+        "generator: jinwang-jarvis",
+        "refresh_policy: overwrite",
+        f"operational_source_of_truth: {wiki_operational_source(config)}",
         "---",
         "",
         "# Jongwon context cases",
@@ -1606,6 +1655,12 @@ def _write_interaction_chain_note(config: PipelineConfig, rows: list[dict], gene
         "type: query",
         "tags: [jarvis, intelligence, chains, priority]",
         "sources: []",
+        "owner: jarvis",
+        "authority: derived",
+        "generated: true",
+        "generator: jinwang-jarvis",
+        "refresh_policy: overwrite",
+        f"operational_source_of_truth: {wiki_operational_source(config)}",
         "---",
         "",
         "# Interaction chain status",
@@ -1641,6 +1696,12 @@ def _write_advisor_action_status_note(config: PipelineConfig, rows: list[dict], 
         "type: query",
         "tags: [jarvis, intelligence, advisor, action, priority]",
         "sources: []",
+        "owner: jarvis",
+        "authority: derived",
+        "generated: true",
+        "generator: jinwang-jarvis",
+        "refresh_policy: overwrite",
+        f"operational_source_of_truth: {wiki_operational_source(config)}",
         "---",
         "",
         "# Advisor action status",
@@ -1724,6 +1785,12 @@ def _write_project_work_items_note(config: PipelineConfig, rows: list[dict], gen
         "type: query",
         "tags: [jarvis, intelligence, projects, work-items, priority]",
         "sources: []",
+        "owner: jarvis",
+        "authority: derived",
+        "generated: true",
+        "generator: jinwang-jarvis",
+        "refresh_policy: overwrite",
+        f"operational_source_of_truth: {wiki_operational_source(config)}",
         "---",
         "",
         "# Project work items",
@@ -1897,6 +1964,12 @@ def _write_education_teaching_memory_note(config: PipelineConfig, rows: list[dic
         "type: query",
         "tags: [jarvis, intelligence, education, teaching, memory]",
         "sources: []",
+        "owner: jarvis",
+        "authority: derived",
+        "generated: true",
+        "generator: jinwang-jarvis",
+        "refresh_policy: overwrite",
+        f"operational_source_of_truth: {wiki_operational_source(config)}",
         "---",
         "",
         "# Education and teaching memory",
@@ -1967,6 +2040,12 @@ def _write_category_notes(config: PipelineConfig, rows: list[dict], generated_at
             "type: query",
             f"tags: [jarvis, intelligence, {category}]",
             "sources: []",
+            "owner: jarvis",
+            "authority: derived",
+            "generated: true",
+            "generator: jinwang-jarvis",
+            "refresh_policy: overwrite",
+            f"operational_source_of_truth: {wiki_operational_source(config)}",
             "---",
             "",
             f"# {category.title()} intelligence",
@@ -1997,6 +2076,12 @@ def _write_intelligence_index(
         "type: query",
         "tags: [jarvis, intelligence, index]",
         "sources: []",
+        "owner: jarvis",
+        "authority: derived",
+        "generated: true",
+        "generator: jinwang-jarvis",
+        "refresh_policy: overwrite",
+        f"operational_source_of_truth: {wiki_operational_source(config)}",
         "---",
         "",
         "# Jarvis intelligence index",
@@ -2022,6 +2107,7 @@ def generate_daily_intelligence_report(
     lookback_days: int = DEFAULT_LOOKBACK_DAYS,
 ) -> dict:
     bootstrap_workspace(config)
+    governance = wiki_governance(config.wiki_root)
     moment = (as_of or _utc_now()).astimezone(UTC).replace(microsecond=0)
     rows = _load_recent_knowledge_rows(config.database_path, as_of=moment, lookback_days=lookback_days)
     rows = [row for row in rows if _should_include_in_daily_report(row)]
@@ -2036,8 +2122,17 @@ def generate_daily_intelligence_report(
     report_rel_path = f"{INTELLIGENCE_NOTE_DIR}/daily-{moment.date().isoformat()}.md"
     wiki_path = config.wiki_root / report_rel_path
     wiki_path.parent.mkdir(parents=True, exist_ok=True)
+    title = f"Daily Intelligence Report — {moment.astimezone().strftime('%Y-%m-%d %H:%M')}"
+    frontmatter = render_generated_report_frontmatter(
+        title=f"Jarvis Daily Intelligence {moment.date().isoformat()}",
+        date=moment.date().isoformat(),
+        subtype="generated-daily-report",
+        tags=["jarvis", "intelligence", "report", "daily"],
+        operational_source_of_truth=wiki_operational_source(config),
+        summary=f"Daily generated Jarvis intelligence report for {moment.date().isoformat()}.",
+    )
     lines = [
-        f"# Daily Intelligence Report — {moment.astimezone().strftime('%Y-%m-%d %H:%M')}",
+        f"# {title}",
         "",
         f"Lookback: last {lookback_days} days",
         "",
@@ -2057,8 +2152,9 @@ def generate_daily_intelligence_report(
         lines.extend(["", f"## {category.title()}"])
         for row in items:
             lines.append(f"- {row['subject']} — {row['from_addr'] or 'unknown'} ({row['sent_at']})")
-    text = "\n".join(lines) + "\n"
-    artifact_path.write_text(text, encoding="utf-8")
+    text = "\n".join(frontmatter + lines) + "\n"
+    artifact_text = "\n".join(lines) + "\n"
+    artifact_path.write_text(artifact_text, encoding="utf-8")
     wiki_path.write_text(text, encoding="utf-8")
     _systematic_backfill_message_participant_cache(config.database_path, limit=40)
     note_paths = _write_category_notes(config, rows, moment.date().isoformat())
@@ -2126,6 +2222,7 @@ def generate_daily_intelligence_report(
         "important_mail_candidate_ids": [item.get("message_id") for item in important_mail_recommendations],
     }
     config.checkpoints_path.write_text(json.dumps(checkpoints, ensure_ascii=False, indent=2), encoding="utf-8")
+    wiki_lint = run_wiki_lint_if_available(config.wiki_root)
     return {
         "generated_at": moment.isoformat(),
         "artifact_path": artifact_path,
@@ -2134,4 +2231,6 @@ def generate_daily_intelligence_report(
         "item_count": len(rows),
         "opportunity_count": len(opportunities),
         "categories": {key: len(value) for key, value in by_category.items() if value},
+        "wiki_governance": governance.policy_summary(),
+        "wiki_lint": wiki_lint,
     }
