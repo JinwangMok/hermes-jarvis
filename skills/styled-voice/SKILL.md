@@ -1,6 +1,6 @@
 ---
 name: styled-voice
-description: Create speech in the user's style by sending attached audio samples to the direct VoxCPM backend at 10.40.40.40:9100. Trigger via /styled-voice in Discord.
+description: Create speech in the user's style using Jarvis stored sample profiles or explicit audio references with the direct VoxCPM backend at 10.40.40.40:9100. Trigger via /styled-voice in Discord.
 version: 1.1.0
 author: Hermes Agent
 license: MIT
