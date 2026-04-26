@@ -21,6 +21,7 @@ import yaml
 
 from .bootstrap import bootstrap_workspace
 from .config import PipelineConfig
+from .news_center import collect_news_center
 
 ATOM_NS = {"atom": "http://www.w3.org/2005/Atom"}
 TRACKING_QUERY_KEYS = {
@@ -1381,6 +1382,41 @@ def generate_external_hot_issue_alert(report_path: Path, state_path: Path, now: 
     }
 
 
+def _news_center_fallback_report(config: PipelineConfig, *, generated_at: str) -> tuple[str, list[str], dict | None]:
+    taxonomy_path = config.workspace_root / "config/personal-radar/naver-news-taxonomy.yaml"
+    if not taxonomy_path.exists():
+        return "[SILENT]", [], None
+    try:
+        result = collect_news_center(
+            taxonomy_path=taxonomy_path,
+            output_dir=config.workspace_root / "data/news-center",
+            wiki_root=config.wiki_root,
+            per_source_limit=1,
+        )
+    except Exception as exc:  # public news fallback must not break the hot-issues job
+        return "[SILENT]", [], {"fallback_error": str(exc)}
+
+    news_md = str(result.get("news_markdown") or "").strip()
+    item_count = int(result.get("item_count") or 0)
+    if item_count <= 0 or not news_md:
+        return "[SILENT]", [], result
+
+    lines = [
+        "## 📰 뉴스 센터 업데이트",
+        "",
+        f"**생성 시각:** {generated_at}",
+        "**상태:** 고임계값 핫이슈는 없지만, 네이버/구글 뉴스 기반 일반 브리핑을 보강했습니다.",
+        f"**수집 기사:** {item_count}건 · **수집 오류:** {int(result.get('error_count') or 0)}건",
+        "",
+    ]
+    body_lines = [line for line in news_md.splitlines() if line.strip()]
+    # Keep the hourly Discord message compact; full markdown/json artifacts are persisted.
+    lines.extend(body_lines[:36])
+    lines.extend(["", "_전체 뉴스 원문/근거는 Jarvis News Center 아티팩트에 저장했습니다._"])
+    issue_ids = [f"news-center:{result.get('artifact_path')}"]
+    return "\n".join(lines).strip() + "\n", issue_ids, result
+
+
 def generate_watch_report(config: PipelineConfig, report_kind: str = "hourly-hot-issues") -> dict:
     bootstrap_workspace(config)
     reports_dir = config.watch.snapshot_dir / "reports"
@@ -1435,8 +1471,11 @@ def generate_watch_report(config: PipelineConfig, report_kind: str = "hourly-hot
             (recency_start, importance_threshold, config.watch.digest_threshold, momentum_threshold),
         ).fetchall()
         if not issues:
-            text = "[SILENT]"
-            issue_ids = []
+            if report_kind == "hourly-hot-issues":
+                text, issue_ids, _ = _news_center_fallback_report(config, generated_at=generated_at)
+            else:
+                text = "[SILENT]"
+                issue_ids = []
         else:
             lines = [
                 "## 🔥 핫이슈 업데이트",

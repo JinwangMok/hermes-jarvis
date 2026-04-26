@@ -648,6 +648,37 @@ def test_generate_watch_report_suppresses_low_importance_momentum_only_false_pos
     assert report_result["issue_count"] == 0
 
 
+def test_generate_watch_report_uses_news_center_when_hot_issue_threshold_is_quiet(tmp_path: Path, monkeypatch):
+    config_path = _write_config(tmp_path)
+    taxonomy = tmp_path / "config/personal-radar/naver-news-taxonomy.yaml"
+    taxonomy.parent.mkdir(parents=True, exist_ok=True)
+    taxonomy.write_text("categories: []\n", encoding="utf-8")
+    config = load_pipeline_config(config_path)
+    bootstrap_workspace(config)
+
+    def fake_collect_news_center(**kwargs):
+        assert kwargs["taxonomy_path"] == taxonomy
+        assert kwargs["per_source_limit"] == 1
+        return {
+            "artifact_path": str(tmp_path / "data/news-center/news-center.json"),
+            "markdown_path": str(tmp_path / "data/news-center/news-center.md"),
+            "item_count": 2,
+            "error_count": 0,
+            "news_markdown": "## 뉴스 센터 브리핑\n\n### 기술 · 국내\n\n- 확인된 사실: AI 반도체 정책 발표\n- 왜 중요한가: 국내 기술 흐름 확인\n- 오늘 할 일: 원문 확인\n- 근거: google-news / 2026-04-26\n- 불확실성: 자동 수집 요약",
+        }
+
+    monkeypatch.setattr("jinwang_jarvis.watch.collect_news_center", fake_collect_news_center)
+
+    report_result = generate_watch_report(config)
+
+    assert report_result["issue_count"] == 1
+    assert "## 📰 뉴스 센터 업데이트" in report_result["message_text"]
+    assert "고임계값 핫이슈는 없지만" in report_result["message_text"]
+    assert "AI 반도체 정책 발표" in report_result["message_text"]
+    assert str(tmp_path) not in report_result["message_text"]
+    assert report_result["artifact_path"].read_text(encoding="utf-8") == report_result["message_text"]
+
+
 def test_generate_external_hot_issue_alert_advances_new_window_and_dedupes_repeats(tmp_path: Path):
     state_path = tmp_path / "state/external_hot_issue_state.json"
     report_path = tmp_path / "data/watch/reports/hourly-hot-issues-20260424T100234+0000.md"
