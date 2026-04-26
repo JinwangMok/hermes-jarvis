@@ -53,6 +53,21 @@ Run:
 service/install-systemd.sh
 ```
 
+## Operational checkpoint before gateway restart
+When asked to stop before restarting the gateway, the safe stopping point is:
+1. commit and push the Jarvis/external-bundle changes;
+2. run `scripts/verify.sh /home/jinwang/.hermes/hermes-agent` so the patch is tested against a temp clone;
+3. apply `scripts/apply-hermes-patches.sh /home/jinwang/.hermes/hermes-agent` to the live checkout if disk changes are approved;
+4. update `~/.hermes/config.yaml` only for the required voice keys, redacting/never printing secrets;
+5. confirm `systemctl --user is-active hermes-gateway.service` and `MainPID` are unchanged.
+
+Do not claim the running gateway uses the new code until it has been restarted. At this checkpoint the disk state is prepared, but the active process still has old code/config loaded.
+
+## Patch/test pitfalls learned
+- `git apply` reporting `corrupt patch at line <last>` often means the patch file is missing a trailing newline; ensure the patch ends in `\n`.
+- Tests inside patch files should use fake non-secret tokens such as `local-test-token`; avoid real-looking API keys and do not print secret values.
+- `git diff --check` may flag intentional whitespace lines inside `.patch` payloads. Do not auto-strip them blindly if doing so would change the patch semantics; verify with `git apply --check`/`--3way --check` instead.
+
 ## Verify
 Run:
 ```bash
