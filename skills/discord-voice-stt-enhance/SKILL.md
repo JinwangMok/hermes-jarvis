@@ -67,6 +67,8 @@ Do not claim the running gateway uses the new code until it has been restarted. 
 - `git apply` reporting `corrupt patch at line <last>` often means the patch file is missing a trailing newline; ensure the patch ends in `\n`.
 - Tests inside patch files should use fake non-secret tokens such as `local-test-token`; avoid real-looking API keys and do not print secret values.
 - `git diff --check` may flag intentional whitespace lines inside `.patch` payloads. Do not auto-strip them blindly if doing so would change the patch semantics; verify with `git apply --check`/`--3way --check` instead.
+- When adding the Discord PCM energy/VAD gate, existing voice reception tests that used all-zero PCM for “successful speech” became invalid. Treat this as a fixture bug, not a VAD regression: success-path synthetic PCM should use deterministic non-zero 16-bit samples (for example `+1000/-1000`), and silence rejection should be covered by a separate explicit test.
+- After fixing live Hermes tests for a Jarvis-owned patch, propagate the additional live `git diff` back into `skills/discord-voice-stt-enhance/patches/hermes-config-first-stt-tts-and-vad.patch`, rerun `scripts/verify.sh /home/jinwang/.hermes/hermes-agent`, then commit the Jarvis patch bundle. Otherwise the live checkout can be green while the reusable external bundle stays stale.
 
 ## Verify
 Run:
