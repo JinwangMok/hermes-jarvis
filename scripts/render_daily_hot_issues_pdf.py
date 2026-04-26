@@ -20,7 +20,7 @@ CSS = """
   size: A4;
   margin: 12mm 11mm 15mm 11mm;
   @bottom-left { content: "Jinwang Jarvis · 오늘의 핫이슈"; font-size: 7.5pt; color: #64748b; }
-  @bottom-center { content: "generated daily intelligence brief"; font-size: 7.2pt; color: #94a3b8; }
+  @bottom-center { content: "매일 핵심 이슈 브리핑"; font-size: 7.2pt; color: #94a3b8; }
   @bottom-right { content: "page " counter(page); font-size: 7.5pt; color: #64748b; }
 }
 :root {
@@ -143,7 +143,7 @@ h2 {
   break-after: avoid;
 }
 h2:before {
-  content: "SECTION";
+  content: "섹션";
   display: inline-block;
   font-size: 6pt;
   letter-spacing: 0.18em;
@@ -216,8 +216,17 @@ def strip_yaml_frontmatter(md: str) -> str:
     return md
 
 
+def strip_internal_appendix(md: str) -> str:
+    """Remove local provenance appendices from user-facing PDF output."""
+    return re.sub(r"\n## 부록: 내부 생성 근거\n.*?(?=\n## |\Z)", "", md, flags=re.S).rstrip() + "\n"
+
+
+def prepare_markdown(md: str) -> str:
+    return strip_internal_appendix(strip_yaml_frontmatter(md))
+
+
 def extract_title(md: str) -> str:
-    for line in strip_yaml_frontmatter(md).splitlines():
+    for line in prepare_markdown(md).splitlines():
         if line.startswith("# "):
             return line[2:].strip()
     return "오늘의 핫이슈"
@@ -230,7 +239,7 @@ def _flush_list(out: list[str], in_ul: bool) -> bool:
 
 
 def markdown_to_html(md: str) -> str:
-    md = strip_yaml_frontmatter(md)
+    md = prepare_markdown(md)
     out: list[str] = []
     in_ul = False
     skipped_first_h1 = False

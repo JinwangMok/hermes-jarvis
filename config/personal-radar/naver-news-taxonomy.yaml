@@ -1,36 +1,92 @@
 version: 2026-04-26
-purpose: Naver News category reference for Korean News Center taxonomy.
+purpose: Naver News and Google News category reference for Jarvis News Center.
 base_url: https://news.naver.com/
-collection_policy: metadata_only_no_full_text
+collection_policy: metadata_and_short_excerpt_no_full_article_storage
 categories:
   - naver_id: politics
+    naver_sid: '100'
     korean_name: 정치
     internal_category: politics
-    usage: government agenda, law/policy conflict, administration signals
+    usage: government agenda, law/policy conflict, administration and parliament changes
+    google_queries:
+      domestic:
+        - 한국 정치 주요 이슈
+        - 국회 정부 정책 오늘
+      international:
+        - global politics major issue
+        - geopolitics policy today
   - naver_id: economy
+    naver_sid: '101'
     korean_name: 경제
     internal_category: economy
-    usage: budget, market, real estate, startup/business environment
+    usage: macroeconomy, budget, market, real estate, startup/business environment
+    google_queries:
+      domestic:
+        - 한국 경제 주요 이슈
+        - 한국 부동산 금융 산업 뉴스
+      international:
+        - global economy major issue
+        - global markets economy today
   - naver_id: society
+    naver_sid: '102'
     korean_name: 사회
     internal_category: society
     usage: welfare, education, labor, local government, public services
+    google_queries:
+      domestic:
+        - 한국 사회 교육 노동 주요 이슈
+        - 복지 교육 노동 오늘 뉴스
+      international:
+        - global society education labor news
+        - public services social policy news
   - naver_id: life_culture
-    korean_name: 생활/문화
+    naver_sid: '103'
+    korean_name: 문화
     internal_category: culture
-    usage: broad social context, housing/lifestyle adjacent signals
+    usage: culture, lifestyle, science-adjacent social context, housing/lifestyle adjacent changes
+    google_queries:
+      domestic:
+        - 한국 문화 생활 주요 이슈
+        - 문화 생활 트렌드 오늘 뉴스
+      international:
+        - global culture lifestyle news
+        - culture trend major issue
   - naver_id: world
-    korean_name: 세계
+    naver_sid: '104'
+    korean_name: 국제
     internal_category: world
     usage: global policy, geopolitics affecting AI/cloud/supply chains
+    google_queries:
+      domestic:
+        - 한국 외교 안보 국제 이슈
+        - 한국 관련 국제 뉴스
+      international:
+        - international breaking news geopolitics
+        - global security diplomacy news
   - naver_id: it_science
-    korean_name: IT/과학
-    internal_category: it-science
+    naver_sid: '105'
+    korean_name: 기술
+    internal_category: technology
     usage: AI, cloud, semiconductors, R&D, university/science policy
-  - naver_id: opinion
-    korean_name: 오피니언
-    internal_category: opinion
-    usage: optional framing analysis; never canonical fact source
+    google_queries:
+      domestic:
+        - 한국 AI 반도체 클라우드 기술 뉴스
+        - 과기정통부 AI R&D 반도체
+      international:
+        - AI cloud semiconductor technology news
+        - Google OpenAI Nvidia AI infrastructure news
+  - naver_id: entertainment
+    naver_sid: '106'
+    korean_name: 예능
+    internal_category: entertainment
+    usage: entertainment, broadcasting, creator economy, public attention topics; report lightly unless relevant
+    google_queries:
+      domestic:
+        - 한국 연예 방송 예능 주요 이슈
+        - K팝 방송 OTT 오늘 뉴스
+      international:
+        - global entertainment streaming music news
+        - entertainment industry major issue
 priority_queries:
   - 과기정통부 AI 정책
   - IITP 공고 AI 클라우드
@@ -42,9 +98,12 @@ priority_queries:
   - K-Startup 예비창업 AI
   - 기업마당 AI 바우처
   - 주택도시기금 청년 전세대출
+  - Google News AI infrastructure
+  - Naver News AI semiconductor Korea
 internal_mapping:
   policy: [politics, economy, society]
-  research_grants: [it_science, economy]
+  research_grants: [technology, economy]
   housing: [economy, society]
   youth_welfare: [society, economy]
-  ai_cloud: [it_science, economy, world]
+  ai_cloud: [technology, economy, world]
+  entertainment_attention: [entertainment, culture]

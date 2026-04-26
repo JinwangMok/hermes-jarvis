@@ -17,6 +17,7 @@ from .hermes_continuity import check_hermes_customizations
 from .intelligence import collect_knowledge_mail, generate_daily_intelligence_report
 from .knowledge import synthesize_knowledge
 from .mail import build_fake_mail_runner, collect_mail_snapshots
+from .news_center import append_news_center_to_daily_report, collect_news_center, generate_podcast_script
 from .personal_radar import generate_personal_radar_source_audit
 from .proposals import generate_proposals
 from .review import generate_weekly_review
@@ -110,6 +111,22 @@ def build_parser() -> argparse.ArgumentParser:
     radar_audit_parser = subparsers.add_parser("generate-personal-radar-source-audit", help="Generate a Personal Intelligence Radar source registry audit artifact")
     radar_audit_parser.add_argument("--registry-dir", default="config/personal-radar", help="Directory containing personal radar YAML registry files")
     radar_audit_parser.add_argument("--output-dir", default="data/personal-radar", help="Directory for generated audit artifacts")
+
+    news_center_parser = subparsers.add_parser("generate-news-center", help="Collect Naver/Google News category briefs and write wiki shards")
+    news_center_parser.add_argument("--taxonomy", default="config/personal-radar/naver-news-taxonomy.yaml", help="News taxonomy YAML")
+    news_center_parser.add_argument("--output-dir", default="data/news-center", help="Directory for news-center artifacts")
+    news_center_parser.add_argument("--wiki-root", default="", help="Wiki root; defaults to pipeline config wiki_root when --config is provided, otherwise ~/wiki")
+    news_center_parser.add_argument("--config", default="", help="Optional pipeline config for wiki/workspace defaults")
+    news_center_parser.add_argument("--per-source-limit", type=int, default=5, help="Maximum items per provider/query")
+
+    append_news_parser = subparsers.add_parser("append-news-center-to-daily-report", help="Append or replace the news section in a daily hot-issues markdown report")
+    append_news_parser.add_argument("--daily-report", required=True, help="Daily hot-issues markdown path")
+    append_news_parser.add_argument("--news-markdown", required=True, help="News center markdown path")
+
+    podcast_parser = subparsers.add_parser("generate-podcast-script", help="Generate a conversational TTS podcast script from a daily report")
+    podcast_parser.add_argument("--daily-report", required=True, help="Daily hot-issues markdown path")
+    podcast_parser.add_argument("--output-path", required=True, help="Output markdown/text script path")
+    podcast_parser.add_argument("--max-items", type=int, default=8, help="Maximum issue/news cards to include")
 
     watch_cycle_parser = subparsers.add_parser("run-watch-cycle", help="Run one full watch cycle")
     watch_cycle_parser.add_argument("--config", required=True, help="Path to pipeline.yaml")
@@ -364,6 +381,35 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.command == "generate-personal-radar-source-audit":
         result = generate_personal_radar_source_audit(registry_dir=Path(args.registry_dir), output_dir=Path(args.output_dir))
         print(json.dumps({**result, "artifact_path": str(result["artifact_path"]), "json_path": str(result["json_path"])}, ensure_ascii=False))
+        return 0
+
+    if args.command == "generate-news-center":
+        config = load_pipeline_config(args.config) if args.config else None
+        taxonomy_path = Path(args.taxonomy)
+        if not taxonomy_path.is_absolute() and config is not None:
+            taxonomy_path = config.workspace_root / taxonomy_path
+        output_dir = Path(args.output_dir)
+        if not output_dir.is_absolute() and config is not None:
+            output_dir = config.workspace_root / output_dir
+        wiki_root = Path(args.wiki_root).expanduser() if args.wiki_root else (config.wiki_root if config is not None else Path.home() / "wiki")
+        result = collect_news_center(
+            taxonomy_path=taxonomy_path,
+            output_dir=output_dir,
+            wiki_root=wiki_root,
+            per_source_limit=args.per_source_limit,
+        )
+        print(json.dumps(result, ensure_ascii=False))
+        return 0
+
+    if args.command == "append-news-center-to-daily-report":
+        news_markdown = Path(args.news_markdown).read_text(encoding="utf-8")
+        append_news_center_to_daily_report(Path(args.daily_report), news_markdown)
+        print(json.dumps({"daily_report": args.daily_report, "updated": True}, ensure_ascii=False))
+        return 0
+
+    if args.command == "generate-podcast-script":
+        result = generate_podcast_script(Path(args.daily_report), output_path=Path(args.output_path), max_items=args.max_items)
+        print(json.dumps(result, ensure_ascii=False))
         return 0
 
     if args.command == "run-watch-cycle":

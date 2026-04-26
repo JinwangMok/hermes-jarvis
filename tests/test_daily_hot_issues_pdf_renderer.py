@@ -57,3 +57,25 @@ title: 테스트
     assert "issue-card" in doc
     assert "data-no=\"01\"" in doc
     assert "title: 테스트" not in doc
+
+
+def test_render_document_excludes_internal_appendix_and_local_paths():
+    md = """# 오늘의 핫이슈 리포트 — 2026-04-26
+
+## 주요 이슈
+
+### 공식 발표
+- 확인된 사실: 공개 발표가 있었다.
+- 왜 중요한가: 후속 확인이 필요하다.
+- 오늘 할 일: 공식 원문을 확인한다.
+
+## 부록: 내부 생성 근거
+- source: /home/jinwang/workspace/jinwang-jarvis/data/internal.json
+- source audit: internal
+"""
+    doc = renderer.render_document(md, "2026-04-26 21:00 KST")
+    assert "부록: 내부 생성 근거" not in doc
+    assert "/home/jinwang" not in doc
+    assert "source audit" not in doc
+    assert "매일 핵심 이슈 브리핑" in doc
+    assert "SECTION" not in doc

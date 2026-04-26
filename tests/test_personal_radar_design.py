@@ -65,9 +65,10 @@ def test_government_structure_normalizes_core_aliases():
 def test_naver_taxonomy_and_priority_queries_exist():
     naver = load_yaml("naver-news-taxonomy.yaml")
     cats = {c["internal_category"] for c in naver["categories"]}
-    assert {"politics", "economy", "society", "it-science", "world"} <= cats
+    assert {"politics", "economy", "society", "technology", "world", "entertainment"} <= cats
     assert len(naver["priority_queries"]) >= 10
-    assert naver["collection_policy"] == "metadata_only_no_full_text"
+    assert naver["collection_policy"] == "metadata_and_short_excerpt_no_full_article_storage"
+    assert all("naver_sid" in category and "google_queries" in category for category in naver["categories"])
 
 
 def test_x_graph_seed_has_minimum_required_nodes_and_policy():
