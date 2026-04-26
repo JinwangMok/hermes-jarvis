@@ -10,7 +10,8 @@ CLIENT_PY="${HERMES_LOCAL_STT_CLIENT_PY:-$RUNTIME_DIR/client.py}"
 echo "HERMES_LOCAL_STT_SERVER_URL=${SERVER_URL}"
 echo "HERMES_LOCAL_STT_COMMAND=python ${CLIENT_PY} --input {input_path} --output-dir {output_dir} --language {language} --model {model}"
 echo
-echo '# Config-first mode below avoids depending on HERMES_LOCAL_STT_* being present in the gateway service env.'
+echo "# Config-first mode below avoids depending on HERMES_LOCAL_STT_* being present in the gateway service env."
+echo "# Korean is forced by default to reduce short-utterance auto-language hallucinations."
 echo
 
 cat <<YAML
@@ -19,7 +20,7 @@ stt:
   provider: local_command
   local:
     model: large-v3-turbo
-    language: ''
+    language: ko
   local_command:
     command: python ${CLIENT_PY} --server-url ${SERVER_URL} --input {input_path} --output-dir {output_dir} --language {language} --model {model}
 YAML

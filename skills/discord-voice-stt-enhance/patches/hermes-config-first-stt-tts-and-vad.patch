@@ -1,0 +1,313 @@
+diff --git a/gateway/platforms/discord.py b/gateway/platforms/discord.py
+index 5d30f244..00edd34d 100644
+--- a/gateway/platforms/discord.py
++++ b/gateway/platforms/discord.py
+@@ -10,6 +10,7 @@ Uses discord.py library for:
+ """
+ 
+ import asyncio
++from array import array
+ import logging
+ import os
+ import struct
+@@ -131,6 +132,10 @@ class VoiceReceiver:
+     MIN_SPEECH_DURATION = 0.5  # minimum seconds to process (skip noise)
+     SAMPLE_RATE = 48000        # Discord native rate
+     CHANNELS = 2               # Discord sends stereo
++    MIN_BUFFER_RMS = 120        # reject near-silence before STT
++    MIN_BUFFER_PEAK = 500       # reject low-level hum / decode residue
++    VOICED_FRAME_RMS = 180      # 20ms frame speech-like energy threshold
++    MIN_VOICED_FRAME_RATIO = 0.18
+ 
+     def __init__(self, voice_client, allowed_user_ids: set = None):
+         self._vc = voice_client
+@@ -404,6 +409,48 @@ class VoiceReceiver:
+             pass
+         return 0
+ 
++    @classmethod
++    def _pcm_looks_speech_like(cls, pcm_data: bytes) -> bool:
++        """Return True when a completed PCM buffer has speech-like energy.
++
++        This is an admission gate before STT. Discord voice buffers can contain
++        near-silence, hum, or decode residue that Whisper-like models turn into
++        plausible hallucinations. Keep the heuristic conservative: accept any
++        buffer with enough whole-buffer RMS, otherwise require enough voiced
++        20ms frames.
++        """
++        if len(pcm_data) < 2:
++            return False
++        sample_bytes = len(pcm_data) - (len(pcm_data) % 2)
++        if sample_bytes <= 0:
++            return False
++        samples = array('h')
++        samples.frombytes(pcm_data[:sample_bytes])
++        if not samples:
++            return False
++
++        peak = max(abs(sample) for sample in samples)
++        if peak < cls.MIN_BUFFER_PEAK:
++            return False
++
++        rms = (sum(sample * sample for sample in samples) / len(samples)) ** 0.5
++        if rms >= cls.MIN_BUFFER_RMS:
++            return True
++
++        frame_samples = max(1, int(cls.SAMPLE_RATE * 0.02) * cls.CHANNELS)
++        total_frames = 0
++        voiced_frames = 0
++        for idx in range(0, len(samples), frame_samples):
++            frame = samples[idx:idx + frame_samples]
++            if not frame:
++                continue
++            total_frames += 1
++            frame_rms = (sum(sample * sample for sample in frame) / len(frame)) ** 0.5
++            if frame_rms >= cls.VOICED_FRAME_RMS:
++                voiced_frames += 1
++
++        return bool(total_frames and (voiced_frames / total_frames) >= cls.MIN_VOICED_FRAME_RATIO)
++
+     def check_silence(self) -> list:
+         """Return list of (user_id, pcm_bytes) for completed utterances."""
+         now = time.monotonic()
+@@ -427,7 +474,11 @@ class VoiceReceiver:
+                         # Infer from allowed users in the voice channel.
+                         user_id = self._infer_user_for_ssrc(ssrc)
+                     if user_id:
+-                        completed.append((user_id, bytes(buf)))
++                        pcm_bytes = bytes(buf)
++                        if self._pcm_looks_speech_like(pcm_bytes):
++                            completed.append((user_id, pcm_bytes))
++                        else:
++                            logger.debug("Discarded non-speech-like Discord voice buffer (ssrc=%d, bytes=%d)", ssrc, len(pcm_bytes))
+                     self._buffers[ssrc] = bytearray()
+                     self._last_packet_time.pop(ssrc, None)
+                 elif silence_duration >= self.SILENCE_THRESHOLD * 2:
+diff --git a/tests/gateway/test_voice_command.py b/tests/gateway/test_voice_command.py
+index ed36b976..3e402e88 100644
+--- a/tests/gateway/test_voice_command.py
++++ b/tests/gateway/test_voice_command.py
+@@ -580,7 +580,8 @@ class TestVoiceReceiver:
+         receiver.map_ssrc(100, 42)
+         # 48kHz, stereo, 16-bit = 192000 bytes/sec
+         # MIN_SPEECH_DURATION = 0.5s → need 96000 bytes
+-        pcm_data = bytearray(b"\x00" * 96000)
++        # Use non-zero PCM so the speech-energy gate admits it.
++        pcm_data = bytearray((1000).to_bytes(2, "little", signed=True) * 48000)
+         receiver._buffers[100] = pcm_data
+         # Set last_packet_time far enough in the past to exceed SILENCE_THRESHOLD
+         receiver._last_packet_time[100] = time.monotonic() - 3.0
+@@ -592,6 +593,18 @@ class TestVoiceReceiver:
+         # Buffer should be cleared after extraction
+         assert len(receiver._buffers[100]) == 0
+ 
++
++    def test_check_silence_rejects_near_silence_buffer(self):
++        receiver = self._make_receiver()
++        receiver.map_ssrc(100, 42)
++        receiver._buffers[100] = bytearray(b"\x00" * 96000)
++        receiver._last_packet_time[100] = time.monotonic() - 3.0
++
++        completed = receiver.check_silence()
++
++        assert completed == []
++        assert len(receiver._buffers[100]) == 0
++
+     def test_check_silence_ignores_short_buffer(self):
+         receiver = self._make_receiver()
+         receiver.map_ssrc(100, 42)
+diff --git a/tests/tools/test_managed_media_gateways.py b/tests/tools/test_managed_media_gateways.py
+index 4468dfe9..2eced0dc 100644
+--- a/tests/tools/test_managed_media_gateways.py
++++ b/tests/tools/test_managed_media_gateways.py
+@@ -235,6 +235,28 @@ def test_openai_tts_uses_managed_audio_gateway_when_direct_key_absent(monkeypatc
+     assert captured["close_calls"] == 1
+ 
+ 
++
++def test_openai_tts_accepts_configured_api_key_and_base_url(monkeypatch, tmp_path):
++    captured = {}
++    _install_fake_tools_package()
++    _install_fake_openai_module(captured)
++    monkeypatch.delenv("VOICE_TOOLS_OPENAI_KEY", raising=False)
++    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
++    monkeypatch.setenv("TOOL_GATEWAY_DOMAIN", "nousresearch.com")
++    monkeypatch.setenv("TOOL_GATEWAY_USER_TOKEN", "nous-token")
++
++    tts_tool = _load_tool_module("tools.tts_tool", "tts_tool.py")
++    output_path = tmp_path / "speech.mp3"
++    tts_tool._generate_openai_tts(
++        "hello world",
++        str(output_path),
++        {"openai": {"api_key": "local-test-token", "base_url": "http://10.40.40.40/tts/v1"}},
++    )
++
++    assert captured["api_key"] == "local-test-token"
++    assert captured["base_url"] == "http://10.40.40.40/tts/v1"
++    assert captured["close_calls"] == 1
++
+ def test_openai_tts_accepts_openai_api_key_as_direct_fallback(monkeypatch, tmp_path):
+     captured = {}
+     _install_fake_tools_package()
+diff --git a/tests/tools/test_transcription_tools.py b/tests/tools/test_transcription_tools.py
+index 50cbe22a..d36f5e8a 100644
+--- a/tests/tools/test_transcription_tools.py
++++ b/tests/tools/test_transcription_tools.py
+@@ -367,6 +367,16 @@ class TestTranscribeLocalCommand:
+         assert "{model}" in template
+         assert "{output_dir}" in template
+ 
++    def test_configured_local_command_preferred_over_env(self, monkeypatch):
++        monkeypatch.setenv("HERMES_LOCAL_STT_COMMAND", "env-command {input_path}")
++        monkeypatch.setattr("tools.transcription_tools._load_stt_config", lambda: {
++            "local_command": {"command": "config-command {input_path}"},
++        })
++
++        from tools.transcription_tools import _get_local_command_template
++
++        assert _get_local_command_template() == "config-command {input_path}"
++
+     def test_command_fallback_with_template(self, monkeypatch, sample_ogg, tmp_path):
+         out_dir = tmp_path / "local-out"
+         out_dir.mkdir()
+diff --git a/tools/transcription_tools.py b/tools/transcription_tools.py
+index 9e8ad692..90baff31 100644
+--- a/tools/transcription_tools.py
++++ b/tools/transcription_tools.py
+@@ -139,7 +139,14 @@ def _find_whisper_binary() -> Optional[str]:
+     return _find_binary("whisper")
+ 
+ 
+-def _get_local_command_template() -> Optional[str]:
++def _get_local_command_template(stt_config: Optional[dict] = None) -> Optional[str]:
++    cfg = stt_config if stt_config is not None else _load_stt_config()
++    local_command_cfg = cfg.get("local_command", {}) if isinstance(cfg, dict) else {}
++    if isinstance(local_command_cfg, dict):
++        configured_from_config = str(local_command_cfg.get("command") or "").strip()
++        if configured_from_config:
++            return configured_from_config
++
+     configured = os.getenv(LOCAL_STT_COMMAND_ENV, "").strip()
+     if configured:
+         return configured
+@@ -154,8 +161,8 @@ def _get_local_command_template() -> Optional[str]:
+     return None
+ 
+ 
+-def _has_local_command() -> bool:
+-    return _get_local_command_template() is not None
++def _has_local_command(stt_config: Optional[dict] = None) -> bool:
++    return _get_local_command_template(stt_config) is not None
+ 
+ 
+ def _normalize_local_model(model_name: Optional[str]) -> str:
+@@ -202,7 +209,7 @@ def _get_provider(stt_config: dict) -> str:
+         if provider == "local":
+             if _HAS_FASTER_WHISPER:
+                 return "local"
+-            if _has_local_command():
++            if _has_local_command(stt_config):
+                 return "local_command"
+             logger.warning(
+                 "STT provider 'local' configured but unavailable "
+@@ -211,7 +218,7 @@ def _get_provider(stt_config: dict) -> str:
+             return "none"
+ 
+         if provider == "local_command":
+-            if _has_local_command():
++            if _has_local_command(stt_config):
+                 return "local_command"
+             if _HAS_FASTER_WHISPER:
+                 logger.info("Local STT command unavailable, using local faster-whisper")
+@@ -260,7 +267,7 @@ def _get_provider(stt_config: dict) -> str:
+ 
+     if _HAS_FASTER_WHISPER:
+         return "local"
+-    if _has_local_command():
++    if _has_local_command(stt_config):
+         return "local_command"
+     if _HAS_OPENAI and os.getenv("GROQ_API_KEY"):
+         logger.info("No local STT available, using Groq Whisper API")
+@@ -457,7 +464,7 @@ def _prepare_local_audio(file_path: str, work_dir: str) -> tuple[Optional[str],
+ 
+ def _transcribe_local_command(file_path: str, model_name: str) -> Dict[str, Any]:
+     """Run the configured local STT command template and read back a .txt transcript."""
+-    command_template = _get_local_command_template()
++    command_template = _get_local_command_template(_load_stt_config())
+     if not command_template:
+         return {
+             "success": False,
+diff --git a/tools/tts_tool.py b/tools/tts_tool.py
+index a7ca57fa..04c24b71 100644
+--- a/tools/tts_tool.py
++++ b/tools/tts_tool.py
+@@ -358,7 +358,7 @@ def _generate_openai_tts(text: str, output_path: str, tts_config: Dict[str, Any]
+     Returns:
+         Path to the saved audio file.
+     """
+-    api_key, base_url = _resolve_openai_audio_client_config()
++    api_key, base_url = _resolve_openai_audio_client_config(tts_config)
+ 
+     oai_config = tts_config.get("openai", {})
+     model = oai_config.get("model", DEFAULT_OPENAI_MODEL)
+@@ -1154,7 +1154,7 @@ def check_tts_requirements() -> bool:
+         pass
+     try:
+         _import_openai_client()
+-        if _has_openai_audio_backend():
++        if _has_openai_audio_backend(tts_config):
+             return True
+     except ImportError:
+         pass
+@@ -1177,19 +1177,30 @@ def check_tts_requirements() -> bool:
+     return False
+ 
+ 
+-def _resolve_openai_audio_client_config() -> tuple[str, str]:
+-    """Return direct OpenAI audio config or a managed gateway fallback.
++def _resolve_openai_audio_client_config(tts_config: Optional[Dict[str, Any]] = None) -> tuple[str, str]:
++    """Return config-driven, direct OpenAI audio config or a managed gateway fallback.
+ 
+     When ``tts.use_gateway`` is set in config, the Tool Gateway is preferred
+-    even if direct OpenAI credentials are present.
++    even if direct OpenAI credentials are present. Otherwise prefer the
++    OpenAI-compatible ``tts.openai`` config block so local backends such as
++    VoxCPM do not depend on process environment variables.
+     """
++    oai_config = (tts_config or {}).get("openai", {})
++    if not isinstance(oai_config, dict):
++        oai_config = {}
++
++    configured_api_key = str(oai_config.get("api_key") or "").strip()
++    configured_base_url = str(oai_config.get("base_url") or DEFAULT_OPENAI_BASE_URL).strip()
++    if configured_api_key and not prefers_gateway("tts"):
++        return configured_api_key, configured_base_url or DEFAULT_OPENAI_BASE_URL
++
+     direct_api_key = resolve_openai_audio_api_key()
+     if direct_api_key and not prefers_gateway("tts"):
+         return direct_api_key, DEFAULT_OPENAI_BASE_URL
+ 
+     managed_gateway = resolve_managed_tool_gateway("openai-audio")
+     if managed_gateway is None:
+-        message = "Neither VOICE_TOOLS_OPENAI_KEY nor OPENAI_API_KEY is set"
++        message = "Neither tts.openai.api_key, VOICE_TOOLS_OPENAI_KEY nor OPENAI_API_KEY is set"
+         if managed_nous_tools_enabled():
+             message += ", and the managed OpenAI audio gateway is unavailable"
+         raise ValueError(message)
+@@ -1199,9 +1210,13 @@ def _resolve_openai_audio_client_config() -> tuple[str, str]:
+     )
+ 
+ 
+-def _has_openai_audio_backend() -> bool:
+-    """Return True when OpenAI audio can use direct credentials or the managed gateway."""
+-    return bool(resolve_openai_audio_api_key() or resolve_managed_tool_gateway("openai-audio"))
++def _has_openai_audio_backend(tts_config: Optional[Dict[str, Any]] = None) -> bool:
++    """Return True when OpenAI audio can use config, env credentials, or the managed gateway."""
++    try:
++        _resolve_openai_audio_client_config(tts_config)
++        return True
++    except ValueError:
++        return False
+ 
+ 
+ # ===========================================================================

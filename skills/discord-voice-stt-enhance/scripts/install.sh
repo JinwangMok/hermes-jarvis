@@ -44,5 +44,7 @@ config_path.write_text(yaml.safe_dump(data, sort_keys=False, allow_unicode=True)
 print(f'Updated {config_path} with skills.external_dirs += {repo_str}')
 PY
 
-echo "Registered external-only Discord voice bundle for $HERMES_DIR"
-echo "No Hermes source patch was applied."
+"$REPO_DIR/scripts/apply-hermes-patches.sh" "$HERMES_DIR"
+
+echo "Registered Discord voice bundle for $HERMES_DIR"
+echo "Jarvis-managed patches are applied idempotently. Gateway was not restarted."
