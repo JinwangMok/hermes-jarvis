@@ -564,6 +564,90 @@ def test_watch_pipeline_loads_sources_dedups_reactions_and_generates_report(tmp_
     assert report_result["issue_count"] >= 1
 
 
+def test_generate_watch_report_suppresses_low_importance_momentum_only_false_positive(tmp_path: Path):
+    config = load_pipeline_config(_write_config(tmp_path))
+    bootstrap_workspace(config)
+    now = datetime.now(UTC).replace(microsecond=0).isoformat()
+    false_judgment = {
+        "is_true_hot_issue": False,
+        "importance_score_adjusted": 0.155,
+        "momentum_score_adjusted": 0.181,
+        "heat_level": "low",
+        "judgment_reason": "heuristic fallback for low-importance HN link",
+        "should_alert_now": False,
+    }
+    with sqlite3.connect(config.database_path) as conn:
+        conn.execute(
+            """
+            INSERT INTO watch_signals (
+                signal_id, source_id, source_type, signal_kind, title, url,
+                summary_text, published_at, collected_at, engagement_json,
+                topic_tags_json, entity_tags_json, canonical_key, content_hash, raw_payload_json
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "sig-low",
+                "hackernews-topstories",
+                "hackernews",
+                "community-thread",
+                "Amateur armed with ChatGPT solves an Erdős problem",
+                "https://www.scientificamerican.com/article/amateur-armed-with-chatgpt-vibe-maths-a-60-year-old-problem/",
+                "single community link",
+                now,
+                now,
+                json.dumps({"score": 114, "comments": 61}),
+                "[]",
+                "[]",
+                "low-key",
+                "hash-low",
+                json.dumps({"content_excerpt": "math curiosity, not AI/cloud infrastructure news"}),
+            ),
+        )
+        conn.execute(
+            """
+            INSERT INTO watch_issue_stories (
+                issue_id, story_key, canonical_title, canonical_summary, primary_company_tag,
+                topic_ids_json, entity_tags_json, origin_signal_id, origin_kind,
+                first_seen_at, last_seen_at, current_importance_score, current_momentum_score,
+                current_heat_level, report_status
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "issue-low",
+                "story-low",
+                "Amateur armed with ChatGPT solves an Erdős problem",
+                "single community link",
+                None,
+                "[]",
+                "[]",
+                "sig-low",
+                "community-thread",
+                now,
+                now,
+                0.155,
+                0.181,
+                "low",
+                "unseen",
+            ),
+        )
+        conn.execute(
+            """
+            INSERT INTO watch_issue_snapshots (
+                snapshot_id, issue_id, snapshot_hour, signal_count, official_signal_count,
+                community_signal_count, unique_source_count, engagement_score, reaction_score,
+                importance_score, momentum_score, heat_level, llm_judgment_json
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            ("snap-low", "issue-low", now, 1, 0, 1, 1, 114.0, 61.0, 0.155, 0.181, "low", json.dumps(false_judgment)),
+        )
+        conn.commit()
+
+    report_result = generate_watch_report(config)
+
+    assert report_result["message_text"] == "[SILENT]"
+    assert report_result["issue_count"] == 0
+
+
 def test_generate_external_hot_issue_alert_advances_new_window_and_dedupes_repeats(tmp_path: Path):
     state_path = tmp_path / "state/external_hot_issue_state.json"
     report_path = tmp_path / "data/watch/reports/hourly-hot-issues-20260424T100234+0000.md"

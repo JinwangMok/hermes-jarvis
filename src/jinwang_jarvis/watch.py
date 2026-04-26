@@ -984,6 +984,21 @@ def _should_use_codex_for_issue(row: sqlite3.Row, heuristic: dict, *, rank: int)
     return bool(heuristic.get("is_true_hot_issue"))
 
 
+def _judgment_is_alertable(config: PipelineConfig, judgment: dict, *, importance: float, momentum: float) -> bool:
+    """Return whether a judged issue should enter the delivered hot-issue report.
+
+    Momentum alone is intentionally insufficient.  Otherwise low-importance
+    one-off community links can cross a tiny momentum threshold and get sent as
+    "hot issues" even when the judge explicitly marked them as not true hot
+    issues.
+    """
+    if not bool(judgment.get("is_true_hot_issue")):
+        return False
+    if importance >= config.watch.importance_alert_threshold:
+        return True
+    return importance >= config.watch.digest_threshold and momentum >= config.watch.momentum_alert_threshold
+
+
 def _content_context_from_row(row: sqlite3.Row | dict) -> str | None:
     if isinstance(row, dict):
         summary = row.get("origin_summary_text") or row.get("summary_text") or row.get("canonical_summary")
@@ -1000,6 +1015,38 @@ def _content_context_from_row(row: sqlite3.Row | dict) -> str | None:
         except (TypeError, json.JSONDecodeError):
             content_excerpt = None
     return _compact_excerpt("\n".join(part for part in [str(summary or ""), str(content_excerpt or "")] if part.strip()), limit=1400)
+
+
+def _hydrate_issue_content_if_missing(conn: sqlite3.Connection, row: sqlite3.Row) -> str | None:
+    context = _content_context_from_row(row)
+    if context:
+        return context
+    title = str(row["canonical_title"] or "").strip()
+    url = str(row["origin_url"] or "").strip()
+    signal_id = str(row["origin_signal_id"] or "").strip()
+    if not title or not url or not signal_id:
+        return None
+    try:
+        enriched = _enrich_item_content({"title": title, "url": url}, _fetch_text, allow_search_fallback=True)
+    except Exception:
+        return None
+    if not enriched.get("content_excerpt"):
+        return None
+    existing_payload = {}
+    raw_payload = row["origin_raw_payload_json"]
+    if raw_payload:
+        try:
+            parsed = json.loads(raw_payload) if isinstance(raw_payload, str) else raw_payload
+            if isinstance(parsed, dict):
+                existing_payload = parsed
+        except (TypeError, json.JSONDecodeError):
+            existing_payload = {}
+    existing_payload.update({k: v for k, v in enriched.items() if k in {"content_excerpt", "content_source_url"}})
+    conn.execute(
+        "UPDATE watch_signals SET raw_payload_json = ? WHERE signal_id = ?",
+        (json.dumps(existing_payload, ensure_ascii=False), signal_id),
+    )
+    return _compact_excerpt(str(enriched.get("content_excerpt") or ""), limit=1400)
 
 
 def judge_watch_issues(config: PipelineConfig) -> dict:
@@ -1072,10 +1119,13 @@ def judge_watch_issues(config: PipelineConfig) -> dict:
                 ),
                 3,
             )
-            heuristic["should_alert_now"] = (
-                float(heuristic["importance_score_adjusted"]) >= config.watch.importance_alert_threshold
-                or float(heuristic["momentum_score_adjusted"]) >= config.watch.momentum_alert_threshold
+            heuristic["should_alert_now"] = _judgment_is_alertable(
+                config,
+                heuristic,
+                importance=float(heuristic["importance_score_adjusted"]),
+                momentum=float(heuristic["momentum_score_adjusted"]),
             )
+            content_context = _hydrate_issue_content_if_missing(conn, row)
             judgment = heuristic
             if _should_use_codex_for_issue(row, heuristic, rank=rank):
                 judgment = _codex_judgment(
@@ -1086,7 +1136,7 @@ def judge_watch_issues(config: PipelineConfig) -> dict:
                     unique_source_count=int(current_snapshot["unique_source_count"] or 0),
                     engagement_score=float(current_snapshot["engagement_score"] or 0.0),
                     reaction_score=float(current_snapshot["reaction_score"] or 0.0),
-                    content_context=_content_context_from_row(row),
+                    content_context=content_context,
                 ) or heuristic
                 judgment["momentum_score_adjusted"] = round(
                     max(
@@ -1095,16 +1145,20 @@ def judge_watch_issues(config: PipelineConfig) -> dict:
                     ),
                     3,
                 )
-                judgment["should_alert_now"] = (
-                    float(judgment.get("importance_score_adjusted", heuristic["importance_score_adjusted"])) >= config.watch.importance_alert_threshold
-                    or float(judgment.get("momentum_score_adjusted", heuristic["momentum_score_adjusted"])) >= config.watch.momentum_alert_threshold
+                judgment["should_alert_now"] = _judgment_is_alertable(
+                    config,
+                    judgment,
+                    importance=float(judgment.get("importance_score_adjusted", heuristic["importance_score_adjusted"])),
+                    momentum=float(judgment.get("momentum_score_adjusted", heuristic["momentum_score_adjusted"])),
                 )
             importance = _normalize_score(judgment.get("importance_score_adjusted", heuristic["importance_score_adjusted"]))
             momentum = _normalize_score(judgment.get("momentum_score_adjusted", heuristic["momentum_score_adjusted"]))
             heat = str(judgment.get("heat_level", heuristic["heat_level"]))
-            status = "watching" if (
-                importance >= config.watch.importance_alert_threshold
-                or momentum >= config.watch.momentum_alert_threshold
+            status = "watching" if _judgment_is_alertable(
+                config,
+                judgment,
+                importance=importance,
+                momentum=momentum,
             ) else "unseen"
             conn.execute(
                 "UPDATE watch_issue_stories SET current_importance_score = ?, current_momentum_score = ?, current_heat_level = ?, report_status = ? WHERE issue_id = ?",
@@ -1199,6 +1253,15 @@ def _format_issue_reason(issue: dict | sqlite3.Row) -> str:
     reason = str(judgment.get("judgment_reason") or "").strip()
     if reason and not reason.startswith("heuristic fallback for"):
         return reason
+    content_summary = str(judgment.get("content_summary") or "").strip()
+    if not content_summary:
+        try:
+            content_summary = _content_context_from_row(issue) or ""
+        except (TypeError, KeyError):
+            content_summary = ""
+    if content_summary:
+        trimmed = content_summary[:260].rstrip() + ("…" if len(content_summary) > 260 else "")
+        return f"본문상 핵심은 다음과 같습니다: {trimmed} 이 내용은 제품 전략, 연구/안전, 인프라, 시장 구조, 정책 리스크 중 하나 이상에 직접 영향을 줄 수 있어 추적 가치가 있습니다."
     facts = []
     if company and str(company) != "unknown":
         facts.append(f"{company} 관련 공식/주요 신호")
@@ -1358,14 +1421,18 @@ def generate_watch_report(config: PipelineConfig, report_kind: str = "hourly-hot
              )
             LEFT JOIN watch_signals ws ON ws.signal_id = wis.origin_signal_id
             WHERE datetime(wis.last_seen_at) >= datetime(?)
-              AND (wis.current_importance_score >= ? OR wis.current_momentum_score >= ?)
+              AND wis.report_status = 'watching'
+              AND (
+                wis.current_importance_score >= ?
+                OR (wis.current_importance_score >= ? AND wis.current_momentum_score >= ?)
+              )
             ORDER BY wis.current_importance_score DESC,
                      wis.current_momentum_score DESC,
                      latest.unique_source_count DESC,
                      latest.engagement_score DESC
             LIMIT 8
             """,
-            (recency_start, importance_threshold, momentum_threshold),
+            (recency_start, importance_threshold, config.watch.digest_threshold, momentum_threshold),
         ).fetchall()
         if not issues:
             text = "[SILENT]"
