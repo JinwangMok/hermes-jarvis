@@ -6,6 +6,7 @@ from pathlib import Path
 from jinwang_jarvis.bootstrap import bootstrap_workspace
 from jinwang_jarvis.config import load_pipeline_config
 from jinwang_jarvis.watch import (
+    WatchSource,
     build_watch_stories,
     collect_watch_signals,
     extract_x_status_id,
@@ -66,6 +67,43 @@ X_STATUS_HTML_SAMPLE = """
 <script>
 {"reply_count":"42","retweet_count":"314","quote_count":"12","favorite_count":"1.5K"}
 </script>
+</body></html>
+"""
+
+JSON_FEED_SAMPLE = json.dumps({
+    "items": [
+        {
+            "title": "Cisco expands cloud networking security",
+            "link": "https://newsroom.cisco.com/news/cloud-security",
+            "description": "Cisco announced cloud networking security updates for datacenter operators.",
+            "pubDate": "Wed, 23 Apr 2026 00:00:00 GMT",
+        }
+    ]
+})
+
+ARTICLE_HTML_SAMPLE = """
+<html><body>
+<header>site navigation</header>
+<article>
+  <h1>Enterprise API tier</h1>
+  <p>OpenAI introduced a new enterprise API tier with stronger compliance controls, higher throughput, and predictable procurement for large organizations.</p>
+  <p>The announcement matters because it changes how companies can deploy frontier models in production cloud environments.</p>
+</article>
+</body></html>
+"""
+
+SEARCH_HTML_SAMPLE = """
+<html><body>
+  <a class="result__a" href="https://mirror.example.com/openai-enterprise-api-tier">OpenAI launches new enterprise API tier</a>
+</body></html>
+"""
+
+MIRROR_ARTICLE_HTML_SAMPLE = """
+<html><body>
+<article>
+  <p>A mirrored report says OpenAI's enterprise API tier adds audit controls, procurement guarantees, and deployment governance for regulated customers.</p>
+  <p>This detail is enough to summarize the real substance even when the original URL blocks scraping.</p>
+</article>
 </body></html>
 """
 
@@ -250,13 +288,21 @@ def test_fetch_source_items_parses_rss_atom_html_api_and_x(tmp_path: Path):
     sources = load_watch_sources(config)
     by_id = {source.source_id: source for source in sources}
 
-    rss_items = fetch_source_items(by_id["openai-news"], fetch_text=lambda _url: RSS_SAMPLE)
+    rss_items = fetch_source_items(
+        by_id["openai-news"],
+        fetch_text=lambda url: RSS_SAMPLE if url.endswith("rss.xml") else ARTICLE_HTML_SAMPLE,
+    )
     assert rss_items[0]["title"] == "OpenAI launches new enterprise API tier"
     assert rss_items[0]["url"] == "https://openai.com/news/enterprise-api-tier"
+    assert "stronger compliance controls" in rss_items[0]["content_excerpt"]
 
-    atom_items = fetch_source_items(by_id["geeknews"], fetch_text=lambda _url: ATOM_SAMPLE)
+    atom_items = fetch_source_items(
+        by_id["geeknews"],
+        fetch_text=lambda url: ATOM_SAMPLE if "feed" in url else ARTICLE_HTML_SAMPLE,
+    )
     assert atom_items[0]["title"] == "OpenAI launches new enterprise API tier"
     assert atom_items[0]["external_id"] == "tag:hada.io,2026:123"
+    assert "frontier models in production" in atom_items[0]["content_excerpt"]
 
     html_sample = """
     <html><body>
@@ -264,9 +310,13 @@ def test_fetch_source_items_parses_rss_atom_html_api_and_x(tmp_path: Path):
       <a href='/about'>About</a>
     </body></html>
     """
-    html_items = fetch_source_items(by_id["anthropic-news"], fetch_text=lambda _url: html_sample)
+    html_items = fetch_source_items(
+        by_id["anthropic-news"],
+        fetch_text=lambda url: html_sample if url == "https://www.anthropic.com/news" else ARTICLE_HTML_SAMPLE,
+    )
     assert html_items[0]["title"] == "Introducing Claude Opus 4.7"
     assert html_items[0]["url"] == "https://www.anthropic.com/news/claude-opus-4-7"
+    assert "predictable procurement" in html_items[0]["content_excerpt"]
 
     x_items = fetch_source_items(
         by_id["openai-x"],
@@ -287,7 +337,7 @@ def test_fetch_source_items_parses_rss_atom_html_api_and_x(tmp_path: Path):
             return {
                 "id": 101,
                 "title": "Show HN: OpenAI launches new enterprise API tier",
-                "url": "https://news.ycombinator.com/item?id=101",
+                "url": "https://openai.com/news/enterprise-api-tier",
                 "by": "alice",
                 "score": 77,
                 "descendants": 15,
@@ -295,9 +345,91 @@ def test_fetch_source_items_parses_rss_atom_html_api_and_x(tmp_path: Path):
             }
         raise AssertionError(url)
 
-    api_items = fetch_source_items(by_id["hackernews-topstories"], fetch_json=fake_fetch_json)
+    api_items = fetch_source_items(
+        by_id["hackernews-topstories"],
+        fetch_json=fake_fetch_json,
+        fetch_text=lambda url: ARTICLE_HTML_SAMPLE if "enterprise-api-tier" in url else "",
+    )
     assert api_items[0]["title"].startswith("Show HN")
     assert api_items[0]["engagement"]["score"] == 77
+    assert "stronger compliance controls" in api_items[0]["content_excerpt"]
+
+
+
+def test_content_enrichment_searches_by_title_when_original_page_has_no_readable_text(tmp_path: Path):
+    config = load_pipeline_config(_write_config(tmp_path))
+    _write_sources(tmp_path)
+    source = {source.source_id: source for source in load_watch_sources(config)}["hackernews-topstories"]
+
+    def fake_fetch_json(url: str):
+        if url.endswith("topstories.json"):
+            return [101]
+        if url.endswith("/item/101.json"):
+            return {
+                "id": 101,
+                "title": "Show HN: OpenAI launches new enterprise API tier",
+                "url": "https://blocked.example.com/original",
+                "by": "alice",
+                "score": 77,
+                "descendants": 15,
+                "time": 1770000000,
+            }
+        raise AssertionError(url)
+
+    fetched_urls: list[str] = []
+
+    def fake_fetch_text(url: str) -> str:
+        fetched_urls.append(url)
+        if url == "https://blocked.example.com/original":
+            return "<html><body><script>blocked</script></body></html>"
+        if url.startswith("https://duckduckgo.com/html/"):
+            return SEARCH_HTML_SAMPLE
+        if url == "https://mirror.example.com/openai-enterprise-api-tier":
+            return MIRROR_ARTICLE_HTML_SAMPLE
+        raise AssertionError(url)
+
+    items = fetch_source_items(source, fetch_json=fake_fetch_json, fetch_text=fake_fetch_text)
+
+    assert "audit controls" in items[0]["content_excerpt"]
+    assert items[0]["content_source_url"] == "https://mirror.example.com/openai-enterprise-api-tier"
+    assert any(url.startswith("https://duckduckgo.com/html/") and "openai" in url for url in fetched_urls)
+
+
+
+def test_json_feed_sources_are_parsed_and_enriched_with_article_content(tmp_path: Path):
+    source = WatchSource(
+        source_id="cisco-cloud-news",
+        display_name="Cisco Newsroom Cloud Feed",
+        company_tag="cisco",
+        source_class="company",
+        source_role="official-origin",
+        source_type="rss",
+        ingest_strategy="rss",
+        base_url="https://newsroom.cisco.com/",
+        feed_url="https://newsroom.cisco.com/c/services/i/servlets/newsroom/rssfeed.json?feed=cloud",
+        html_list_url="https://newsroom.cisco.com/c/r/newsroom/en/us/rss-feeds.html",
+        poll_minutes=60,
+        enabled=True,
+        validation_status="verified",
+        validation_notes=("json-feed",),
+        browser_required=False,
+        anti_bot_risk="low",
+        priority_weight=0.75,
+        reaction_weight=0.0,
+        cooldown_minutes=60,
+        topic_tags=("cloud",),
+        file_path=tmp_path / "cisco-cloud.yaml",
+    )
+
+    items = fetch_source_items(
+        source,
+        fetch_text=lambda url: JSON_FEED_SAMPLE if url.endswith("rssfeed.json?feed=cloud") else ARTICLE_HTML_SAMPLE,
+    )
+
+    assert items[0]["title"] == "Cisco expands cloud networking security"
+    assert items[0]["url"] == "https://newsroom.cisco.com/news/cloud-security"
+    assert "cloud networking security updates" in items[0]["summary_text"]
+    assert "large organizations" in items[0]["content_excerpt"]
 
 
 

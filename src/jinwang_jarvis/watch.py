@@ -12,7 +12,7 @@ from difflib import SequenceMatcher
 from email.utils import parsedate_to_datetime
 from html.parser import HTMLParser
 from pathlib import Path
-from urllib.parse import parse_qsl, urljoin, urlencode, urlparse, urlunparse
+from urllib.parse import parse_qsl, quote_plus, unquote, urljoin, urlencode, urlparse, urlunparse
 
 import requests
 import shutil
@@ -139,18 +139,86 @@ def _extract_readable_text(html: str) -> str | None:
     return _compact_excerpt(" ".join(parser.parts), limit=1600)
 
 
+def _search_url_for_title(title: str | None) -> str | None:
+    normalized = _normalize_title(title)
+    if not normalized:
+        return None
+    return f"https://duckduckgo.com/html/?q={quote_plus(normalized)}"
+
+
+def _decode_search_result_href(href: str | None) -> str | None:
+    if not href:
+        return None
+    candidate = unquote(str(href).strip())
+    parsed = urlparse(candidate)
+    query = dict(parse_qsl(parsed.query, keep_blank_values=True))
+    if "uddg" in query:
+        candidate = unquote(query["uddg"])
+        parsed = urlparse(candidate)
+    if parsed.scheme not in {"http", "https"}:
+        return None
+    host = parsed.netloc.lower()
+    if any(blocked in host for blocked in ("duckduckgo.com", "google.com", "bing.com")):
+        return None
+    return _canonicalize_url(candidate)
+
+
+def _search_result_urls(search_html: str) -> list[str]:
+    parser = _LinkCollector()
+    try:
+        parser.feed(search_html)
+    except Exception:
+        return []
+    urls: list[str] = []
+    seen: set[str] = set()
+    for link in parser.links:
+        decoded = _decode_search_result_href(link.get("href"))
+        if decoded and decoded not in seen:
+            seen.add(decoded)
+            urls.append(decoded)
+    return urls
+
+
+def _search_for_item_content(item: dict, fetch_text) -> tuple[str | None, str | None]:
+    search_url = _search_url_for_title(str(item.get("title") or ""))
+    if not search_url:
+        return None, None
+    try:
+        candidates = _search_result_urls(fetch_text(search_url))
+    except Exception:
+        return None, None
+    original_url = _canonicalize_url(str(item.get("url") or ""))
+    for candidate_url in candidates[:5]:
+        if original_url and candidate_url == original_url:
+            continue
+        try:
+            excerpt = _extract_readable_text(fetch_text(candidate_url))
+        except Exception:
+            excerpt = None
+        if excerpt:
+            return excerpt, candidate_url
+    return None, None
+
+
 def _enrich_item_content(item: dict, fetch_text) -> dict:
     enriched = dict(item)
     feed_summary = _compact_excerpt(str(item.get("summary_text") or ""), limit=900)
     article_excerpt = None
+    content_source_url = None
     url = str(item.get("url") or "").strip()
     if url and url.lower() != "n/a":
         try:
             article_excerpt = _extract_readable_text(fetch_text(url))
+            if article_excerpt:
+                content_source_url = _canonicalize_url(url)
         except Exception:
             article_excerpt = None
+    if not article_excerpt:
+        article_excerpt, content_source_url = _search_for_item_content(item, fetch_text)
     if article_excerpt:
         enriched["content_excerpt"] = article_excerpt
+        if content_source_url:
+            enriched["content_source_url"] = content_source_url
     if feed_summary and not enriched.get("summary_text"):
         enriched["summary_text"] = feed_summary
     return enriched
@@ -217,7 +285,35 @@ def _story_key(title: str | None, company_tag: str | None) -> str:
     return f"{company_tag or 'global'}::{base}"
 
 
+def _parse_json_feed(text: str, source: WatchSource) -> list[dict]:
+    try:
+        raw = json.loads(text)
+    except json.JSONDecodeError:
+        return []
+    candidates = raw.get("items") or raw.get("entries") or raw.get("articles") or raw.get("data") or []
+    if isinstance(candidates, dict):
+        candidates = candidates.get("items") or candidates.get("entries") or []
+    items: list[dict] = []
+    for item in candidates[:20] if isinstance(candidates, list) else []:
+        if not isinstance(item, dict):
+            continue
+        title = item.get("title") or item.get("headline") or item.get("name") or source.display_name
+        link = item.get("url") or item.get("link") or item.get("href") or source.base_url
+        summary = item.get("description") or item.get("summary") or item.get("excerpt") or item.get("text")
+        published = _parse_dt(item.get("pubDate") or item.get("published_at") or item.get("published") or item.get("date")) or _utc_now().isoformat()
+        items.append({
+            "title": str(title),
+            "url": _canonicalize_url(str(link), base_url=source.base_url),
+            "summary_text": str(summary) if summary else None,
+            "published_at": published,
+            "external_id": str(item.get("id") or item.get("guid") or link),
+        })
+    return items
+
+
 def _parse_rss_or_atom(text: str, source: WatchSource) -> list[dict]:
+    if text.lstrip().startswith(("{", "[")):
+        return _parse_json_feed(text, source)
     root = ET.fromstring(text)
     items: list[dict] = []
     if root.tag.endswith("rss"):
@@ -377,7 +473,7 @@ def _fetch_json(url: str):
     return response.json()
 
 
-def _fetch_hackernews(source: WatchSource, fetch_json=_fetch_json) -> list[dict]:
+def _fetch_hackernews(source: WatchSource, fetch_json=_fetch_json, fetch_text=_fetch_text) -> list[dict]:
     top_ids = fetch_json(source.feed_url or source.base_url)[:10]
     items: list[dict] = []
     for item_id in top_ids:
@@ -385,20 +481,19 @@ def _fetch_hackernews(source: WatchSource, fetch_json=_fetch_json) -> list[dict]
         if not item or not item.get("title"):
             continue
         published_at = datetime.fromtimestamp(item.get("time", int(_utc_now().timestamp())), tz=UTC).isoformat()
-        items.append(
-            {
-                "title": item["title"],
-                "url": item.get("url") or f"https://news.ycombinator.com/item?id={item_id}",
-                "summary_text": item.get("text"),
-                "published_at": published_at,
-                "external_id": str(item_id),
-                "author": item.get("by"),
-                "engagement": {
-                    "score": item.get("score", 0),
-                    "comments": item.get("descendants", 0),
-                },
-            }
-        )
+        item_data = {
+            "title": item["title"],
+            "url": item.get("url") or f"https://news.ycombinator.com/item?id={item_id}",
+            "summary_text": item.get("text"),
+            "published_at": published_at,
+            "external_id": str(item_id),
+            "author": item.get("by"),
+            "engagement": {
+                "score": item.get("score", 0),
+                "comments": item.get("descendants", 0),
+            },
+        }
+        items.append(_enrich_item_content(item_data, fetch_text))
     return items
 
 
@@ -535,9 +630,9 @@ def fetch_source_items(source: WatchSource, fetch_text=_fetch_text, fetch_json=_
             return [_enrich_x_item(source, item, fetch_text) for item in items[:1]]
         return [_enrich_item_content(item, fetch_text) for item in items[:10]]
     if source.ingest_strategy == "api" and source.source_id == "hackernews-topstories":
-        return _fetch_hackernews(source, fetch_json=fetch_json)
+        return _fetch_hackernews(source, fetch_json=fetch_json, fetch_text=fetch_text)
     if source.ingest_strategy == "html":
-        return _parse_html_listing(fetch_text(source.html_list_url or source.base_url), source)
+        return [_enrich_item_content(item, fetch_text) for item in _parse_html_listing(fetch_text(source.html_list_url or source.base_url), source)]
     target_url = source.feed_url or source.html_list_url or source.base_url
     return [{"title": source.display_name, "url": target_url, "summary_text": f"Fetched from {target_url}", "published_at": _utc_now().isoformat()}]
 
