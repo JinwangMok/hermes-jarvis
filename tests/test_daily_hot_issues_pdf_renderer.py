@@ -54,5 +54,6 @@ title: 테스트
     assert "TODAY'S HOT ISSUES" in doc
     assert "오늘의 핫이슈 리포트" in doc
     assert "column-count: 2" in doc
+    assert "issue-card" in doc
     assert "data-no=\"01\"" in doc
     assert "title: 테스트" not in doc
