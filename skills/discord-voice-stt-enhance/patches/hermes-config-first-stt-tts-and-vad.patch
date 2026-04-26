@@ -311,3 +311,42 @@ index a7ca57fa..04c24b71 100644
  
  
  # ===========================================================================
+diff --git a/tests/gateway/test_voice_command.py b/tests/gateway/test_voice_command.py
+index 3e402e88..e9b562bd 100644
+--- a/tests/gateway/test_voice_command.py
++++ b/tests/gateway/test_voice_command.py
+@@ -2173,10 +2173,17 @@ class TestVoiceReception:
+         return receiver
+ 
+     @staticmethod
+-    def _fill_buffer(receiver, ssrc, duration_s=1.0, age_s=3.0):
++    def _fill_buffer(receiver, ssrc, duration_s=1.0, age_s=3.0, *, speech_like=True):
+         """Add PCM data to buffer. 48kHz stereo 16-bit = 192000 bytes/sec."""
+         size = int(192000 * duration_s)
+-        receiver._buffers[ssrc] = bytearray(b"\x00" * size)
++        if speech_like:
++            # 16-bit little-endian +1000/-1000 samples: safely above the
++            # pre-STT speech-energy gate while still synthetic and deterministic.
++            pattern = b"\xe8\x03\x18\xfc"
++            data = (pattern * ((size // len(pattern)) + 1))[:size]
++        else:
++            data = b"\x00" * size
++        receiver._buffers[ssrc] = bytearray(data)
+         receiver._last_packet_time[ssrc] = time.monotonic() - age_s
+ 
+     # -- Known SSRC (normal flow) --
+@@ -2199,6 +2206,14 @@ class TestVoiceReception:
+         completed = receiver.check_silence()
+         assert len(completed) == 0
+ 
++    def test_known_ssrc_silent_buffer_ignored(self):
++        receiver = self._make_receiver()
++        receiver.start()
++        receiver.map_ssrc(100, 42)
++        self._fill_buffer(receiver, 100, speech_like=False)
++        completed = receiver.check_silence()
++        assert len(completed) == 0
++
+     def test_known_ssrc_recent_audio_waits(self):
+         receiver = self._make_receiver()
+         receiver.start()
