@@ -1,0 +1,70 @@
+version: 2026-04-26
+collection_policy: seed_graph_first_api_or_manual_later
+nodes:
+  - id: andrej-karpathy
+    type: researcher
+    display_name: Andrej Karpathy
+    x_handle: karpathy
+    domains: [agents, llms, education, ai-systems]
+    why_track: high-signal AI practitioner/research commentary
+  - id: yann-lecun
+    type: researcher
+    display_name: Yann LeCun
+    x_handle: ylecun
+    domains: [ai-research, world-models, meta-ai]
+    why_track: influential research debate and Meta AI context
+  - id: sam-altman
+    type: ceo
+    display_name: Sam Altman
+    x_handle: sama
+    organization: openai
+    domains: [frontier-ai, company-strategy]
+    why_track: OpenAI strategic signals
+  - id: dario-amodei
+    type: ceo
+    display_name: Dario Amodei
+    organization: anthropic
+    domains: [frontier-ai, safety, company-strategy]
+    why_track: Anthropic strategic signals
+  - id: demis-hassabis
+    type: ceo-researcher
+    display_name: Demis Hassabis
+    organization: google-deepmind
+    domains: [research, frontier-models]
+    why_track: DeepMind research/company signals
+  - id: jensen-huang
+    type: ceo
+    display_name: Jensen Huang
+    organization: nvidia
+    domains: [gpu, ai-infra, datacenter]
+    why_track: AI infrastructure and GPU supply signals
+  - id: satya-nadella
+    type: ceo
+    display_name: Satya Nadella
+    organization: microsoft
+    domains: [cloud, ai-platform, enterprise]
+    why_track: Azure/OpenAI/Microsoft AI strategy
+  - id: mark-zuckerberg
+    type: ceo
+    display_name: Mark Zuckerberg
+    organization: meta
+    domains: [open-models, infra, metaverse]
+    why_track: Meta AI/open model and infra strategy
+  - id: clem-delangue
+    type: ceo
+    display_name: Clem Delangue
+    organization: huggingface
+    domains: [open-source-ai, models, community]
+    why_track: HF ecosystem and open model release signals
+  - id: jeff-dean
+    type: researcher-executive
+    display_name: Jeff Dean
+    organization: google
+    domains: [ai-research, systems]
+    why_track: Google AI research/systems context
+edge_types: [mentions, replies_to, quotes, works_at, leads, releases, discusses, disagrees_with, amplifies, competes_with]
+phase0_acceptance:
+  - seed nodes exist with roles and why_track
+  - automated scraping is not required until API/auth is stable
+  - X is supporting evidence only until provenance is reliable
+  - graph context can be manually updated from URLs/IDs

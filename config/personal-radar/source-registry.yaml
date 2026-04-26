@@ -1,0 +1,295 @@
+version: 2026-04-26
+scoring_rubric:
+  reliability_score: official/canonical source authority and stability
+  coverage_score: how much of Jinwang-relevant domain this source covers
+  freshness_score: expected timeliness and update cadence
+required_fields: [source_id, display_name, url, owner, source_role, domain, authority_level, access_method, poll_minutes, reliability_score, coverage_score, freshness_score, reason_for_inclusion, known_limitations, wiki_destination]
+sources:
+  - source_id: moef-home
+    display_name: 기획재정부
+    url: https://www.moef.go.kr/
+    owner: MOEF
+    source_role: budget-origin
+    domain: budget-policy
+    authority_level: canonical
+    access_method: html-browser-or-manual
+    poll_minutes: 1440
+    reliability_score: 0.95
+    coverage_score: 0.80
+    freshness_score: 0.80
+    reachability_probe: connection_reset_simple_http
+    reason_for_inclusion: national budget and fiscal policy context for R&D, housing, welfare, and startup support
+    known_limitations: simple HTTP may be reset; use browser/API/manual fallback
+    wiki_destination: concepts/korean-government-rnd-policy-structure.md
+  - source_id: korea-policy-briefing
+    display_name: 대한민국 정책브리핑
+    url: https://www.korea.kr/
+    owner: Government of Korea
+    source_role: policy-origin
+    domain: cross-government-policy
+    authority_level: official
+    access_method: html-browser-or-manual
+    poll_minutes: 720
+    reliability_score: 0.90
+    coverage_score: 0.90
+    freshness_score: 0.90
+    reachability_probe: connection_reset_simple_http
+    reason_for_inclusion: cross-ministry official policy announcements and agenda tracking
+    known_limitations: simple HTTP reset; avoid aggressive polling
+    wiki_destination: reports/news-center/categories/policy.md
+  - source_id: gov24
+    display_name: 정부24 / 보조금24
+    url: https://www.gov.kr/
+    owner: Government of Korea
+    source_role: personal-benefit-origin
+    domain: benefits-government-services
+    authority_level: canonical
+    access_method: html-or-api
+    poll_minutes: 1440
+    reliability_score: 0.95
+    coverage_score: 0.85
+    freshness_score: 0.75
+    reachability_probe: http_200
+    reason_for_inclusion: cross-government personal subsidy and service discovery
+    known_limitations: exact matching may require login/manual verification
+    wiki_destination: reports/opportunity-radar/categories/youth-welfare.md
+  - source_id: msit-home
+    display_name: 과학기술정보통신부
+    url: https://www.msit.go.kr/
+    owner: MSIT
+    source_role: ministry-origin
+    domain: ai-cloud-rnd-policy
+    authority_level: canonical
+    access_method: html-browser-or-manual
+    poll_minutes: 720
+    reliability_score: 0.95
+    coverage_score: 0.90
+    freshness_score: 0.85
+    reachability_probe: connection_reset_simple_http
+    reason_for_inclusion: AI/cloud/ICT policy and budget owner for Jinwang research domain
+    known_limitations: simple HTTP reset; use fallback
+    wiki_destination: concepts/korean-government-rnd-policy-structure.md
+  - source_id: iris
+    display_name: IRIS 범부처통합연구지원시스템
+    url: https://www.iris.go.kr/
+    owner: 범부처 R&D system
+    source_role: rnd-application-origin
+    domain: research-grants
+    authority_level: canonical
+    access_method: html
+    poll_minutes: 720
+    reliability_score: 0.98
+    coverage_score: 0.95
+    freshness_score: 0.90
+    reachability_probe: http_200
+    reason_for_inclusion: canonical R&D announcements/application system
+    known_limitations: dynamic pages and attachments may require custom parser
+    wiki_destination: reports/opportunity-radar/categories/research-grants.md
+  - source_id: ntis
+    display_name: NTIS 국가과학기술지식정보서비스
+    url: https://www.ntis.go.kr/
+    owner: KISTI / national R&D information service
+    source_role: rnd-index
+    domain: research-grants-and-projects
+    authority_level: official
+    access_method: html-or-api
+    poll_minutes: 1440
+    reliability_score: 0.95
+    coverage_score: 0.90
+    freshness_score: 0.80
+    reachability_probe: http_200
+    reason_for_inclusion: national R&D search, program/project context, duplicate verification
+    known_limitations: search and detail pages may require endpoint-specific validation
+    wiki_destination: reports/opportunity-radar/categories/research-grants.md
+  - source_id: iitp
+    display_name: IITP 정보통신기획평가원
+    url: https://www.iitp.kr/
+    owner: IITP
+    source_role: rnd-agency-origin
+    domain: ict-ai-cloud-rnd
+    authority_level: canonical
+    access_method: html
+    poll_minutes: 720
+    reliability_score: 0.97
+    coverage_score: 0.95
+    freshness_score: 0.90
+    reachability_probe: http_200
+    reason_for_inclusion: primary ICT/AI/cloud R&D agency source
+    known_limitations: board/attachment parser needed for high precision
+    wiki_destination: reports/opportunity-radar/categories/research-grants.md
+  - source_id: nipa
+    display_name: NIPA 정보통신산업진흥원
+    url: https://www.nipa.kr/
+    owner: NIPA
+    source_role: rnd-agency-origin
+    domain: ai-cloud-sw-industry
+    authority_level: canonical
+    access_method: html
+    poll_minutes: 720
+    reliability_score: 0.95
+    coverage_score: 0.90
+    freshness_score: 0.85
+    reachability_probe: http_200
+    reason_for_inclusion: AI/SW/cloud/SaaS support and commercialization programs
+    known_limitations: board parser required
+    wiki_destination: reports/opportunity-radar/categories/startup-commercialization.md
+  - source_id: nrf
+    display_name: NRF 한국연구재단
+    url: https://www.nrf.re.kr/
+    owner: NRF
+    source_role: rnd-agency-origin
+    domain: university-research
+    authority_level: canonical
+    access_method: html
+    poll_minutes: 720
+    reliability_score: 0.97
+    coverage_score: 0.90
+    freshness_score: 0.85
+    reachability_probe: http_200
+    reason_for_inclusion: university/graduate research funding, basic research, fellowships
+    known_limitations: exact eligibility requires program document parsing
+    wiki_destination: reports/opportunity-radar/categories/research-grants.md
+  - source_id: k-startup
+    display_name: K-Startup 창업지원포털
+    url: https://www.k-startup.go.kr/
+    owner: MSS / KISED
+    source_role: startup-origin
+    domain: startup-support
+    authority_level: canonical
+    access_method: html
+    poll_minutes: 720
+    reliability_score: 0.95
+    coverage_score: 0.90
+    freshness_score: 0.90
+    reachability_probe: http_200
+    reason_for_inclusion: startup packages, TIPS, commercialization, pre-founder opportunities
+    known_limitations: eligibility depends on business/team status
+    wiki_destination: reports/opportunity-radar/categories/startup-commercialization.md
+  - source_id: bizinfo
+    display_name: 기업마당
+    url: https://www.bizinfo.go.kr/
+    owner: MSS / SME support network
+    source_role: support-index
+    domain: sme-startup-support
+    authority_level: official
+    access_method: html
+    poll_minutes: 720
+    reliability_score: 0.90
+    coverage_score: 0.90
+    freshness_score: 0.90
+    reachability_probe: http_200
+    reason_for_inclusion: broad SME/startup/grant/support aggregation including regional programs
+    known_limitations: broad noisy source; needs fit scoring
+    wiki_destination: reports/opportunity-radar/categories/startup-commercialization.md
+  - source_id: youthcenter
+    display_name: 온통청년
+    url: https://www.youthcenter.go.kr/
+    owner: Korean youth policy portal
+    source_role: youth-policy-index
+    domain: youth-policy
+    authority_level: official
+    access_method: html-or-api
+    poll_minutes: 1440
+    reliability_score: 0.90
+    coverage_score: 0.90
+    freshness_score: 0.85
+    reachability_probe: http_200
+    reason_for_inclusion: youth policies by age/region/status
+    known_limitations: personal eligibility requires residence/income/family data
+    wiki_destination: reports/opportunity-radar/categories/youth-welfare.md
+  - source_id: bokjiro
+    display_name: 복지로
+    url: https://www.bokjiro.go.kr/
+    owner: MOHW
+    source_role: welfare-origin
+    domain: welfare-benefits
+    authority_level: canonical
+    access_method: browser-or-manual
+    poll_minutes: 1440
+    reliability_score: 0.95
+    coverage_score: 0.80
+    freshness_score: 0.75
+    reachability_probe: connection_reset_simple_http
+    reason_for_inclusion: canonical welfare benefit discovery and applications
+    known_limitations: login/personal data/manual verification often required; do not overclaim eligibility
+    wiki_destination: reports/opportunity-radar/categories/youth-welfare.md
+  - source_id: myhome
+    display_name: 마이홈포털
+    url: https://www.myhome.go.kr/
+    owner: MOLIT / housing welfare
+    source_role: housing-welfare-origin
+    domain: housing-welfare
+    authority_level: official
+    access_method: html
+    poll_minutes: 1440
+    reliability_score: 0.92
+    coverage_score: 0.85
+    freshness_score: 0.80
+    reachability_probe: http_200
+    reason_for_inclusion: housing welfare, public rental, youth housing information
+    known_limitations: location and household info required for exact matching
+    wiki_destination: reports/opportunity-radar/categories/housing-subscription.md
+  - source_id: lh-apply
+    display_name: LH 청약플러스
+    url: https://apply.lh.or.kr/
+    owner: LH
+    source_role: housing-application-origin
+    domain: public-housing
+    authority_level: canonical
+    access_method: html
+    poll_minutes: 720
+    reliability_score: 0.95
+    coverage_score: 0.85
+    freshness_score: 0.90
+    reachability_probe: http_200
+    reason_for_inclusion: public rental/sale and youth housing application notices
+    known_limitations: region, household, income, asset criteria require manual check
+    wiki_destination: reports/opportunity-radar/categories/housing-subscription.md
+  - source_id: applyhome
+    display_name: 청약홈
+    url: https://www.applyhome.co.kr/
+    owner: Korea Real Estate Board
+    source_role: housing-subscription-origin
+    domain: housing-subscription
+    authority_level: canonical
+    access_method: html
+    poll_minutes: 720
+    reliability_score: 0.95
+    coverage_score: 0.80
+    freshness_score: 0.90
+    reachability_probe: http_200
+    reason_for_inclusion: housing subscription calendars/notices/results
+    known_limitations: young unmarried single-person private-sale fit is often low; use filters
+    wiki_destination: reports/opportunity-radar/categories/housing-subscription.md
+  - source_id: housing-fund
+    display_name: 주택도시기금
+    url: https://nhuf.molit.go.kr/
+    owner: MOLIT / HUG
+    source_role: housing-finance-origin
+    domain: housing-loans
+    authority_level: canonical
+    access_method: html
+    poll_minutes: 1440
+    reliability_score: 0.95
+    coverage_score: 0.80
+    freshness_score: 0.75
+    reachability_probe: http_200
+    reason_for_inclusion: youth jeonse/monthly rent loan products and policy changes
+    known_limitations: exact eligibility depends on income/assets/household/debt
+    wiki_destination: reports/opportunity-radar/categories/housing-subscription.md
+  - source_id: naver-news
+    display_name: 네이버 뉴스
+    url: https://news.naver.com/
+    owner: NAVER
+    source_role: news-index
+    domain: korea-news-taxonomy-agenda
+    authority_level: media-index
+    access_method: html-metadata-only
+    poll_minutes: 360
+    reliability_score: 0.75
+    coverage_score: 0.95
+    freshness_score: 0.95
+    reachability_probe: http_200
+    reason_for_inclusion: Korean news/category discourse reference, not canonical policy facts
+    known_limitations: copyright and anti-bot; no full-text storage
+    wiki_destination: reports/news-center/index.md

@@ -1,0 +1,50 @@
+version: 2026-04-26
+purpose: Naver News category reference for Korean News Center taxonomy.
+base_url: https://news.naver.com/
+collection_policy: metadata_only_no_full_text
+categories:
+  - naver_id: politics
+    korean_name: 정치
+    internal_category: politics
+    usage: government agenda, law/policy conflict, administration signals
+  - naver_id: economy
+    korean_name: 경제
+    internal_category: economy
+    usage: budget, market, real estate, startup/business environment
+  - naver_id: society
+    korean_name: 사회
+    internal_category: society
+    usage: welfare, education, labor, local government, public services
+  - naver_id: life_culture
+    korean_name: 생활/문화
+    internal_category: culture
+    usage: broad social context, housing/lifestyle adjacent signals
+  - naver_id: world
+    korean_name: 세계
+    internal_category: world
+    usage: global policy, geopolitics affecting AI/cloud/supply chains
+  - naver_id: it_science
+    korean_name: IT/과학
+    internal_category: it-science
+    usage: AI, cloud, semiconductors, R&D, university/science policy
+  - naver_id: opinion
+    korean_name: 오피니언
+    internal_category: opinion
+    usage: optional framing analysis; never canonical fact source
+priority_queries:
+  - 과기정통부 AI 정책
+  - IITP 공고 AI 클라우드
+  - NRF 연구과제 공고
+  - 2026 예산 AI 클라우드 R&D
+  - 국토부 청년 주거 정책
+  - 청약홈 청년 무주택
+  - 복지로 청년 지원
+  - K-Startup 예비창업 AI
+  - 기업마당 AI 바우처
+  - 주택도시기금 청년 전세대출
+internal_mapping:
+  policy: [politics, economy, society]
+  research_grants: [it_science, economy]
+  housing: [economy, society]
+  youth_welfare: [society, economy]
+  ai_cloud: [it_science, economy, world]

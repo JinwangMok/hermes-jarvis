@@ -17,6 +17,7 @@ from .hermes_continuity import check_hermes_customizations
 from .intelligence import collect_knowledge_mail, generate_daily_intelligence_report
 from .knowledge import synthesize_knowledge
 from .mail import build_fake_mail_runner, collect_mail_snapshots
+from .personal_radar import generate_personal_radar_source_audit
 from .proposals import generate_proposals
 from .review import generate_weekly_review
 from .runtime import check_hermes_jarvis_health, install_hermes_standby_units, install_systemd_user_units, run_pipeline_cycle
@@ -105,6 +106,10 @@ def build_parser() -> argparse.ArgumentParser:
     hot_alert_parser = subparsers.add_parser("generate-external-hot-issue-alert", help="Dedupe a watch report against external hot issue state and print the deliverable alert text")
     hot_alert_parser.add_argument("--report-path", required=True, help="Path to generated watch report markdown")
     hot_alert_parser.add_argument("--state-path", default="state/external_hot_issue_state.json", help="Path to external hot issue dedupe state JSON")
+
+    radar_audit_parser = subparsers.add_parser("generate-personal-radar-source-audit", help="Generate a Personal Intelligence Radar source registry audit artifact")
+    radar_audit_parser.add_argument("--registry-dir", default="config/personal-radar", help="Directory containing personal radar YAML registry files")
+    radar_audit_parser.add_argument("--output-dir", default="data/personal-radar", help="Directory for generated audit artifacts")
 
     watch_cycle_parser = subparsers.add_parser("run-watch-cycle", help="Run one full watch cycle")
     watch_cycle_parser.add_argument("--config", required=True, help="Path to pipeline.yaml")
@@ -354,6 +359,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.command == "generate-external-hot-issue-alert":
         result = generate_external_hot_issue_alert(report_path=Path(args.report_path), state_path=Path(args.state_path))
         print(json.dumps(result, ensure_ascii=False))
+        return 0
+
+    if args.command == "generate-personal-radar-source-audit":
+        result = generate_personal_radar_source_audit(registry_dir=Path(args.registry_dir), output_dir=Path(args.output_dir))
+        print(json.dumps({**result, "artifact_path": str(result["artifact_path"]), "json_path": str(result["json_path"])}, ensure_ascii=False))
         return 0
 
     if args.command == "run-watch-cycle":

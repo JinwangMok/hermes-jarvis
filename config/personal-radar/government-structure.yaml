@@ -1,0 +1,70 @@
+version: 2026-04-26
+purpose: Korean government, budget, policy, and R&D structure model for Jinwang Personal Intelligence Radar.
+ministries:
+  - id: moef
+    names: [기획재정부, 기재부, MOEF, Ministry of Economy and Finance]
+    role: national budget, fiscal policy, budget execution, policy funding context
+    priority_for_jinwang: high
+    canonical_sources: [moef-home, korea-policy-briefing]
+  - id: msit
+    names: [과학기술정보통신부, 과기정통부, MSIT]
+    role: science/ICT/AI/cloud policy and R&D budget owner
+    priority_for_jinwang: critical
+    canonical_sources: [msit-home, iris, ntis, iitp, nipa, nrf]
+    agencies: [iitp, nipa, nia, kisti, nrf, etri]
+  - id: motie
+    names: [산업통상자원부, 산업부, 산자부, MOTIE]
+    role: industrial technology, semiconductors, AI hardware, cloud/industrial DX R&D
+    priority_for_jinwang: medium
+    agencies: [kiat, keit, ketep]
+  - id: mss
+    names: [중소벤처기업부, 중기부, MSS]
+    role: startup, SME, commercialization, TIPS, vouchers
+    priority_for_jinwang: high
+    agencies: [kised, tipa]
+  - id: molit
+    names: [국토교통부, 국토부, MOLIT]
+    role: housing policy, public rental, subscription, national land/infrastructure R&D
+    priority_for_jinwang: high
+    agencies: [lh, housing-fund, applyhome]
+  - id: mohw
+    names: [보건복지부, 복지부, MOHW]
+    role: welfare policy, asset-building support via welfare channels
+    priority_for_jinwang: medium
+    agencies: [bokjiro]
+  - id: moe
+    names: [교육부, MOE]
+    role: graduate education, scholarships, university research administration
+    priority_for_jinwang: medium
+    agencies: [kosaf, nrf]
+agencies:
+  - id: iitp
+    names: [정보통신기획평가원, IITP]
+    domains: [ICT R&D, AI, cloud, software, security]
+  - id: nipa
+    names: [정보통신산업진흥원, NIPA]
+    domains: [AI, SW industry, cloud, SaaS, digital transformation]
+  - id: nrf
+    names: [한국연구재단, NRF]
+    domains: [basic research, university research, graduate researcher support]
+  - id: ntis
+    names: [국가과학기술지식정보서비스, NTIS]
+    domains: [national R&D search, project metadata]
+  - id: iris
+    names: [범부처통합연구지원시스템, IRIS]
+    domains: [R&D application, announcements, project administration]
+  - id: lh
+    names: [한국토지주택공사, LH]
+    domains: [public rental, youth housing, public sale]
+  - id: applyhome
+    names: [청약홈, 한국부동산원 청약홈]
+    domains: [housing subscription]
+normalization_tests:
+  과기정통부: msit
+  MSIT: msit
+  산자부: motie
+  산업부: motie
+  국토부: molit
+  기재부: moef
+  IITP: iitp
+  NRF: nrf
