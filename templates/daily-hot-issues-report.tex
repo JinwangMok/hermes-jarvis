@@ -1,0 +1,44 @@
+% Jinwang Jarvis Daily Hot Issues Report Template
+% Rendered by scripts/render_daily_hot_issues_pdf.py.
+% The cron job may generate a populated .tex from this visual contract, then render via xelatex/pdflatex if installed.
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=18mm]{geometry}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{longtable}
+\usepackage{booktabs}
+\usepackage{enumitem}
+\usepackage{titlesec}
+\usepackage{fancyhdr}
+\definecolor{JarvisBlue}{HTML}{1F4E79}
+\definecolor{JarvisGray}{HTML}{4B5563}
+\definecolor{JarvisLight}{HTML}{EEF4FA}
+\hypersetup{colorlinks=true, linkcolor=JarvisBlue, urlcolor=JarvisBlue}
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{Jinwang Jarvis}
+\rhead{오늘의 핫이슈}
+\cfoot{\thepage}
+\titleformat{\section}{\Large\bfseries\color{JarvisBlue}}{}{0em}{}
+\titleformat{\subsection}{\large\bfseries\color{JarvisGray}}{}{0em}{}
+\setlist[itemize]{leftmargin=1.4em,itemsep=0.25em}
+\begin{document}
+\begin{center}
+  {\Huge\bfseries 오늘의 핫이슈 리포트}\\[4pt]
+  {\large \VAR{report_date_kst}}\\[6pt]
+  \colorbox{JarvisLight}{\parbox{0.92\linewidth}{\centering \VAR{one_line_summary}}}
+\end{center}
+\vspace{0.8em}
+\section*{Executive Summary}
+\VAR{executive_summary}
+\section*{핵심 이슈}
+\VAR{top_issues}
+\section*{Opportunity Radar}
+\VAR{opportunity_radar}
+\section*{Source Coverage}
+\VAR{source_coverage}
+\section*{Action Items}
+\VAR{action_items}
+\section*{Appendix: 생성 근거}
+\VAR{appendix}
+\end{document}
