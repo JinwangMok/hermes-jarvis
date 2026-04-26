@@ -332,20 +332,21 @@ def _sent_mail_theme(subject: str | None, interaction_role: str | None) -> str:
     return "other-sent-context"
 
 
-def _load_sent_mail_memory_items(config: PipelineConfig, *, limit: int = 40) -> list[dict]:
-    with sqlite3.connect(config.database_path) as conn:
-        conn.row_factory = sqlite3.Row
-        rows = conn.execute(
-            """
+def _load_sent_mail_memory_items(config: PipelineConfig, *, limit: int | None = None) -> list[dict]:
+    query = """
             SELECT message_id, account, subject, from_addr, to_addrs, cc_addrs,
                    sent_at, snippet, self_role, interaction_role
             FROM messages
             WHERE folder_kind = 'sent'
             ORDER BY datetime(COALESCE(sent_at, '')) DESC, message_id DESC
-            LIMIT ?
-            """,
-            (limit,),
-        ).fetchall()
+            """
+    params: tuple[int, ...] = ()
+    if limit is not None:
+        query += "\n            LIMIT ?"
+        params = (limit,)
+    with sqlite3.connect(config.database_path) as conn:
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute(query, params).fetchall()
     items: list[dict] = []
     for row in rows:
         item = dict(row)
