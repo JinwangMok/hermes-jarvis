@@ -12,6 +12,7 @@ from .wiki_contract import run_wiki_lint_if_available, wiki_governance, wiki_ope
 
 WATCHLIST_NOTE_RELATIVE_PATH = "queries/jinwang-jarvis-importance-shift-watchlist.md"
 WATCHLIST_INDEX_LINE = "- [[jinwang-jarvis-importance-shift-watchlist]] — Rolling watchlist of suppressed-but-promotable mail threads and the current importance-shift patterns in Jinwang Jarvis."
+SENT_MAIL_MEMORY_INDEX_LINE = "- [[queries/jinwang-jarvis-memory/sent-mail-memory|Jinwang Jarvis Sent Mail Memory]] — 보낸편지함 메일을 신규 수신 추천에서는 제외하되, 실제 발신·회신·공유·결정 맥락을 계층적으로 저장하는 generated memory shard."
 MEMORY_NOTE_DIR = "queries/jinwang-jarvis-memory"
 MEMORY_INDEX_RELATIVE_PATH = f"{MEMORY_NOTE_DIR}/index.md"
 MEMORY_SECTION_FILES = {
@@ -19,6 +20,7 @@ MEMORY_SECTION_FILES = {
     "continuing_important": f"{MEMORY_NOTE_DIR}/continuing-important.md",
     "newly_important": f"{MEMORY_NOTE_DIR}/newly-important.md",
     "schedule_recommendations": f"{MEMORY_NOTE_DIR}/schedule-recommendations.md",
+    "sent_mail_memory": f"{MEMORY_NOTE_DIR}/sent-mail-memory.md",
 }
 
 
@@ -178,12 +180,14 @@ def _write_watchlist_artifact(config: PipelineConfig, entries: list[dict], propo
 
 def _update_index(index_path: Path, today: str) -> None:
     text = index_path.read_text(encoding="utf-8") if index_path.exists() else "# Wiki Index\n\n## Entities\n\n## Concepts\n\n## Comparisons\n\n## Queries\n"
-    if WATCHLIST_INDEX_LINE not in text:
+    for index_line in (WATCHLIST_INDEX_LINE, SENT_MAIL_MEMORY_INDEX_LINE):
+        if index_line in text:
+            continue
         marker = "## Queries\n"
         if marker in text:
-            text = text.replace(marker, marker + WATCHLIST_INDEX_LINE + "\n")
+            text = text.replace(marker, marker + index_line + "\n")
         else:
-            text += "\n## Queries\n" + WATCHLIST_INDEX_LINE + "\n"
+            text += "\n## Queries\n" + index_line + "\n"
     pages = 0
     for section in ("entities", "concepts", "comparisons", "queries"):
         section_dir = index_path.parent / section
@@ -307,8 +311,109 @@ def _memory_note_title(stem: str) -> str:
         "continuing-important": "Jinwang Jarvis Continuing Important Work",
         "newly-important": "Jinwang Jarvis Newly Important Work",
         "schedule-recommendations": "Jinwang Jarvis Schedule Recommendations",
+        "sent-mail-memory": "Jinwang Jarvis Sent Mail Memory",
     }
     return mapping.get(stem, stem.replace("-", " ").title())
+
+
+def _sent_mail_theme(subject: str | None, interaction_role: str | None) -> str:
+    text = (subject or "").casefold()
+    role = (interaction_role or "").casefold()
+    if role in {"status-reply", "review-reply"} or text.startswith("re:"):
+        return "replies-and-followups"
+    if any(term in text for term in ["fw:", "fwd:", "공유", "announce", "info", "전달"]):
+        return "shared-context"
+    if any(term in text for term in ["참석", "일정", "meeting", "세미나", "workshop", "등록", "registration"]):
+        return "events-and-scheduling"
+    if any(term in text for term in ["요청", "확인", "검토", "proposal", "draft", "보고"]):
+        return "requests-and-decisions"
+    if any(term in text for term in ["github", "security", "login", "account", "인증", "보안"]):
+        return "admin-and-security"
+    return "other-sent-context"
+
+
+def _load_sent_mail_memory_items(config: PipelineConfig, *, limit: int = 40) -> list[dict]:
+    with sqlite3.connect(config.database_path) as conn:
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute(
+            """
+            SELECT message_id, account, subject, from_addr, to_addrs, cc_addrs,
+                   sent_at, snippet, self_role, interaction_role
+            FROM messages
+            WHERE folder_kind = 'sent'
+            ORDER BY datetime(COALESCE(sent_at, '')) DESC, message_id DESC
+            LIMIT ?
+            """,
+            (limit,),
+        ).fetchall()
+    items: list[dict] = []
+    for row in rows:
+        item = dict(row)
+        for key in ("to_addrs", "cc_addrs"):
+            try:
+                item[key] = json.loads(item.get(key) or "[]")
+            except Exception:
+                item[key] = []
+        item["theme"] = _sent_mail_theme(item.get("subject"), item.get("interaction_role"))
+        items.append(item)
+    return items
+
+
+def _write_sent_mail_memory_note(note_path: Path, *, config: PipelineConfig, generated_at: str, items: list[dict]) -> None:
+    note_path.parent.mkdir(parents=True, exist_ok=True)
+    title = _memory_note_title(note_path.stem)
+    lines = [
+        "---",
+        f"title: {title}",
+        f"created: {generated_at[:10]}",
+        f"updated: {generated_at[:10]}",
+        "type: query",
+        "subtype: generated-memory-shard",
+        "tags: [email, automation, memory, query]",
+        "sources: []",
+        "owner: jarvis",
+        "authority: derived",
+        "generated: true",
+        "generator: jinwang-jarvis",
+        "refresh_policy: overwrite",
+        f"operational_source_of_truth: {wiki_operational_source(config)}",
+        "---",
+        "",
+        "# 내가 보낸 메일 기억",
+        "",
+        "> 보낸편지함은 신규/중요 수신 메일 추천에는 쓰지 않고, 내가 실제로 처리·공유·결정한 맥락을 위키 장기기억으로 보존한다.",
+        "",
+        f"- stored_sent_items: {len(items)}",
+        "",
+        "## 계층",
+        "- replies-and-followups: 내가 회신/상태 업데이트로 닫거나 이어간 일",
+        "- shared-context: 내가 연구실/팀에 전달·공유한 정보",
+        "- events-and-scheduling: 참석·등록·일정 관련 발신",
+        "- requests-and-decisions: 요청·검토·결정·보고 흐름",
+        "- admin-and-security: 계정·보안·운영성 발신",
+        "- other-sent-context: 위 범주 밖의 발신 맥락",
+        "",
+    ]
+    by_theme: dict[str, list[dict]] = {}
+    for item in items:
+        by_theme.setdefault(item["theme"], []).append(item)
+    for theme in ["replies-and-followups", "shared-context", "events-and-scheduling", "requests-and-decisions", "admin-and-security", "other-sent-context"]:
+        lines.extend([f"## {theme}"])
+        theme_items = by_theme.get(theme, [])
+        if not theme_items:
+            lines.append("- none")
+        for item in theme_items:
+            recipients = ", ".join(item.get("to_addrs") or []) or "unknown"
+            subject = item.get("subject") or "(제목 없음)"
+            snippet = (item.get("snippet") or "").strip().replace("\n", " ")
+            if len(snippet) > 180:
+                snippet = snippet[:177] + "..."
+            detail = f" — key: {snippet}" if snippet else ""
+            lines.append(
+                f"- {item.get('sent_at') or 'unknown'} — {subject} | to={recipients} | source={item.get('message_id')}{detail}"
+            )
+        lines.append("")
+    note_path.write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")
 
 
 def _write_memory_section(note_path: Path, *, config: PipelineConfig, generated_at: str, heading: str, items: list[dict], empty_message: str) -> None:
@@ -346,8 +451,13 @@ def _write_memory_section(note_path: Path, *, config: PipelineConfig, generated_
 
 def _write_memory_notes(config: PipelineConfig, briefing_payload: dict, generated_at: str) -> dict[str, Path]:
     note_paths: dict[str, Path] = {}
+    sent_mail_items = _load_sent_mail_memory_items(config)
     for section_name, relative_path in MEMORY_SECTION_FILES.items():
         note_path = config.wiki_root / relative_path
+        if section_name == "sent_mail_memory":
+            _write_sent_mail_memory_note(note_path, config=config, generated_at=generated_at, items=sent_mail_items)
+            note_paths[section_name] = note_path
+            continue
         heading = {
             "recent_important": "최근 중요한 일",
             "continuing_important": "계속 중요한 일",
@@ -398,6 +508,7 @@ def _write_memory_notes(config: PipelineConfig, briefing_payload: dict, generate
         "- [[queries/jinwang-jarvis-memory/continuing-important]]",
         "- [[queries/jinwang-jarvis-memory/newly-important]]",
         "- [[queries/jinwang-jarvis-memory/schedule-recommendations]]",
+        "- [[queries/jinwang-jarvis-memory/sent-mail-memory]]",
         "- [[queries/jinwang-jarvis-importance-shift-watchlist]]",
     ]
     index_path.write_text("\n".join(index_lines) + "\n", encoding="utf-8")

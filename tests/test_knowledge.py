@@ -121,6 +121,34 @@ def test_synthesize_knowledge_creates_watchlist_artifact_and_wiki_summary(tmp_pa
         json.dumps({"proposals": {"latest": {"artifact_file": proposal_artifact.name, "generated_at": "2026-04-19T17:40:30Z"}}}, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
+    with sqlite3.connect(config.database_path) as conn:
+        conn.execute(
+            """
+            INSERT OR REPLACE INTO messages (
+                message_id, account, folder_kind, thread_key, subject, from_addr, to_addrs, cc_addrs,
+                self_role, interaction_role, sent_at, snippet, body_path, raw_json_path, is_seen, ingested_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "smartx:SENT:self-shared-1",
+                "smartx",
+                "sent",
+                None,
+                "[NetCS Announce][Agentic AI] The 2nd OmOCon Seoul 참석 수기 공유",
+                "jinwang@smartx.kr",
+                '["info@smartx.kr"]',
+                "[]",
+                "sent-by-me",
+                "broadcast",
+                "2026-04-20T18:30:00+09:00",
+                "OmOCon 참석 수기를 SmartX 정보 채널에 공유함",
+                None,
+                None,
+                1,
+                "2026-04-20T00:00:00+00:00",
+            ),
+        )
+        conn.commit()
 
     result = synthesize_knowledge(config, write_wiki=True)
 
@@ -129,6 +157,12 @@ def test_synthesize_knowledge_creates_watchlist_artifact_and_wiki_summary(tmp_pa
     assert result["wiki_page_path"].exists()
     assert result["memory_note_paths"]["index"].exists()
     assert result["memory_note_paths"]["recent_important"].exists()
+    assert result["memory_note_paths"]["sent_mail_memory"].exists()
+    sent_memory_text = result["memory_note_paths"]["sent_mail_memory"].read_text(encoding="utf-8")
+    assert "# 내가 보낸 메일 기억" in sent_memory_text
+    assert "shared-context" in sent_memory_text
+    assert "smartx:SENT:self-shared-1" in sent_memory_text
+    assert "OmOCon 참석 수기를 SmartX 정보 채널에 공유함" in sent_memory_text
 
     payload = json.loads(result["artifact_path"].read_text(encoding="utf-8"))
     assert payload["watchlist"][0]["source_message_id"] == "m-watch"

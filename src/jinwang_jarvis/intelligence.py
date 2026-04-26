@@ -959,6 +959,8 @@ def _build_next_day_mail_todos(rows: list[dict]) -> tuple[list[dict], list[dict]
     alerts = _build_recent_action_alerts(rows)
     alert_index = {item['message_id']: item for item in alerts if item.get('message_id')}
     for row in sorted(rows, key=lambda item: item.get('sent_at') or '', reverse=True):
+        if row.get('folder_kind') != 'inbox':
+            continue
         subject = _clean_subject(row.get('subject'))
         if subject == '(제목 없음)':
             continue

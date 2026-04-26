@@ -641,6 +641,11 @@ def test_generate_daily_intelligence_creates_dedicated_jongwon_smartx_lane_notes
                 "FW: [2025 GIST AI융합학과 X AI정책전략대학원 체육대회] 경기 참가 및 관람여부 설문조사 응답 요청", "jinwangmok@gm.gist.ac.kr", '["jinwang@smartx.kr"]', '[]',
                 "2026-03-20T11:00:00+09:00", None, None, None, 1, "2026-03-20T00:00:00+00:00", "sent-by-me", "fyi-forward",
             ),
+            (
+                "smartx:SENT:self-shared-1", "smartx", "sent", None,
+                "[NetCS Announce][Agentic AI] The 2nd OmOCon Seoul 참석 수기 공유", "jinwang@smartx.kr", '["info@smartx.kr"]', '[]',
+                "2026-04-20T18:30:00+09:00", None, None, None, 1, "2026-04-20T00:00:00+00:00", "sent-by-me", "broadcast",
+            ),
         ]
         for row in message_rows:
             conn.execute(
@@ -763,6 +768,8 @@ def test_generate_daily_intelligence_creates_dedicated_jongwon_smartx_lane_notes
     assert "# Important mail recommendations" in important_mail_text
     assert "message_id: smartx:INBOX:1" in important_mail_text
     assert "message_id: smartx:INBOX:2" in important_mail_text
+    assert "smartx:SENT:self-shared-1" not in important_mail_text
+    assert "The 2nd OmOCon Seoul 참석 수기 공유" not in important_mail_text
     assert "replied_count: 1" in important_mail_text
     assert "median_response_hours: 6.5" in important_mail_text
     assert "메일에서 추출된 일정 후보 우선: 04-21 15:00~16:00" in important_mail_text
