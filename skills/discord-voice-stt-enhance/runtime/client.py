@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import sys
 from pathlib import Path
 
@@ -20,22 +21,58 @@ DEFAULT_MODEL = os.environ.get('HERMES_LOCAL_STT_MODEL', 'large-v3-turbo')
 DEFAULT_TIMEOUT = int(os.environ.get('HERMES_LOCAL_STT_TIMEOUT', '60'))
 
 
+HALLUCINATION_NORMALIZED_PHRASES = {
+    '시청해주셔서감사합니다',
+    '끝까지시청해주셔서감사합니다',
+    '시청감사합니다',
+    '구독좋아요',
+    '구독과좋아요부탁드립니다',
+    '다음영상에서만나요',
+    'thankyouforwatching',
+    'thanksforwatching',
+}
+
+# Short, standalone politeness closers are common Whisper hallucinations on near-silence.
+# Do not drop longer utterances that merely contain the word, e.g. "... 감사합니다 다음 작업".
+HALLUCINATION_SHORT_NORMALIZED_PHRASES = {
+    '감사합니다',
+    '고맙습니다',
+    '네감사합니다',
+}
+
+
+def _normalize_transcript_for_filter(text: str) -> str:
+    return re.sub(r'[^0-9A-Za-z가-힣]+', '', text).lower()
+
+
+def filter_transcript_hallucination(text: str) -> str:
+    stripped = text.strip()
+    normalized = _normalize_transcript_for_filter(stripped)
+    if not normalized:
+        return ''
+    if normalized in HALLUCINATION_NORMALIZED_PHRASES:
+        return ''
+    if normalized in HALLUCINATION_SHORT_NORMALIZED_PHRASES:
+        return ''
+    return stripped
+
+
 def parse_response_text(response: requests.Response) -> str:
     content_type = response.headers.get('content-type', '')
     body = response.text.strip()
     if 'application/json' in content_type:
         payload = response.json()
         if isinstance(payload, dict):
-            return str(payload.get('text', '')).strip()
-        return body
+            return filter_transcript_hallucination(str(payload.get('text', '')).strip())
+        return filter_transcript_hallucination(body)
     if body.startswith('{'):
         try:
             payload = json.loads(body)
             if isinstance(payload, dict):
-                return str(payload.get('text', '')).strip()
+                return filter_transcript_hallucination(str(payload.get('text', '')).strip())
         except json.JSONDecodeError:
             pass
-    return body
+    return filter_transcript_hallucination(body)
 
 
 def transcribe_file(*, input_path: Path, output_dir: Path, language: str, model: str, server_url: str, timeout: int) -> Path:
