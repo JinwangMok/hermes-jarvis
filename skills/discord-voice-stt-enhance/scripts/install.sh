@@ -3,13 +3,13 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
-HERMES_DIR="/home/jinwang/.hermes/hermes-agent"
 CONFIG_PATH="${HOME}/.hermes/config.yaml"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --hermes-dir)
-      HERMES_DIR="$2"
+      # Accepted for compatibility with old callers; source-untouched B안 does
+      # not mutate the Hermes checkout.
       shift 2
       ;;
     --config)
@@ -17,7 +17,7 @@ while [[ $# -gt 0 ]]; do
       shift 2
       ;;
     *)
-      HERMES_DIR="$1"
+      # Positional Hermes dir from old callers; ignored by source-untouched install.
       shift
       ;;
   esac
@@ -44,7 +44,5 @@ config_path.write_text(yaml.safe_dump(data, sort_keys=False, allow_unicode=True)
 print(f'Updated {config_path} with skills.external_dirs += {repo_str}')
 PY
 
-"$REPO_DIR/scripts/apply-hermes-patches.sh" "$HERMES_DIR"
-
-echo "Registered Discord voice bundle for $HERMES_DIR"
-echo "Jarvis-managed patches are applied idempotently. Gateway was not restarted."
+echo "Registered external-only Discord voice bundle"
+echo "No Hermes source patch was applied. Gateway was not restarted."

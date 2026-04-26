@@ -22,7 +22,7 @@ cd "$REPO_DIR"
 "$PYTEST_PYTHON" -m pytest tests/test_runtime_client.py -q
 "$PYTEST_PYTHON" -m pytest tests/test_service_render.py -q
 "$PYTEST_PYTHON" -m py_compile runtime/helpers.py runtime/client.py runtime/server.py service/render.py
-bash -n scripts/install.sh scripts/apply-hermes-patches.sh scripts/configure-hermes-local-stt.sh scripts/configure-hermes-voxcpm-tts.sh
+bash -n scripts/install.sh scripts/configure-hermes-local-stt.sh scripts/configure-hermes-voxcpm-tts.sh
 
 echo "Repo unit checks: ok"
 
@@ -43,16 +43,5 @@ grep -q '^    model: voxcpm2$' "$TMPDIR/tts-snippet.txt"
 echo "Config snippet checks: ok"
 
 if [[ -d "$HERMES_DIR/.git" ]]; then
-  TMP_HERMES=$(mktemp -d)
-  trap 'rm -rf "$TMPDIR" "$TMP_HERMES"' EXIT
-  git clone --shared "$HERMES_DIR" "$TMP_HERMES/hermes-agent" >/dev/null
-  "$REPO_DIR/scripts/apply-hermes-patches.sh" "$TMP_HERMES/hermes-agent"
-  (cd "$TMP_HERMES/hermes-agent" && python -m py_compile tools/tts_tool.py tools/transcription_tools.py gateway/platforms/discord.py)
-  (cd "$TMP_HERMES/hermes-agent" && python -m pytest \
-    tests/tools/test_managed_media_gateways.py::test_openai_tts_accepts_configured_api_key_and_base_url \
-    tests/tools/test_transcription_tools.py::TestTranscribeLocalCommand::test_configured_local_command_preferred_over_env \
-    tests/gateway/test_voice_command.py::TestVoiceReceiver::test_check_silence_rejects_near_silence_buffer \
-    tests/gateway/test_voice_command.py::TestVoiceReceiver::test_check_silence_returns_completed_utterance \
-    -q)
   git -C "$HERMES_DIR" status --short --branch
 fi
