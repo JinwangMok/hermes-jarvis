@@ -45,10 +45,20 @@ def _normalize_transcript_for_filter(text: str) -> str:
     return re.sub(r'[^0-9A-Za-z가-힣]+', '', text).lower()
 
 
+def _is_repeated_filler_syllable(text: str) -> bool:
+    tokens = re.findall(r'[A-Za-z가-힣]+', text.lower())
+    if len(tokens) < 5:
+        return False
+    allowed_fillers = {'아', '어', '음', 'uh', 'um', 'ah'}
+    return all(token in allowed_fillers for token in tokens) and len(set(tokens)) == 1
+
+
 def filter_transcript_hallucination(text: str) -> str:
     stripped = text.strip()
     normalized = _normalize_transcript_for_filter(stripped)
     if not normalized:
+        return ''
+    if _is_repeated_filler_syllable(stripped):
         return ''
     if normalized in HALLUCINATION_NORMALIZED_PHRASES:
         return ''

@@ -14,3 +14,13 @@ def test_filter_transcript_hallucination_preserves_real_content_with_polite_word
 
 def test_filter_transcript_hallucination_drops_common_english_youtube_closer():
     assert filter_transcript_hallucination("Thank you for watching.") == ""
+
+
+def test_filter_transcript_hallucination_drops_repeated_filler_syllables():
+    assert filter_transcript_hallucination("아, 아, 아, 아, 아, 아, 아, 아, 아, 아") == ""
+    assert filter_transcript_hallucination("어 어 어 어 어 어 어") == ""
+    assert filter_transcript_hallucination("음... 음... 음... 음... 음...") == ""
+
+
+def test_filter_transcript_hallucination_preserves_short_meaningful_filler_context():
+    assert filter_transcript_hallucination("아 지금 들려?") == "아 지금 들려?"
