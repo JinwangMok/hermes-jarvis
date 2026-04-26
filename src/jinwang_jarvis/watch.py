@@ -200,7 +200,7 @@ def _search_for_item_content(item: dict, fetch_text) -> tuple[str | None, str | 
     return None, None
 
 
-def _enrich_item_content(item: dict, fetch_text) -> dict:
+def _enrich_item_content(item: dict, fetch_text, *, allow_search_fallback: bool = True) -> dict:
     enriched = dict(item)
     feed_summary = _compact_excerpt(str(item.get("summary_text") or ""), limit=900)
     article_excerpt = None
@@ -213,7 +213,7 @@ def _enrich_item_content(item: dict, fetch_text) -> dict:
                 content_source_url = _canonicalize_url(url)
         except Exception:
             article_excerpt = None
-    if not article_excerpt:
+    if not article_excerpt and allow_search_fallback:
         article_excerpt, content_source_url = _search_for_item_content(item, fetch_text)
     if article_excerpt:
         enriched["content_excerpt"] = article_excerpt
@@ -222,6 +222,21 @@ def _enrich_item_content(item: dict, fetch_text) -> dict:
     if feed_summary and not enriched.get("summary_text"):
         enriched["summary_text"] = feed_summary
     return enriched
+
+
+def _enrich_items_with_bounded_search_fallback(items: list[dict], fetch_text, *, search_fallback_limit: int = 3) -> list[dict]:
+    enriched_items: list[dict] = []
+    remaining_searches = max(0, search_fallback_limit)
+    for item in items:
+        enriched = _enrich_item_content(item, fetch_text, allow_search_fallback=remaining_searches > 0)
+        if enriched.get("content_excerpt"):
+            original_excerpt = dict(item).get("content_excerpt")
+            if not original_excerpt and enriched.get("content_source_url") != _canonicalize_url(str(item.get("url") or "")):
+                remaining_searches -= 1
+        elif remaining_searches > 0:
+            remaining_searches -= 1
+        enriched_items.append(enriched)
+    return enriched_items
 
 
 def _utc_now() -> datetime:
@@ -458,6 +473,12 @@ def _enrich_x_item(source: WatchSource, item: dict, fetch_text) -> dict:
         )
         engagement.setdefault("comments", metrics.get("reply_count", 0))
         enriched["engagement"] = engagement
+    if not enriched.get("content_excerpt"):
+        article_excerpt, content_source_url = _search_for_item_content(enriched, fetch_text)
+        if article_excerpt:
+            enriched["content_excerpt"] = article_excerpt
+            if content_source_url:
+                enriched["content_source_url"] = content_source_url
     return enriched
 
 
@@ -493,7 +514,7 @@ def _fetch_hackernews(source: WatchSource, fetch_json=_fetch_json, fetch_text=_f
                 "comments": item.get("descendants", 0),
             },
         }
-        items.append(_enrich_item_content(item_data, fetch_text))
+        items.append(_enrich_item_content(item_data, fetch_text, allow_search_fallback=len(items) < 3))
     return items
 
 
@@ -628,11 +649,11 @@ def fetch_source_items(source: WatchSource, fetch_text=_fetch_text, fetch_json=_
         items = _parse_rss_or_atom(fetch_text(source.feed_url or source.base_url), source)
         if _looks_like_x_source(source):
             return [_enrich_x_item(source, item, fetch_text) for item in items[:1]]
-        return [_enrich_item_content(item, fetch_text) for item in items[:10]]
+        return _enrich_items_with_bounded_search_fallback(items[:10], fetch_text)
     if source.ingest_strategy == "api" and source.source_id == "hackernews-topstories":
         return _fetch_hackernews(source, fetch_json=fetch_json, fetch_text=fetch_text)
     if source.ingest_strategy == "html":
-        return [_enrich_item_content(item, fetch_text) for item in _parse_html_listing(fetch_text(source.html_list_url or source.base_url), source)]
+        return _enrich_items_with_bounded_search_fallback(_parse_html_listing(fetch_text(source.html_list_url or source.base_url), source), fetch_text)
     target_url = source.feed_url or source.html_list_url or source.base_url
     return [{"title": source.display_name, "url": target_url, "summary_text": f"Fetched from {target_url}", "published_at": _utc_now().isoformat()}]
 

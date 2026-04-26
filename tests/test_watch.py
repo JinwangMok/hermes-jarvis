@@ -396,6 +396,30 @@ def test_content_enrichment_searches_by_title_when_original_page_has_no_readable
 
 
 
+def test_x_source_searches_by_title_when_status_page_has_no_readable_content(tmp_path: Path):
+    config = load_pipeline_config(_write_config(tmp_path))
+    _write_sources(tmp_path)
+    source = {source.source_id: source for source in load_watch_sources(config)}["openai-x"]
+
+    def fake_fetch_text(url: str) -> str:
+        if url.endswith("/rss"):
+            return NITTER_RSS_SAMPLE
+        if url == "https://x.com/OpenAI/status/1912345678901234567":
+            return X_STATUS_HTML_SAMPLE
+        if url.startswith("https://duckduckgo.com/html/"):
+            return SEARCH_HTML_SAMPLE
+        if url == "https://mirror.example.com/openai-enterprise-api-tier":
+            return MIRROR_ARTICLE_HTML_SAMPLE
+        raise AssertionError(url)
+
+    items = fetch_source_items(source, fetch_text=fake_fetch_text)
+
+    assert "audit controls" in items[0]["content_excerpt"]
+    assert items[0]["content_source_url"] == "https://mirror.example.com/openai-enterprise-api-tier"
+    assert items[0]["engagement"]["score"] == 1826
+
+
+
 def test_json_feed_sources_are_parsed_and_enriched_with_article_content(tmp_path: Path):
     source = WatchSource(
         source_id="cisco-cloud-news",
