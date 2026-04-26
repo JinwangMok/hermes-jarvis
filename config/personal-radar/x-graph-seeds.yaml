@@ -62,6 +62,57 @@ nodes:
     organization: google
     domains: [ai-research, systems]
     why_track: Google AI research/systems context
+  - id: sigrid-jin
+    type: practitioner-organizer
+    display_name: Sigrid Jin
+    x_handle: realsigridjin
+    domains: [agentic-ai, omocon, korean-ai-community, harness]
+    why_track: user-confirmed official seed for OmOCon/Agentic AI community graph; use to discover related OMO/OMC/OMX/OOO/Ralphton actors
+    validation_status: user_confirmed_official_seed
+  - id: jung-gubong
+    type: practitioner-organizer
+    display_name: 정구봉
+    organization: TeamAttention
+    domains: [ralphton, agentic-ai-community, events]
+    why_track: OmOCon note says TeamAttention organizer and first Ralphton host
+    validation_status: handle_unresolved_search_via_realsigridjin
+  - id: heo-yechan
+    type: developer
+    display_name: 허예찬
+    domains: [oh-my-claudecode, oh-my-codex, coding-agents]
+    why_track: OmOCon note says OMC and OMX developer
+    validation_status: handle_unresolved_search_via_realsigridjin
+  - id: na-jeonghwan
+    type: developer
+    display_name: 나정환
+    domains: [ouroboros, autonomous-prs, coding-agents]
+    why_track: OmOCon note says Ouroboros developer and 72-hour 500+ PR incident actor
+    validation_status: handle_unresolved_search_via_realsigridjin
+  - id: kim-donggyu
+    type: developer
+    display_name: 김동규
+    domains: [slides-grab, k-skill, local-llm, agent-tools]
+    why_track: OmOCon note says Slides-grab and K-Skill developer; local-model harness gap comments are research-relevant
+    validation_status: handle_unresolved_search_via_realsigridjin
+  - id: kim-yeongyu
+    type: developer
+    display_name: 김연규
+    domains: [oh-my-opencode, coding-agents]
+    why_track: OmOCon note says Oh-My-Opencode developer and inspiration source for OMC
+    validation_status: handle_unresolved_search_via_realsigridjin
+  - id: jung-seungheon
+    type: developer
+    display_name: 정승헌
+    domains: [roach-pi, agent-tools]
+    why_track: OmOCon note says Roach-Pi developer
+    validation_status: handle_unresolved_search_via_realsigridjin
+  - id: han-yuha
+    type: industry-account-director
+    display_name: 한유하
+    organization: openai
+    domains: [openai, korean-ai-community, enterprise-ai]
+    why_track: OmOCon note says OpenAI account director attended; useful for Korea OpenAI/community signals
+    validation_status: handle_unresolved_search_via_realsigridjin
 edge_types: [mentions, replies_to, quotes, works_at, leads, releases, discusses, disagrees_with, amplifies, competes_with]
 phase0_acceptance:
   - seed nodes exist with roles and why_track

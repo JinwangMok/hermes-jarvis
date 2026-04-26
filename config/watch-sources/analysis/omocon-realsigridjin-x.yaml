@@ -1,0 +1,24 @@
+source_id: omocon-realsigridjin-x
+display_name: Sigrid Jin / OmOCon Agentic AI on X
+company_tag: omocon-agentic-ai
+source_class: practitioner
+source_role: practitioner-origin
+source_type: x
+ingest_strategy: rss
+base_url: https://x.com/realsigridjin
+feed_url: https://nitter.net/realsigridjin/rss
+html_list_url: null
+poll_minutes: 60
+enabled: true
+validation_status: partial
+validation_notes:
+  - "user-confirmed official seed account: @realsigridjin"
+  - "x.com profile returns public HTML over HTTP 200, but content is JavaScript/auth-gated for reliable extraction"
+  - "nitter endpoint returned HTTP 200 during probe but no stable content sample in current environment"
+  - "treat as high-priority discovery seed; promote to verified when xurl/X API or stable RSS mirror works"
+browser_required: false
+anti_bot_risk: high
+priority_weight: 0.85
+reaction_weight: 0.25
+cooldown_minutes: 60
+topic_tags: [agentic-ai, omocon, harness, local-llm, ai-agents, practitioner-graph]
