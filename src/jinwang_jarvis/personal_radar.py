@@ -5,7 +5,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 import json
+import re
 
+import requests
 import yaml
 
 
@@ -27,6 +29,8 @@ class RadarSource:
     known_limitations: str
     wiki_destination: str
     reachability_probe: str | None = None
+    discovery_urls: tuple[str, ...] = ()
+    priority_queries: tuple[str, ...] = ()
 
     @property
     def composite_score(self) -> float:
@@ -63,6 +67,8 @@ def load_personal_radar_sources(registry_dir: Path) -> list[RadarSource]:
                 known_limitations=str(raw["known_limitations"]),
                 wiki_destination=str(raw["wiki_destination"]),
                 reachability_probe=(str(raw["reachability_probe"]) if raw.get("reachability_probe") else None),
+                discovery_urls=tuple(str(url) for url in raw.get("discovery_urls", [])),
+                priority_queries=tuple(str(query) for query in raw.get("priority_queries", [])),
             )
         )
     return sorted(sources, key=lambda s: (-s.composite_score, s.source_id))
@@ -107,6 +113,94 @@ def build_personal_radar_source_audit(registry_dir: Path) -> dict[str, Any]:
         "x_seed_count": len(taxonomies["x_graph_seeds"].get("nodes", [])),
         "follow_up_statuses": taxonomies["follow_up_workflow"].get("statuses", []),
     }
+
+
+def _http_probe(url: str, *, timeout: int = 15) -> dict[str, Any]:
+    headers = {"User-Agent": "Mozilla/5.0 (compatible; JinwangJarvis/1.0)", "Accept-Language": "ko-KR,ko;q=0.9"}
+    try:
+        response = requests.get(url, headers=headers, timeout=timeout, allow_redirects=True)
+        return {
+            "url": url,
+            "final_url": response.url,
+            "status_code": response.status_code,
+            "content_type": response.headers.get("content-type", ""),
+            "length": len(response.content),
+            "ok": 200 <= response.status_code < 400,
+        }
+    except Exception as exc:  # pragma: no cover - network dependent
+        return {"url": url, "ok": False, "error": f"{type(exc).__name__}: {exc}"}
+
+
+def _text_probe(url: str, must_include: tuple[str, ...], *, timeout: int = 25) -> dict[str, Any]:
+    probe = _http_probe(url, timeout=timeout)
+    if not probe.get("ok"):
+        return {**probe, "matched_terms": [], "missing_terms": list(must_include)}
+    headers = {"User-Agent": "Mozilla/5.0 (compatible; JinwangJarvis/1.0)", "Accept-Language": "ko-KR,ko;q=0.9"}
+    try:
+        text = requests.get(url, headers=headers, timeout=timeout).text
+    except Exception as exc:  # pragma: no cover - network dependent
+        return {**probe, "ok": False, "error": f"{type(exc).__name__}: {exc}", "matched_terms": [], "missing_terms": list(must_include)}
+    compact = re.sub(r"\\s+", " ", text)
+    matched = [term for term in must_include if term in compact]
+    return {**probe, "matched_terms": matched, "missing_terms": [term for term in must_include if term not in matched], "text_excerpt": compact[:500]}
+
+
+def verify_personal_radar_coverage(registry_dir: Path, *, live: bool = True) -> dict[str, Any]:
+    sources = {source.source_id: source for source in load_personal_radar_sources(registry_dir)}
+    failures: list[str] = []
+    warnings: list[str] = []
+
+    bokjiro = sources.get("bokjiro")
+    if not bokjiro:
+        failures.append("missing source_id=bokjiro")
+    else:
+        bokjiro_urls = "\n".join((bokjiro.url, *bokjiro.discovery_urls))
+        if "/ssis-tbu/index.do" not in bokjiro_urls:
+            failures.append("bokjiro must include the reachable SPA entry /ssis-tbu/index.do")
+        if "selectTwzzIntgSearchServiceSearch.do" not in bokjiro_urls:
+            failures.append("bokjiro must include the 복지서비스 search endpoint discovered from Main.clx.js")
+        if bokjiro.access_method == "browser-or-manual":
+            failures.append("bokjiro access_method must not stop at browser-or-manual; record endpoint/API fallback")
+
+    iris = sources.get("iris")
+    if not iris:
+        failures.append("missing source_id=iris")
+    else:
+        iris_queries = "\n".join(iris.priority_queries)
+        for term in ["AI 기반 대학 과학기술 혁신사업", "중앙거점", "AI4S&T"]:
+            if term not in iris_queries:
+                failures.append(f"iris priority_queries missing {term!r}")
+
+    live_probes: list[dict[str, Any]] = []
+    if live:
+        if bokjiro:
+            for url in (bokjiro.url, *bokjiro.discovery_urls[:2]):
+                live_probes.append(_http_probe(url))
+        for url, terms in [
+            ("https://www.iris.go.kr/contents/retrieveBsnsAncmView.do?ancmId=020525&bsnsYyDetail=2026&sorgnBsnsCd=S051500&bsnsAncmSn=1&chngRcveDeFro=2026/04/28&chngRcveDeTo=2026/05/12", ("AI 기반 대학 과학기술 혁신사업", "중앙거점")),
+            ("https://www.iris.go.kr/contents/retrieveBsnsAncmView.do?ancmId=020526&bsnsYyDetail=2026&sorgnBsnsCd=S051517&bsnsAncmSn=1&chngRcveDeFro=2026/05/07&chngRcveDeTo=2026/05/22", ("AI 기반 대학 과학기술 혁신사업", "AI4S&T")),
+        ]:
+            probe = _text_probe(url, terms)
+            live_probes.append(probe)
+            if probe.get("missing_terms"):
+                warnings.append(f"IRIS live probe missing terms for {url}: {probe.get('missing_terms')}")
+
+    return {
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "ok": not failures,
+        "failures": failures,
+        "warnings": warnings,
+        "live_probes": live_probes,
+    }
+
+
+def generate_personal_radar_coverage_verification(registry_dir: Path, output_dir: Path, *, live: bool = True) -> dict[str, Any]:
+    result = verify_personal_radar_coverage(registry_dir, live=live)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    json_path = output_dir / f"personal-radar-coverage-verification-{stamp}.json"
+    json_path.write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    return {**result, "json_path": json_path}
 
 
 def render_personal_radar_source_report(audit: dict[str, Any]) -> str:

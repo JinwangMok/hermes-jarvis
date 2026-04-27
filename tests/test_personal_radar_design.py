@@ -98,3 +98,35 @@ def test_personal_radar_source_audit_builds_generated_artifact(tmp_path):
     text = result["artifact_path"].read_text(encoding="utf-8")
     assert "generated: true" in text
     assert "Personal Radar Source Audit" in text
+
+
+def test_bokjiro_registry_has_non_manual_fallback_path():
+    registry = load_yaml("source-registry.yaml")
+    bokjiro = next(source for source in registry["sources"] if source["source_id"] == "bokjiro")
+    urls = "\n".join([bokjiro["url"], *bokjiro.get("discovery_urls", [])])
+    assert "/ssis-tbu/index.do" in urls
+    assert "Main.clx.js" in urls
+    assert "selectTwzzIntgSearchServiceSearch.do" in urls
+    assert bokjiro["access_method"] != "browser-or-manual"
+    assert "never overclaim eligibility" in bokjiro["known_limitations"]
+
+
+def test_iris_registry_has_ai_university_priority_fixtures():
+    registry = load_yaml("source-registry.yaml")
+    iris = next(source for source in registry["sources"] if source["source_id"] == "iris")
+    queries = "\n".join(iris.get("priority_queries", []))
+    urls = "\n".join(iris.get("discovery_urls", []))
+    assert "AI 기반 대학 과학기술 혁신사업" in queries
+    assert "중앙거점" in queries
+    assert "AI4S&T" in queries
+    assert "020525" in urls
+    assert "020526" in urls
+
+
+def test_personal_radar_coverage_verification_catches_critical_gates(tmp_path):
+    from jinwang_jarvis.personal_radar import generate_personal_radar_coverage_verification
+
+    result = generate_personal_radar_coverage_verification(CFG, tmp_path, live=False)
+    assert result["ok"] is True
+    assert result["failures"] == []
+    assert result["json_path"].exists()

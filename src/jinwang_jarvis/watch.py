@@ -568,7 +568,7 @@ def _heuristic_judgment(config: PipelineConfig, *, title: str, primary_company_t
         "engine": "heuristic-fallback",
         "configured_model": config.watch.adjudicator_model,
         "fallback_model": config.watch.fallback_model,
-        "is_true_hot_issue": importance >= 0.65,
+        "is_true_hot_issue": importance >= config.watch.digest_threshold,
         "importance_score_adjusted": round(importance, 3),
         "momentum_score_adjusted": round(momentum, 3),
         "heat_level": heat,
@@ -985,6 +985,82 @@ def _should_use_codex_for_issue(row: sqlite3.Row, heuristic: dict, *, rank: int)
     return bool(heuristic.get("is_true_hot_issue"))
 
 
+def _editorial_interest_floor(title: str, company_tag: str | None, official_count: int, content_context: str | None = None) -> float | None:
+    """Return a Jinwang-specific interest floor without creating report categories.
+
+    The watch lane should remain one unified hot-issues stream, but some
+    single-source official or research-relevant items are under-scored by the
+    generic multi-source/reaction heuristic.  This floor only changes internal
+    scoring/alertability; rendering and delivery channels stay unchanged.
+    """
+    haystack = f"{title}\n{content_context or ''}".lower()
+    title_lower = title.lower()
+    research_terms = (
+        "swe-bench",
+        "benchmark",
+        "evaluation",
+        "coding capability",
+        "frontier coding",
+        "coding agent",
+        "autonomous software engineering",
+        "long-term memory",
+        "context management",
+        "harness",
+        "local llm",
+        "frontier model",
+        "agent-on-agent commerce",
+        "ai agent deleted",
+    )
+    infra_terms = (
+        "hbm",
+        "gpu",
+        "ai computing",
+        "inference",
+        "fine-tune",
+        "multi-gpu",
+        "multi-node",
+        "kubernetes",
+        "cloud",
+    )
+    major_change_terms = (
+        " ceo",
+        "chief ",
+        "executive chairman",
+        "appointed",
+        "named",
+        "acquisition",
+        "merger",
+        "layoff",
+        "cut ",
+    )
+    official = official_count > 0 or bool(company_tag)
+    if any(term in haystack for term in research_terms):
+        return 0.36
+    if official and any(term in title_lower for term in major_change_terms):
+        return 0.37
+    if official and any(term in haystack for term in infra_terms):
+        return 0.34
+    return None
+
+
+def _apply_editorial_interest_floor(judgment: dict, *, title: str, company_tag: str | None, official_count: int, content_context: str | None = None) -> dict:
+    floor = _editorial_interest_floor(title, company_tag, official_count, content_context)
+    if floor is None:
+        return judgment
+    updated = dict(judgment)
+    current_importance = _normalize_score(updated.get("importance_score_adjusted", 0.0))
+    if current_importance < floor:
+        updated["importance_score_adjusted"] = round(floor, 3)
+        updated["heat_level"] = "medium" if floor >= 0.65 else str(updated.get("heat_level") or "low")
+        updated["is_true_hot_issue"] = True
+        note = f"editorial interest floor {floor:.2f}: research/AI-infra/official-major-change relevance"
+        reason = str(updated.get("judgment_reason") or "").strip()
+        updated["judgment_reason"] = f"{reason}; {note}" if reason else note
+        if not str(updated.get("why_it_matters") or "").strip():
+            updated["why_it_matters"] = "진왕님 관심축인 벤치마크/에이전트/AI 인프라/공식 주요 변화와 연결되어 자동 반응 수치보다 높게 추적할 가치가 있습니다."
+    return updated
+
+
 def _judgment_is_alertable(config: PipelineConfig, judgment: dict, *, importance: float, momentum: float) -> bool:
     """Return whether a judged issue should enter the delivered hot-issue report.
 
@@ -1127,7 +1203,19 @@ def judge_watch_issues(config: PipelineConfig) -> dict:
                 momentum=float(heuristic["momentum_score_adjusted"]),
             )
             content_context = _hydrate_issue_content_if_missing(conn, row)
-            judgment = heuristic
+            judgment = _apply_editorial_interest_floor(
+                heuristic,
+                title=row["canonical_title"],
+                company_tag=row["primary_company_tag"],
+                official_count=int(current_snapshot["official_signal_count"] or 0),
+                content_context=content_context,
+            )
+            judgment["should_alert_now"] = _judgment_is_alertable(
+                config,
+                judgment,
+                importance=float(judgment.get("importance_score_adjusted", heuristic["importance_score_adjusted"])),
+                momentum=float(judgment.get("momentum_score_adjusted", heuristic["momentum_score_adjusted"])),
+            )
             if _should_use_codex_for_issue(row, heuristic, rank=rank):
                 judgment = _codex_judgment(
                     config,
@@ -1138,7 +1226,14 @@ def judge_watch_issues(config: PipelineConfig) -> dict:
                     engagement_score=float(current_snapshot["engagement_score"] or 0.0),
                     reaction_score=float(current_snapshot["reaction_score"] or 0.0),
                     content_context=content_context,
-                ) or heuristic
+                ) or judgment
+                judgment = _apply_editorial_interest_floor(
+                    judgment,
+                    title=row["canonical_title"],
+                    company_tag=row["primary_company_tag"],
+                    official_count=int(current_snapshot["official_signal_count"] or 0),
+                    content_context=content_context,
+                )
                 judgment["momentum_score_adjusted"] = round(
                     max(
                         float(judgment.get("momentum_score_adjusted", 0.0)),

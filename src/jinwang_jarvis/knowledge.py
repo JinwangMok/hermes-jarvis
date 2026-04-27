@@ -86,6 +86,8 @@ def _should_watch(entry: dict) -> bool:
     signal_confidence = float(scores.get("signal_confidence", 0.0))
     date_confidence = float(scores.get("date_confidence", 0.0))
     action = float(scores.get("action", 0.0))
+    if suppression_kind in {"feedback-dedup-key", "feedback-summary-match", "policy-past-event"}:
+        return False
     if suppression_kind == "policy-promotional-subject" and signal_confidence < 0.9 and "advisor-fyi" not in labels:
         return False
     return (

@@ -7,6 +7,7 @@ from jinwang_jarvis.bootstrap import bootstrap_workspace
 from jinwang_jarvis.config import load_pipeline_config
 from jinwang_jarvis.watch import (
     WatchSource,
+    _apply_editorial_interest_floor,
     build_watch_stories,
     collect_watch_signals,
     extract_x_status_id,
@@ -646,6 +647,50 @@ def test_generate_watch_report_suppresses_low_importance_momentum_only_false_pos
 
     assert report_result["message_text"] == "[SILENT]"
     assert report_result["issue_count"] == 0
+
+
+def test_editorial_interest_floor_boosts_single_source_official_major_change():
+    judgment = {
+        "is_true_hot_issue": False,
+        "importance_score_adjusted": 0.260,
+        "momentum_score_adjusted": 0.0,
+        "heat_level": "low",
+        "judgment_reason": "heuristic fallback",
+    }
+
+    boosted = _apply_editorial_interest_floor(
+        judgment,
+        title="Tim Cook to become Apple Executive Chairman John Ternus to become Apple CEO",
+        company_tag="apple",
+        official_count=1,
+        content_context="Apple announced a CEO transition approved by the board.",
+    )
+
+    assert boosted["is_true_hot_issue"] is True
+    assert boosted["importance_score_adjusted"] == 0.37
+    assert "editorial interest floor" in boosted["judgment_reason"]
+    assert "진왕님 관심축" in boosted["why_it_matters"]
+
+
+def test_editorial_interest_floor_boosts_research_evaluation_items():
+    judgment = {
+        "is_true_hot_issue": False,
+        "importance_score_adjusted": 0.260,
+        "momentum_score_adjusted": 0.0,
+        "heat_level": "low",
+        "judgment_reason": "heuristic fallback",
+    }
+
+    boosted = _apply_editorial_interest_floor(
+        judgment,
+        title="Why SWE-bench Verified no longer measures frontier coding capabilities",
+        company_tag=None,
+        official_count=0,
+        content_context="SWE-bench Verified is contaminated and OpenAI recommends SWE-bench Pro for evaluation.",
+    )
+
+    assert boosted["is_true_hot_issue"] is True
+    assert boosted["importance_score_adjusted"] == 0.36
 
 
 def test_generate_watch_report_uses_news_center_when_hot_issue_threshold_is_quiet(tmp_path: Path, monkeypatch):

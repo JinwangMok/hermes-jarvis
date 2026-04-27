@@ -76,14 +76,23 @@ sources:
     source_role: rnd-application-origin
     domain: research-grants
     authority_level: canonical
-    access_method: html
+    access_method: html-with-priority-query-fixtures
     poll_minutes: 720
     reliability_score: 0.98
-    coverage_score: 0.95
-    freshness_score: 0.90
+    coverage_score: 0.98
+    freshness_score: 0.92
     reachability_probe: http_200
-    reason_for_inclusion: canonical R&D announcements/application system
-    known_limitations: dynamic pages and attachments may require custom parser
+    discovery_urls:
+      - https://www.iris.go.kr/contents/retrieveBsnsAncmView.do?ancmId=020525&bsnsYyDetail=2026&sorgnBsnsCd=S051500&bsnsAncmSn=1&chngRcveDeFro=2026/04/28&chngRcveDeTo=2026/05/12
+      - https://www.iris.go.kr/contents/retrieveBsnsAncmView.do?ancmId=020526&bsnsYyDetail=2026&sorgnBsnsCd=S051517&bsnsAncmSn=1&chngRcveDeFro=2026/05/07&chngRcveDeTo=2026/05/22
+    priority_queries:
+      - AI 기반 대학 과학기술 혁신사업
+      - AI 기반 대학 과학기술 혁신사업 중앙거점
+      - AI 기반 대학 과학기술 혁신사업 AI4S&T
+      - AI + S&T 혁신 기술 개발
+      - 인공지능중심대학 AI 중심대학
+    reason_for_inclusion: canonical R&D announcements/application system; must catch MSIT/NRF/IITP AI-university and AI+science R&D calls before university mirrors do
+    known_limitations: dynamic pages and attachments may require custom parser; broad generic crawling can miss keyword-specific IRIS 공고, so priority query fixtures are mandatory
     wiki_destination: reports/opportunity-radar/categories/research-grants.md
   - source_id: ntis
     display_name: NTIS 국가과학기술지식정보서비스
@@ -199,19 +208,30 @@ sources:
     wiki_destination: reports/opportunity-radar/categories/youth-welfare.md
   - source_id: bokjiro
     display_name: 복지로
-    url: https://www.bokjiro.go.kr/
+    url: https://www.bokjiro.go.kr/ssis-tbu/index.do
     owner: MOHW
     source_role: welfare-origin
     domain: welfare-benefits
     authority_level: canonical
-    access_method: browser-or-manual
+    access_method: html-spa-js-endpoint-plus-api-discovery
     poll_minutes: 1440
     reliability_score: 0.95
-    coverage_score: 0.80
-    freshness_score: 0.75
-    reachability_probe: connection_reset_simple_http
-    reason_for_inclusion: canonical welfare benefit discovery and applications
-    known_limitations: login/personal data/manual verification often required; do not overclaim eligibility
+    coverage_score: 0.88
+    freshness_score: 0.80
+    reachability_probe: ssis_tbu_index_http_200_root_connection_reset
+    discovery_urls:
+      - https://www.bokjiro.go.kr/ssis-tbu/ui/tbu/app/main/Main.clx.js
+      - https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52005M.do
+      - https://www.bokjiro.go.kr/ssis-tbu/twatzzza/intgSearch/selectTwzzIntgSearchServiceSearch.do
+      - https://www.bokjiro.go.kr/ssis-tbu/twatzzza/intgSearch/moveTWZZ01000M.do
+    priority_queries:
+      - 청년
+      - 자산형성
+      - 주거
+      - 교육비
+      - 취업
+    reason_for_inclusion: canonical welfare benefit discovery and applications; root URL may reset but /ssis-tbu/index.do and SPA metadata expose service-search routes
+    known_limitations: login/personal data/manual verification often required; service search uses Cleopatra SPA JSON conventions and may need browser/session emulation; never overclaim eligibility
     wiki_destination: reports/opportunity-radar/categories/youth-welfare.md
   - source_id: myhome
     display_name: 마이홈포털

@@ -188,6 +188,62 @@ def test_synthesize_knowledge_creates_watchlist_artifact_and_wiki_summary(tmp_pa
     assert "jinwang-jarvis-importance-shift-watchlist" in index_text
 
 
+def test_synthesize_knowledge_skips_feedback_and_past_event_suppressed_items(tmp_path: Path):
+    config = _load_config(tmp_path)
+    bootstrap_workspace(config)
+
+    proposal_dir = config.workspace_root / "data" / "proposals"
+    proposal_dir.mkdir(parents=True, exist_ok=True)
+    proposal_artifact = proposal_dir / "proposal-run-20260426T120000Z.json"
+    suppressed_items = []
+    for idx, suppression_kind in enumerate(["feedback-dedup-key", "feedback-summary-match", "policy-past-event"], start=1):
+        suppressed_items.append(
+            {
+                "source_message_id": f"m-skip-{idx}",
+                "title": "Already resolved event",
+                "reason": {"kind": "low-confidence"},
+                "details": {
+                    "scores": {
+                        "priority": 0.99,
+                        "action": 0.42,
+                        "calendar": 0.26,
+                        "noise": 0.02,
+                        "date_confidence": 0.62,
+                        "signal_confidence": 0.0,
+                    },
+                    "message": {"account": "smartx", "folder_kind": "inbox", "role": "self", "from_addr": "jinwangmok@gm.gist.ac.kr"},
+                    "labels": ["work-account"],
+                    "subject_hints": ["work-account", "explicit-date-or-time"],
+                    "parse": {"matched_date": "2026-04-25", "matched_time": None},
+                    "suppression": {"kind": suppression_kind},
+                },
+            }
+        )
+    proposal_artifact.write_text(
+        json.dumps(
+            {"generated_at": "2026-04-26T12:00:00Z", "proposal_count": 0, "proposals": [], "suppressed": suppressed_items},
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    config.checkpoints_path.write_text(
+        json.dumps({"proposals": {"latest": {"artifact_file": proposal_artifact.name, "generated_at": "2026-04-26T12:00:00Z"}}}, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+
+    result = synthesize_knowledge(config, write_wiki=True)
+
+    assert result["watchlist_count"] == 0
+    payload = json.loads(result["artifact_path"].read_text(encoding="utf-8"))
+    assert payload["watchlist"] == []
+    wiki_text = result["wiki_page_path"].read_text(encoding="utf-8")
+    assert "No current promotion candidates" in wiki_text
+    with sqlite3.connect(config.database_path) as conn:
+        count = conn.execute("SELECT COUNT(*) FROM message_watchlist WHERE source_message_id LIKE 'm-skip-%'").fetchone()[0]
+    assert count == 0
+
+
 def test_synthesize_knowledge_updates_seen_count_for_existing_watch_item(tmp_path: Path):
     config = _load_config(tmp_path)
     bootstrap_workspace(config)

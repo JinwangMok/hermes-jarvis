@@ -18,7 +18,7 @@ from .intelligence import collect_knowledge_mail, generate_daily_intelligence_re
 from .knowledge import synthesize_knowledge
 from .mail import build_fake_mail_runner, collect_mail_snapshots
 from .news_center import append_news_center_to_daily_report, collect_news_center, generate_podcast_script
-from .personal_radar import generate_personal_radar_source_audit
+from .personal_radar import generate_personal_radar_coverage_verification, generate_personal_radar_source_audit
 from .proposals import generate_proposals
 from .review import generate_weekly_review
 from .runtime import check_hermes_jarvis_health, install_hermes_standby_units, install_systemd_user_units, run_pipeline_cycle
@@ -111,6 +111,11 @@ def build_parser() -> argparse.ArgumentParser:
     radar_audit_parser = subparsers.add_parser("generate-personal-radar-source-audit", help="Generate a Personal Intelligence Radar source registry audit artifact")
     radar_audit_parser.add_argument("--registry-dir", default="config/personal-radar", help="Directory containing personal radar YAML registry files")
     radar_audit_parser.add_argument("--output-dir", default="data/personal-radar", help="Directory for generated audit artifacts")
+
+    radar_verify_parser = subparsers.add_parser("verify-personal-radar-coverage", help="Verify Personal Opportunity Radar coverage gates for critical sources/items")
+    radar_verify_parser.add_argument("--registry-dir", default="config/personal-radar", help="Directory containing personal radar YAML registry files")
+    radar_verify_parser.add_argument("--output-dir", default="data/personal-radar", help="Directory for generated verification artifacts")
+    radar_verify_parser.add_argument("--no-live", action="store_true", help="Skip live HTTP probes and only validate registry coverage")
 
     news_center_parser = subparsers.add_parser("generate-news-center", help="Collect Naver/Google News category briefs and write wiki shards")
     news_center_parser.add_argument("--taxonomy", default="config/personal-radar/naver-news-taxonomy.yaml", help="News taxonomy YAML")
@@ -381,6 +386,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.command == "generate-personal-radar-source-audit":
         result = generate_personal_radar_source_audit(registry_dir=Path(args.registry_dir), output_dir=Path(args.output_dir))
         print(json.dumps({**result, "artifact_path": str(result["artifact_path"]), "json_path": str(result["json_path"])}, ensure_ascii=False))
+        return 0
+
+    if args.command == "verify-personal-radar-coverage":
+        result = generate_personal_radar_coverage_verification(registry_dir=Path(args.registry_dir), output_dir=Path(args.output_dir), live=not args.no_live)
+        print(json.dumps({**result, "json_path": str(result["json_path"])}, ensure_ascii=False))
         return 0
 
     if args.command == "generate-news-center":
