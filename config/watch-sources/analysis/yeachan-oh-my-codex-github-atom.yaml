@@ -1,0 +1,23 @@
+source_id: yeachan-oh-my-codex-github-atom
+display_name: Yeachan Heo oh-my-codex GitHub commits
+company_tag: yeachan-heo
+source_class: code
+source_role: developer-repo
+source_type: atom
+ingest_strategy: atom
+base_url: https://github.com/Yeachan-Heo/oh-my-codex
+feed_url: https://github.com/Yeachan-Heo/oh-my-codex/commits/main.atom
+html_list_url: null
+poll_minutes: 60
+enabled: true
+validation_status: verified
+validation_notes:
+  - Primary project activity lane for 허예찬/Yeachan-Heo when X handle is unavailable
+  - GitHub Atom feed returned HTTP 200 with recent commit entries during verification
+  - This is the durable tracking lane for important people whose X handle is missing, deleted, private, or not RSS-readable
+browser_required: false
+anti_bot_risk: low
+priority_weight: 0.68
+reaction_weight: 0.0
+cooldown_minutes: 60
+topic_tags: [oh-my-codex, omx, coding-agents, github, harness]

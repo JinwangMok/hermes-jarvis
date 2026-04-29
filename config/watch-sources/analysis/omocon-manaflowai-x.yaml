@@ -1,0 +1,24 @@
+source_id: omocon-manaflowai-x
+display_name: Manaflow on X
+company_tag: manaflow
+source_class: startup
+source_role: omocon-speaker-community-signal
+source_type: x
+ingest_strategy: rss
+base_url: https://x.com/manaflowai
+feed_url: https://nitter.net/manaflowai/rss
+html_list_url: null
+poll_minutes: 60
+enabled: true
+validation_status: verified
+validation_notes:
+  - Sigrid Jin's Seoul OmOCon event tweet listed @manaflowai among speakers/builders
+  - '@justsisyphus amplified Sigrid''s earlier Seoul OmOCon announcement mentioning @manaflowai'
+  - Nitter RSS title resolves to Manaflow / @manaflowai and returns recent feed items
+  - x.com profile content/metrics remain JavaScript/auth-gated; use RSS as supporting timeline signal until official X API is configured
+browser_required: false
+anti_bot_risk: medium
+priority_weight: 0.76
+reaction_weight: 0.45
+cooldown_minutes: 60
+topic_tags: [agentic-ai, omocon, manaflow, harness, ai-native-dev]

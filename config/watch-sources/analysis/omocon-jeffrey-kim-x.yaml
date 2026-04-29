@@ -1,0 +1,24 @@
+source_id: omocon-jeffrey-kim-x
+display_name: Jeffrey Dongkyu Kim on X
+company_tag: slides-grab-k-skill
+source_class: developer
+source_role: practitioner-origin
+source_type: x
+ingest_strategy: rss
+base_url: https://x.com/jeffreykim0711
+feed_url: https://nitter.net/jeffreykim0711/rss
+html_list_url: null
+poll_minutes: 60
+enabled: true
+validation_status: verified
+validation_notes:
+  - GitHub API for vkehfdl1 reports name Jeffrey (Dongkyu) Kim and twitter_username jeffreykim0711
+  - vkehfdl1 owns github.com/vkehfdl1/slides-grab
+  - recent RSS contains slides-grab posts directly relevant to OmOCon writeup
+  - x.com profile content/metrics remain JavaScript/auth-gated; use RSS as supporting timeline signal until official X API is configured
+browser_required: false
+anti_bot_risk: medium
+priority_weight: 0.78
+reaction_weight: 0.45
+cooldown_minutes: 60
+topic_tags: [agentic-ai, omocon, slides-grab, k-skill, local-llm, presentations]

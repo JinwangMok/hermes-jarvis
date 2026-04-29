@@ -1,0 +1,24 @@
+source_id: omocon-bloatedaislop-x
+display_name: Bloated AI Slop Labs on X
+company_tag: omocon-agentic-ai
+source_class: practitioner
+source_role: practitioner-reaction
+source_type: x
+ingest_strategy: rss
+base_url: https://x.com/bloatedaislop
+feed_url: https://nitter.net/bloatedaislop/rss
+html_list_url: null
+poll_minutes: 60
+enabled: true
+validation_status: verified
+validation_notes:
+  - nitter RSS title resolves to Bloated AI Slop Labs / @bloatedaislop
+  - Sigrid OmOCon event tweet mentioned @bloatedaislop among Seoul harness meetup speakers/builders
+  - recent RSS posts mention OmX, OmC, OmO and Sigrid/Yeongyu graph
+  - x.com profile content/metrics remain JavaScript/auth-gated; use RSS as supporting timeline signal until official X API is configured
+browser_required: false
+anti_bot_risk: medium
+priority_weight: 0.72
+reaction_weight: 0.45
+cooldown_minutes: 60
+topic_tags: [agentic-ai, omocon, omc, omx, omo, codex, harness]

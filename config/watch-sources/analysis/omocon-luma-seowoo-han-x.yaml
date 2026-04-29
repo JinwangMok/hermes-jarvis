@@ -1,0 +1,23 @@
+source_id: omocon-luma-seowoo-han-x
+display_name: Seowoo Han on X
+company_tag: seowoo-han
+source_class: practitioner
+source_role: codex-community-organizer
+source_type: x
+ingest_strategy: rss
+base_url: https://x.com/swhan0329
+feed_url: https://nitter.net/swhan0329/rss
+html_list_url: null
+poll_minutes: 90
+enabled: true
+validation_status: verified
+validation_notes:
+  - Luma OpenAI Codex Community Meetup Seoul organizer/host profile links @swhan0329
+  - Nitter RSS for @swhan0329 returned HTTP 200 and recent feed items during 2026-04-27 verification
+  - Treat as community/person graph signal; X is supporting evidence until official API/provenance is configured
+browser_required: false
+anti_bot_risk: medium
+priority_weight: 0.42
+reaction_weight: 0.25
+cooldown_minutes: 90
+topic_tags: [openai-codex, korean-ai-community, event-organizer, agentic-ai]

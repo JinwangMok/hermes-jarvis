@@ -1,0 +1,23 @@
+source_id: jung-gubong-goobongjeong-x
+display_name: Goobong Jeong / 정구봉 candidate on X
+company_tag: jung-gubong
+source_class: practitioner
+source_role: practitioner-candidate
+source_type: x
+ingest_strategy: rss
+base_url: https://x.com/GoobongJeong
+feed_url: https://nitter.net/GoobongJeong/rss
+html_list_url: null
+poll_minutes: 180
+enabled: true
+validation_status: strong_candidate_stale
+validation_notes:
+  - Nitter RSS resolves as "Goobong Jeong / @GoobongJeong" and returned HTTP 200 with 2 historical items during verification
+  - GitHub Koomook profile name is "Dave Goobong Jeong" and company is @team-attention; this is an unusual exact-name match but not yet self-linked from TeamAttention
+  - RSS content is old/stale, so use as identity/discovery support, not a high-heat signal by itself
+browser_required: false
+anti_bot_risk: medium
+priority_weight: 0.58
+reaction_weight: 0.0
+cooldown_minutes: 180
+topic_tags: [team-attention, ralphton, omocon, coding-agents, practitioner-graph]

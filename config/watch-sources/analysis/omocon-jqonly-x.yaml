@@ -1,0 +1,24 @@
+source_id: omocon-jqonly-x
+display_name: JQ Lee / Q00 Ouroboros on X
+company_tag: omocon-agentic-ai
+source_class: practitioner
+source_role: practitioner-origin
+source_type: x
+ingest_strategy: rss
+base_url: https://x.com/JqOnly
+feed_url: https://nitter.net/JqOnly/rss
+html_list_url: null
+poll_minutes: 45
+enabled: true
+validation_status: verified
+validation_notes:
+  - nitter RSS title resolves to JQ Lee / @JqOnly
+  - GitHub API for Q00 reports twitter_username JqOnly; Q00 owns github.com/Q00/ouroboros
+  - Sigrid Jin announced a live Ouroboros demo with @jqonly and @junghwanna8355
+  - x.com profile content/metrics remain JavaScript/auth-gated; use RSS as supporting timeline signal until official X API is configured
+browser_required: false
+anti_bot_risk: medium
+priority_weight: 0.82
+reaction_weight: 0.5
+cooldown_minutes: 45
+topic_tags: [agentic-ai, omocon, ouroboros, harness, live-demo]

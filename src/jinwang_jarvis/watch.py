@@ -42,6 +42,7 @@ HTML_BLOCKLIST_RE = re.compile(r"/(tag|category|author|page|privacy|terms|login|
 X_STATUS_ID_RE = re.compile(r"(?:^|/)status(?:es)?/(\d+)(?:$|[/?#])", re.I)
 NITTER_STATUS_URL_RE = re.compile(r"https?://(?:www\.)?nitter\.net/([^/?#]+)/status/(\d+)", re.I)
 X_STATUS_URL_RE = re.compile(r"https?://(?:www\.)?(?:x|twitter)\.com/([^/?#]+)/status/(\d+)", re.I)
+X_RETWEET_TITLE_RE = re.compile(r"^RT\s+by\s+@(?P<actor>[A-Za-z0-9_]{1,15})\s*:\s*(?P<title>.+)$", re.I | re.S)
 X_METRIC_PATTERNS = {
     "reply_count": re.compile(r'"reply_count"\s*:\s*"?([0-9][0-9,]*(?:\.[0-9]+)?[KMB]?)"?', re.I),
     "retweet_count": re.compile(r'"retweet_count"\s*:\s*"?([0-9][0-9,]*(?:\.[0-9]+)?[KMB]?)"?', re.I),
@@ -299,6 +300,79 @@ def _normalize_title(title: str | None) -> str:
 def _story_key(title: str | None, company_tag: str | None) -> str:
     base = _normalize_title(title)
     return f"{company_tag or 'global'}::{base}"
+
+
+def _load_json_object(value: object) -> dict:
+    if isinstance(value, dict):
+        return value
+    if not value:
+        return {}
+    try:
+        parsed = json.loads(str(value))
+    except (TypeError, json.JSONDecodeError):
+        return {}
+    return parsed if isinstance(parsed, dict) else {}
+
+
+def _social_reaction_target(payload: dict) -> dict | None:
+    for key in ("reaction_target", "shared_post", "reshared_post", "quoted_post", "quoted_status", "external_post"):
+        target = payload.get(key)
+        if isinstance(target, dict) and (target.get("title") or target.get("url") or target.get("summary_text")):
+            return target
+    return None
+
+
+def _x_retweet_focus(row: sqlite3.Row | dict, getter) -> dict | None:
+    source_type = str(getter("source_type") or "").lower()
+    if source_type not in {"x", "twitter"}:
+        return None
+    title = str(getter("title") or "").strip()
+    match = X_RETWEET_TITLE_RE.match(title)
+    if not match:
+        return None
+    focused_title = re.sub(r"\s+", " ", match.group("title")).strip()
+    url = _canonicalize_url(str(getter("url") or ""))
+    return {
+        "title": focused_title,
+        "url": url,
+        "summary": getter("summary_text"),
+        "story_key": f"x:{_canonical_issue_key(url, focused_title)}",
+        "is_practitioner_reaction": True,
+        "reaction_actor": f"@{match.group('actor')}",
+    }
+
+
+def _focus_from_signal_payload(row: sqlite3.Row | dict) -> dict:
+    getter = row.get if isinstance(row, dict) else row.__getitem__
+    payload = _load_json_object(getter("raw_payload_json"))
+    target = _social_reaction_target(payload)
+    source_type = str(getter("source_type") or "").lower()
+    retweet_focus = _x_retweet_focus(row, getter)
+    if retweet_focus:
+        return retweet_focus
+    if target:
+        title = str(target.get("title") or getter("title") or "").strip()
+        url = _canonicalize_url(str(target.get("url") or getter("url") or ""))
+        summary = target.get("summary_text") or target.get("content_excerpt") or getter("summary_text")
+        focus_source = str(target.get("source") or source_type or "social").lower()
+        return {
+            "title": title,
+            "url": url,
+            "summary": summary,
+            "story_key": f"{focus_source}:{_canonical_issue_key(url, title)}",
+            "is_practitioner_reaction": True,
+            "reaction_actor": payload.get("reaction_actor") or getter("author"),
+        }
+    title = str(getter("title") or "").strip()
+    url = _canonicalize_url(str(getter("url") or ""))
+    return {
+        "title": title,
+        "url": url,
+        "summary": getter("summary_text"),
+        "story_key": _story_key(title, getter("company_tag")),
+        "is_practitioner_reaction": False,
+        "reaction_actor": None,
+    }
 
 
 def _parse_json_feed(text: str, source: WatchSource) -> list[dict]:
@@ -810,8 +884,8 @@ def collect_watch_signals(config: PipelineConfig, fetcher=None) -> dict:
     return {"signal_count": len(collected), "source_count": len(enabled_sources), "signal_ids": collected}
 
 
-def _find_matching_issue(seen: dict[str, tuple[str, str | None]], title: str, company_tag: str | None, similarity_threshold: float) -> str | None:
-    key = _story_key(title, company_tag)
+def _find_matching_issue(seen: dict[str, tuple[str, str | None]], title: str, company_tag: str | None, similarity_threshold: float, *, story_key: str | None = None) -> str | None:
+    key = story_key or _story_key(title, company_tag)
     if key in seen:
         return seen[key][0]
     normalized = _normalize_title(title)
@@ -819,7 +893,7 @@ def _find_matching_issue(seen: dict[str, tuple[str, str | None]], title: str, co
         same_company = seen_company == company_tag or seen_company is None or company_tag is None
         if not same_company:
             continue
-        seen_title = seen_key.split("::", 1)[1]
+        seen_title = seen_key.split("::", 1)[1] if "::" in seen_key else _normalize_title(seen_key.rsplit(":", 1)[-1])
         if SequenceMatcher(None, normalized, seen_title).ratio() >= similarity_threshold:
             return issue_id
     return None
@@ -842,8 +916,18 @@ def build_watch_stories(config: PipelineConfig) -> dict:
         ).fetchall()
         seen: dict[str, tuple[str, str | None]] = {}
         for row in signals:
-            issue_id = _find_matching_issue(seen, row["title"], row["company_tag"], config.watch.story_similarity)
-            story_key = _story_key(row["title"], row["company_tag"])
+            focus = _focus_from_signal_payload(row)
+            story_title = str(focus.get("title") or row["title"] or "")
+            story_summary = focus.get("summary") or row["summary_text"]
+            story_key = str(focus.get("story_key") or _story_key(story_title, row["company_tag"]))
+            is_practitioner_reaction = bool(focus.get("is_practitioner_reaction"))
+            issue_id = _find_matching_issue(
+                seen,
+                story_title,
+                row["company_tag"],
+                config.watch.story_similarity,
+                story_key=story_key,
+            )
             if issue_id is None:
                 issue_id = f"issue:{hashlib.sha256(story_key.encode()).hexdigest()[:16]}"
                 seen[story_key] = (issue_id, row["company_tag"])
@@ -858,19 +942,31 @@ def build_watch_stories(config: PipelineConfig) -> dict:
                     (
                         issue_id,
                         story_key,
-                        row["title"],
-                        row["summary_text"],
+                        story_title,
+                        story_summary,
                         row["company_tag"],
                         row["topic_tags_json"],
                         row["entity_tags_json"],
                         row["signal_id"],
-                        "official-origin" if row["signal_kind"] == "official-post" else "mixed-origin",
+                        "practitioner-reaction" if is_practitioner_reaction else ("official-origin" if row["signal_kind"] == "official-post" else "mixed-origin"),
                         row["collected_at"],
                         row["collected_at"],
                     ),
                 )
                 created += 1
-            role = "origin" if row["signal_kind"] == "official-post" else "reaction"
+            role = "practitioner-reaction" if is_practitioner_reaction else ("origin" if row["signal_kind"] == "official-post" else "reaction")
+            if is_practitioner_reaction:
+                stale_issue_rows = conn.execute(
+                    "SELECT issue_id FROM watch_issue_signals WHERE signal_id = ? AND issue_id != ?",
+                    (row["signal_id"], issue_id),
+                ).fetchall()
+                stale_issue_ids = [stale_row["issue_id"] for stale_row in stale_issue_rows]
+                conn.execute("DELETE FROM watch_issue_signals WHERE signal_id = ? AND issue_id != ?", (row["signal_id"], issue_id))
+                for stale_issue_id in stale_issue_ids:
+                    remaining = conn.execute("SELECT COUNT(*) FROM watch_issue_signals WHERE issue_id = ?", (stale_issue_id,)).fetchone()[0]
+                    if not remaining:
+                        conn.execute("DELETE FROM watch_issue_snapshots WHERE issue_id = ?", (stale_issue_id,))
+                        conn.execute("DELETE FROM watch_issue_stories WHERE issue_id = ?", (stale_issue_id,))
             conn.execute("INSERT OR IGNORE INTO watch_issue_signals (issue_id, signal_id, role) VALUES (?, ?, ?)", (issue_id, row["signal_id"], role))
             agg = conn.execute(
                 """
@@ -907,7 +1003,7 @@ def build_watch_stories(config: PipelineConfig) -> dict:
             reaction_score = float(agg["comments_sum"] or 0.0)
             conn.execute(
                 "UPDATE watch_issue_stories SET last_seen_at = ?, canonical_title = COALESCE(canonical_title, ?) WHERE issue_id = ?",
-                (row["collected_at"], row["title"], issue_id),
+                (row["collected_at"], story_title, issue_id),
             )
             snapshot_hour = row["collected_at"][:13] + ":00:00+00:00" if "+00:00" in row["collected_at"] else row["collected_at"][:13]
             conn.execute(
@@ -1003,6 +1099,8 @@ def _editorial_interest_floor(title: str, company_tag: str | None, official_coun
         "frontier coding",
         "coding agent",
         "autonomous software engineering",
+        "autonomous pr",
+        "pull request",
         "long-term memory",
         "context management",
         "harness",
@@ -1010,6 +1108,13 @@ def _editorial_interest_floor(title: str, company_tag: str | None, official_coun
         "frontier model",
         "agent-on-agent commerce",
         "ai agent deleted",
+        "omocon",
+        "ralphton",
+        "omc",
+        "omx",
+        "ouroboros",
+        "teamattention",
+        "agentic ai",
     )
     infra_terms = (
         "hbm",
@@ -1035,6 +1140,8 @@ def _editorial_interest_floor(title: str, company_tag: str | None, official_coun
     )
     official = official_count > 0 or bool(company_tag)
     if any(term in haystack for term in research_terms):
+        if any(term in haystack for term in ("omocon", "ralphton", "omc", "omx", "ouroboros", "teamattention", "agentic ai", "autonomous pr")):
+            return 0.62
         return 0.36
     if official and any(term in title_lower for term in major_change_terms):
         return 0.37
@@ -1053,6 +1160,9 @@ def _apply_editorial_interest_floor(judgment: dict, *, title: str, company_tag: 
         updated["importance_score_adjusted"] = round(floor, 3)
         updated["heat_level"] = "medium" if floor >= 0.65 else str(updated.get("heat_level") or "low")
         updated["is_true_hot_issue"] = True
+        if floor >= 0.60:
+            updated["single_practitioner_hot_issue"] = True
+            updated["should_alert_now"] = True
         note = f"editorial interest floor {floor:.2f}: research/AI-infra/official-major-change relevance"
         reason = str(updated.get("judgment_reason") or "").strip()
         updated["judgment_reason"] = f"{reason}; {note}" if reason else note
@@ -1071,6 +1181,8 @@ def _judgment_is_alertable(config: PipelineConfig, judgment: dict, *, importance
     """
     if not bool(judgment.get("is_true_hot_issue")):
         return False
+    if bool(judgment.get("single_practitioner_hot_issue")):
+        return importance >= config.watch.digest_threshold
     if importance >= config.watch.importance_alert_threshold:
         return True
     return importance >= config.watch.digest_threshold and momentum >= config.watch.momentum_alert_threshold
@@ -1088,7 +1200,11 @@ def _content_context_from_row(row: sqlite3.Row | dict) -> str | None:
     if raw_payload:
         try:
             payload = json.loads(raw_payload) if isinstance(raw_payload, str) else raw_payload
-            content_excerpt = payload.get("content_excerpt") if isinstance(payload, dict) else None
+            if isinstance(payload, dict):
+                content_excerpt = payload.get("content_excerpt")
+                target = _social_reaction_target(payload)
+                if target and not content_excerpt:
+                    content_excerpt = target.get("content_excerpt") or target.get("summary_text") or target.get("title")
         except (TypeError, json.JSONDecodeError):
             content_excerpt = None
     return _compact_excerpt("\n".join(part for part in [str(summary or ""), str(content_excerpt or "")] if part.strip()), limit=1400)

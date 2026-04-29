@@ -1,0 +1,23 @@
+source_id: omocon-luma-lucy-park-x
+display_name: Lucy Park on X
+company_tag: lucy-park
+source_class: practitioner
+source_role: omocon-sf-attendee
+source_type: x
+ingest_strategy: rss
+base_url: https://x.com/echojuliett
+feed_url: https://nitter.net/echojuliett/rss
+html_list_url: null
+poll_minutes: 90
+enabled: true
+validation_status: verified
+validation_notes:
+  - Luma The 1st OmOCon SF attendee profile links @echojuliett
+  - Nitter RSS for @echojuliett returned HTTP 200 and recent feed items during 2026-04-27 verification
+  - Treat as community/person graph signal; X is supporting evidence until official API/provenance is configured
+browser_required: false
+anti_bot_risk: medium
+priority_weight: 0.42
+reaction_weight: 0.25
+cooldown_minutes: 90
+topic_tags: [omocon-sf, korean-ai-community, luma-attendee]

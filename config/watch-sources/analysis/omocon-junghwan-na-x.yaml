@@ -1,0 +1,24 @@
+source_id: omocon-junghwan-na-x
+display_name: Junghwan Na on X
+company_tag: omocon-agentic-ai
+source_class: practitioner
+source_role: practitioner-origin
+source_type: x
+ingest_strategy: rss
+base_url: https://x.com/JunghwanNa8355
+feed_url: https://nitter.net/JunghwanNa8355/rss
+html_list_url: null
+poll_minutes: 45
+enabled: true
+validation_status: verified
+validation_notes:
+  - nitter RSS title resolves to Junghwan NA / @JunghwanNa8355
+  - Sigrid Jin announced a live Ouroboros demo with @jqonly and @junghwanna8355
+  - retweeted Sigrid OmOCon Seoul/Hashed announcement and agent-speed GitHub incident context
+  - x.com profile content/metrics remain JavaScript/auth-gated; use RSS as supporting timeline signal until official X API is configured
+browser_required: false
+anti_bot_risk: medium
+priority_weight: 0.85
+reaction_weight: 0.5
+cooldown_minutes: 45
+topic_tags: [agentic-ai, omocon, ouroboros, harness, coding-agents]

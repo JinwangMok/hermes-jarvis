@@ -73,49 +73,268 @@ nodes:
     type: practitioner-organizer
     display_name: 정구봉
     organization: TeamAttention
+    github_id: Koomook
+    x_handle_candidate: GoobongJeong
     domains: [ralphton, agentic-ai-community, events]
     why_track: OmOCon note says TeamAttention organizer and first Ralphton host
-    validation_status: handle_unresolved_search_via_realsigridjin
+    validation_status: strong_x_candidate_plus_team_activity_tracked
+    validation_notes:
+      - GitHub Koomook profile name is Dave Goobong Jeong and company is @team-attention
+      - Nitter RSS for @GoobongJeong resolves as "Goobong Jeong / @GoobongJeong" with 2 historical items; exact-name match is strong but account is stale and not self-linked from TeamAttention
+      - TeamAttention org activity is now tracked directly via GitHub Atom feeds for hoyeon, agent-council, and oh-my-ralph
   - id: heo-yechan
     type: developer
     display_name: 허예찬
+    github_id: Yeachan-Heo
+    x_handle_candidate: bellman_ych
     domains: [oh-my-claudecode, oh-my-codex, coding-agents]
-    why_track: OmOCon note says OMC and OMX developer
-    validation_status: handle_unresolved_search_via_realsigridjin
+    why_track: OmOCon note says OMC and OMX developer; GitHub Yeachan-Heo owns oh-my-codex/oh-my-claudecode/clawhip/claw-code repos
+    validation_status: x_handle_strong_candidate_rss_unavailable_project_activity_tracked_via_github_atom
+    validation_notes:
+      - GitHub profile name is Bellman, but twitter_username is empty
+      - Koomook/claw-code README explicitly describes oh-my-codex as built by @bellman_ych and calls @bellman_ych the creator of OmX; this is strong cross-repo identity evidence for Yeachan Heo
+      - x.com/bellman_ych currently returns API code 50 and Nitter RSS returns 404, so it is not safe as an RSS watch source
+      - '@bloatedaislop strongly amplifies Yeachan-Heo/OmX/OmC repos, but identity equivalence is not proven'
+      - Project activity is now tracked directly via GitHub Atom feeds for oh-my-codex, oh-my-claudecode, and clawhip
   - id: na-jeonghwan
     type: developer
     display_name: 나정환
+    x_handle: JunghwanNa8355
     domains: [ouroboros, autonomous-prs, coding-agents]
     why_track: OmOCon note says Ouroboros developer and 72-hour 500+ PR incident actor
-    validation_status: handle_unresolved_search_via_realsigridjin
+    validation_status: verified_via_sigrid_activity_and_nitter_rss
   - id: kim-donggyu
     type: developer
     display_name: 김동규
+    x_handle: jeffreykim0711
     domains: [slides-grab, k-skill, local-llm, agent-tools]
     why_track: OmOCon note says Slides-grab and K-Skill developer; local-model harness gap comments are research-relevant
-    validation_status: handle_unresolved_search_via_realsigridjin
+    validation_status: verified_via_github_profile_and_nitter_rss
   - id: kim-yeongyu
     type: developer
     display_name: 김연규
+    x_handle: q_yeon_gyu_kim
     domains: [oh-my-opencode, coding-agents]
     why_track: OmOCon note says Oh-My-Opencode developer and inspiration source for OMC
-    validation_status: handle_unresolved_search_via_realsigridjin
+    validation_status: verified_via_github_profile_and_sigrid_activity
+  - id: jq-lee
+    type: developer
+    display_name: JQ Lee
+    x_handle: JqOnly
+    domains: [ouroboros, coding-agents, harness]
+    why_track: Q00/ouroboros GitHub profile links to @JqOnly; Sigrid scheduled an Ouroboros live demo with @jqonly and @junghwanna8355
+    validation_status: verified_via_github_profile_and_sigrid_activity
+  - id: sisyphus-labs
+    type: practitioner-organizer
+    display_name: Sisyphus Labs
+    x_handle: justsisyphus
+    domains: [omocon, oh-my-opencode, agentic-ai-community]
+    why_track: Sigrid credited @justsisyphus for bringing the second OmOCon to Seoul; account is active in OMO/opencode graph
+    validation_status: verified_via_sigrid_activity_and_nitter_rss
+  - id: bloated-ai-slop-labs
+    type: practitioner
+    display_name: Bloated AI Slop Labs
+    x_handle: bloatedaislop
+    domains: [omocon, oh-my-codex, oh-my-claudecode, harness]
+    why_track: Sigrid OmOCon event activity mentions @bloatedaislop among Seoul harness meetup builders; account posts OmX/OmC/OmO material
+    validation_status: verified_via_sigrid_activity_and_nitter_rss
+  - id: manaflow
+    type: startup
+    display_name: Manaflow
+    x_handle: manaflowai
+    domains: [omocon, agentic-ai, ai-native-dev, harness]
+    why_track: Sigrid's Seoul OmOCon event tweet listed @manaflowai among speakers/builders; account is active in AI-native dev/harness graph
+    validation_status: verified_via_sigrid_activity_and_nitter_rss
+  - id: austin-wang
+    type: practitioner
+    display_name: Austin Wang
+    x_handle: austinywang
+    domains: [omocon, cmux, agentic-ai, coding-agents]
+    why_track: Sigrid's Seoul OmOCon event tweet listed @austinywang among speakers/builders; q_yeon_gyu_kim/bloatedaislop activity ties the account to cmux/OMO/OMX graph
+    validation_status: verified_via_sigrid_activity_and_nitter_rss
+  - id: ashley-ha
+    type: practitioner
+    display_name: Ashley Ha
+    x_handle: ashleybchae
+    domains: [omocon, korean-ai-community, event-signal]
+    why_track: Sigrid/justsisyphus OmOCon activity includes @ashleybchae as Seoul event amplifier and community signal
+    validation_status: verified_via_sigrid_activity_and_nitter_rss
+  - id: ivan-leo
+    type: practitioner
+    display_name: Ivan Leo
+    x_handle: ivanleomk
+    organization: google-deepmind
+    domains: [omocon, google-deepmind, korea-ai, harness]
+    why_track: justsisyphus amplified Ivan's OmOCon note around @q_yeon_gyu_kim/@realsigridjin agents/harnesses; current account posts Korea AI/DeepMind signals
+    validation_status: verified_via_omocon_activity_and_nitter_rss
   - id: jung-seungheon
     type: developer
     display_name: 정승헌
+    github_id: tmdgusya
+    x_handle_candidate: roach_pi
     domains: [roach-pi, agent-tools]
-    why_track: OmOCon note says Roach-Pi developer
-    validation_status: handle_unresolved_search_via_realsigridjin
+    why_track: OmOCon note says Roach-Pi developer; GitHub tmdgusya profile/blog match roach identity and repos include roach-pi context
+    validation_status: x_handle_unresolved_project_activity_tracked_via_github_atom
+    validation_notes:
+      - GitHub profile has no twitter_username
+      - '@roach_pi resolves on Nitter but has 0 RSS items and weak identity evidence, so do not add as watch source yet'
+      - Project activity is now tracked directly via GitHub Atom feed for tmdgusya/roach-pi
   - id: han-yuha
     type: industry-account-director
     display_name: 한유하
     organization: openai
     domains: [openai, korean-ai-community, enterprise-ai]
     why_track: OmOCon note says OpenAI account director attended; useful for Korea OpenAI/community signals
-    validation_status: handle_unresolved_search_via_realsigridjin
+    validation_status: handle_unresolved_discovery_lanes_active
+    validation_notes:
+      - '@Hanyuha resolves to an unrelated Japanese-language account and is treated as a false positive'
+      - Luma OpenAI Codex Seoul/OmOCon pages exposed OpenAI/community handles but no Yuha/한유하 match in page JSON during this probe
+      - Added exact Korean and romanized Bing RSS discovery lanes; these are for future evidence capture only and must not be treated as identity confirmation
+  - id: seowoo-han
+    type: practitioner
+    display_name: Seowoo Han
+    x_handle: swhan0329
+    domains: [openai-codex, korean-ai-community, event-organizer, agentic-ai]
+    why_track: Luma OpenAI Codex Community Meetup Seoul organizer/host profile links @swhan0329; added from second-level Luma/OmOCon action graph crawl
+    validation_status: verified_via_luma_profile_and_nitter_rss
+  - id: vaibhav-srivastav
+    type: practitioner
+    display_name: Vaibhav Srivastav
+    x_handle: reach_vb
+    domains: [openai-codex, openai, event-organizer, agentic-ai]
+    why_track: Luma OpenAI Codex Community Meetup Seoul organizer profile links @reach_vb; added from second-level Luma/OmOCon action graph crawl
+    validation_status: verified_via_luma_profile_and_nitter_rss
+  - id: won-park
+    type: practitioner
+    display_name: Won Park
+    x_handle: wonforall
+    domains: [openai-codex, openai, omocon-sf, agentic-ai]
+    why_track: Luma The 1st OmOCon SF profile says codex @ openai and links @wonforall; added from second-level Luma/OmOCon action graph crawl
+    validation_status: verified_via_luma_profile_and_nitter_rss
+  - id: doyun-ha
+    type: practitioner
+    display_name: 하도윤
+    x_handle: Yun_HDY
+    domains: [omocon-seoul, korean-ai-community, agentic-ai, luma-attendee]
+    why_track: Luma OmOCon Seoul with Hashed attendee profile links @Yun_HDY; added from second-level Luma/OmOCon action graph crawl
+    validation_status: verified_via_luma_profile_and_nitter_rss
+  - id: woonggi-min
+    type: practitioner
+    display_name: Woonggi Min
+    x_handle: minpeterx
+    domains: [omocon-sf, ai-community, luma-profile, agentic-ai]
+    why_track: Luma profile minpeter links @minpeterx and appears in OmOCon SF page text; added from second-level Luma/OmOCon action graph crawl
+    validation_status: verified_via_luma_profile_and_nitter_rss
+  - id: hyunjae-chung
+    type: practitioner
+    display_name: Hyunjae Chung
+    x_handle: 0xlidar
+    domains: [omocon-seoul, pdao, web3-ai, luma-attendee]
+    why_track: Luma OmOCon Seoul with Hashed attendee profile links @0xlidar; added from second-level Luma/OmOCon action graph crawl
+    validation_status: verified_via_luma_profile_and_nitter_rss
+  - id: pia-park
+    type: practitioner
+    display_name: Pia Park
+    x_handle: 0xpiapark
+    domains: [omocon-seoul, korean-ai-community, luma-attendee]
+    why_track: Luma OmOCon Seoul with Hashed attendee profile links @0xpiapark; added from second-level Luma/OmOCon action graph crawl
+    validation_status: verified_via_luma_profile_and_nitter_rss
+  - id: howard-jiacheng-li
+    type: practitioner
+    display_name: Howard Jiacheng Li
+    x_handle: Oysterecosystem
+    domains: [omocon-sf, ai-hardware, startup, luma-attendee]
+    why_track: Luma The 1st OmOCon SF attendee profile links @Oysterecosystem; added from second-level Luma/OmOCon action graph crawl
+    validation_status: verified_via_luma_profile_and_nitter_rss
+  - id: tony0x
+    type: practitioner
+    display_name: Tony0x.eth
+    x_handle: Tony_Stef_
+    domains: [omocon-sf, web3-ai, luma-attendee]
+    why_track: Luma The 1st OmOCon SF attendee profile links @Tony_Stef_; added from second-level Luma/OmOCon action graph crawl
+    validation_status: verified_via_luma_profile_and_nitter_rss
+  - id: benedetto
+    type: practitioner
+    display_name: Benedetto
+    x_handle: benedettobio
+    domains: [omocon-seoul, startup, luma-attendee]
+    why_track: Luma OmOCon Seoul with Hashed attendee profile links @benedettobio; added from second-level Luma/OmOCon action graph crawl
+    validation_status: verified_via_luma_profile_and_nitter_rss
+  - id: lena-kang
+    type: practitioner
+    display_name: Lena Kang
+    x_handle: dolylupec
+    domains: [omocon-sf, korean-ai-community, luma-attendee]
+    why_track: Luma The 1st OmOCon SF attendee profile links @dolylupec; added from second-level Luma/OmOCon action graph crawl
+    validation_status: verified_via_luma_profile_and_nitter_rss
+  - id: lucy-park
+    type: practitioner
+    display_name: Lucy Park
+    x_handle: echojuliett
+    domains: [omocon-sf, korean-ai-community, luma-attendee]
+    why_track: Luma The 1st OmOCon SF attendee profile links @echojuliett; added from second-level Luma/OmOCon action graph crawl
+    validation_status: verified_via_luma_profile_and_nitter_rss
+  - id: florian-ludot
+    type: practitioner
+    display_name: Florian Ludot
+    x_handle: florianldt
+    domains: [omocon-seoul, dev-korea, luma-attendee]
+    why_track: Luma OmOCon Seoul with Hashed attendee profile links @florianldt; added from second-level Luma/OmOCon action graph crawl
+    validation_status: verified_via_luma_profile_and_nitter_rss
+  - id: gabe-kaufman
+    type: practitioner
+    display_name: Gabe Kaufman
+    x_handle: gkauf_gm
+    domains: [omocon-sf, ai-community, luma-attendee]
+    why_track: Luma The 1st OmOCon SF attendee profile links @gkauf_gm; added from second-level Luma/OmOCon action graph crawl
+    validation_status: verified_via_luma_profile_and_nitter_rss
+  - id: jun-kim
+    type: practitioner
+    display_name: Jun Kim
+    x_handle: hyojun_at
+    domains: [omocon-sf, korean-ai-community, luma-attendee]
+    why_track: Luma The 1st OmOCon SF attendee profile links @hyojun_at; added from second-level Luma/OmOCon action graph crawl
+    validation_status: verified_via_luma_profile_and_nitter_rss
+  - id: jae-ahn
+    type: practitioner
+    display_name: Jae Ahn
+    x_handle: jegusjaeahn
+    domains: [omocon-seoul, korean-ai-community, luma-attendee]
+    why_track: Luma OmOCon Seoul with Hashed attendee profile links @jegusjaeahn; added from second-level Luma/OmOCon action graph crawl
+    validation_status: verified_via_luma_profile_and_nitter_rss
+  - id: taemin-yoo
+    type: practitioner
+    display_name: 성연 / Taemin Yoo
+    x_handle: mingmingbbs
+    domains: [omocon-seoul, tuna-gg, startup, luma-attendee]
+    why_track: Luma OmOCon Seoul with Hashed attendee profile links @mingmingbbs; added from second-level Luma/OmOCon action graph crawl
+    validation_status: verified_via_luma_profile_and_nitter_rss
+  - id: sarah-hatcher
+    type: practitioner
+    display_name: Sarah Hatcher
+    x_handle: sarah_ai__
+    domains: [omocon-sf, ai-startup, kripkeai, luma-attendee]
+    why_track: Luma The 1st OmOCon SF attendee profile links @sarah_ai__; added from second-level Luma/OmOCon action graph crawl
+    validation_status: verified_via_luma_profile_and_nitter_rss
+  - id: sungjoo-ha
+    type: practitioner
+    display_name: Sungjoo Ha
+    x_handle: shurain
+    domains: [omocon-sf, korean-ai-community, luma-attendee]
+    why_track: Luma The 1st OmOCon SF attendee profile links @shurain; added from second-level Luma/OmOCon action graph crawl
+    validation_status: verified_via_luma_profile_and_nitter_rss
+  - id: twinfin
+    type: practitioner
+    display_name: twinFin
+    x_handle: twinFin22
+    domains: [omocon-seoul, korean-ai-community, luma-attendee]
+    why_track: Luma OmOCon Seoul with Hashed attendee profile links @twinFin22; added from second-level Luma/OmOCon action graph crawl
+    validation_status: verified_via_luma_profile_and_nitter_rss
 edge_types: [mentions, replies_to, quotes, works_at, leads, releases, discusses, disagrees_with, amplifies, competes_with]
 phase0_acceptance:
   - seed nodes exist with roles and why_track
   - automated scraping is not required until API/auth is stable
   - X is supporting evidence only until provenance is reliable
   - graph context can be manually updated from URLs/IDs
+
+

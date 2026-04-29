@@ -1,0 +1,23 @@
+source_id: jung-gubong-claw-code-github-atom
+display_name: 정구봉/Koomook claw-code GitHub commits
+company_tag: jung-gubong
+source_class: code
+source_role: developer-repo
+source_type: atom
+ingest_strategy: atom
+base_url: https://github.com/Koomook/claw-code
+feed_url: https://github.com/Koomook/claw-code/commits/main.atom
+html_list_url: null
+poll_minutes: 60
+enabled: true
+validation_status: verified
+validation_notes:
+  - Project activity lane for 정구봉/Koomook-linked claw-code; complements LinkedIn/Team Attention event evidence
+  - GitHub Atom feed returned HTTP 200 with recent commit entries during verification
+  - This is the durable tracking lane for important people whose X handle is missing, deleted, private, or not RSS-readable
+browser_required: false
+anti_bot_risk: low
+priority_weight: 0.68
+reaction_weight: 0.0
+cooldown_minutes: 60
+topic_tags: [claw-code, codex, coding-agents, github, harness]

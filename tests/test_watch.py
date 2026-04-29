@@ -565,6 +565,128 @@ def test_watch_pipeline_loads_sources_dedups_reactions_and_generates_report(tmp_
     assert report_result["issue_count"] >= 1
 
 
+def test_practitioner_reaction_focuses_external_post_as_issue(tmp_path: Path):
+    config = load_pipeline_config(_write_config(tmp_path))
+    _write_sources(tmp_path)
+    bootstrap_workspace(config)
+
+    def fake_fetcher(source):
+        if source.source_id != "openai-x":
+            return []
+        return [{
+            "title": "Sigrid Jin reposted: OMC turns Claude Code workflows into team playbooks",
+            "url": "https://www.linkedin.com/feed/update/urn:li:activity:123",
+            "external_id": "urn:li:activity:123",
+            "author": "Sigrid Jin",
+            "summary_text": "Sigrid reacted to an external post about OMC and Ralphton-style agent workflows.",
+            "published_at": _recent_iso(minutes_ago=10),
+            "reaction_kind": "repost",
+            "reaction_actor": "Sigrid Jin",
+            "reaction_target": {
+                "title": "OMC turns Claude Code workflows into team playbooks",
+                "url": "https://www.linkedin.com/feed/update/urn:li:activity:target-omc",
+                "author": "TeamAttention",
+                "summary_text": "TeamAttention explains how OMC converts Claude Code workflows into reusable team playbooks for agentic AI practitioners.",
+                "source": "linkedin",
+            },
+            "engagement": {"score": 12, "comments": 3},
+        }]
+
+    collect_watch_signals(config, fetcher=fake_fetcher)
+    build_watch_stories(config)
+
+    with sqlite3.connect(config.database_path) as conn:
+        conn.row_factory = sqlite3.Row
+        story = conn.execute("SELECT * FROM watch_issue_stories").fetchone()
+        signal = conn.execute("SELECT wis.role, ws.title, ws.raw_payload_json FROM watch_issue_signals wis JOIN watch_signals ws ON ws.signal_id = wis.signal_id").fetchone()
+
+    assert story["canonical_title"] == "OMC turns Claude Code workflows into team playbooks"
+    assert story["story_key"].startswith("linkedin:")
+    assert story["origin_kind"] == "practitioner-reaction"
+    assert signal["role"] == "practitioner-reaction"
+    payload = json.loads(signal["raw_payload_json"])
+    assert payload["reaction_actor"] == "Sigrid Jin"
+    assert payload["reaction_target"]["author"] == "TeamAttention"
+
+
+
+def test_x_retweet_title_focuses_retweeted_post_and_actor(tmp_path: Path):
+    config = load_pipeline_config(_write_config(tmp_path))
+    _write_sources(tmp_path)
+    bootstrap_workspace(config)
+
+    def fake_fetcher(source):
+        if source.source_id != "openai-x":
+            return []
+        return [{
+            "title": "RT by @ashleybchae: hermes spawns omx sessions to code",
+            "url": "https://x.com/jaeyun_ha/status/2048766440065642926",
+            "external_id": "2048766440065642926",
+            "author": "jaeyun_ha",
+            "summary_text": "<p>hermes spawns omx sessions to code</p>",
+            "published_at": _recent_iso(minutes_ago=10),
+            "engagement": {"score": 2, "comments": 0},
+        }, {
+            "title": "A separate OmOCon agent harness note",
+            "url": "https://x.com/example/status/2048766440065642999",
+            "external_id": "2048766440065642999",
+            "author": "example",
+            "summary_text": "Separate item verifies mixed story-key matching does not crash.",
+            "published_at": _recent_iso(minutes_ago=9),
+            "engagement": {"score": 1, "comments": 0},
+        }]
+
+    collect_watch_signals(config, fetcher=fake_fetcher)
+    build_watch_stories(config)
+
+    with sqlite3.connect(config.database_path) as conn:
+        conn.row_factory = sqlite3.Row
+        story = conn.execute("SELECT * FROM watch_issue_stories").fetchone()
+        signal = conn.execute("SELECT wis.role FROM watch_issue_signals wis").fetchone()
+
+    assert story["canonical_title"] == "hermes spawns omx sessions to code"
+    assert story["story_key"].startswith("x:")
+    assert story["origin_kind"] == "practitioner-reaction"
+    assert signal["role"] == "practitioner-reaction"
+
+
+
+def test_practitioner_social_single_source_can_be_hot_issue(tmp_path: Path):
+    config = load_pipeline_config(_write_config(tmp_path))
+    _write_sources(tmp_path)
+    bootstrap_workspace(config)
+
+    def fake_fetcher(source):
+        if source.source_id != "openai-x":
+            return []
+        return [{
+            "title": "Ouroboros posted a 72-hour autonomous PR run postmortem",
+            "url": "https://x.com/JunghwanNa8355/status/1912345678901234000",
+            "external_id": "1912345678901234000",
+            "author": "Junghwan Na",
+            "summary_text": "An OmOCon practitioner describes a 72-hour autonomous PR run, failures, and harness lessons.",
+            "published_at": _recent_iso(minutes_ago=10),
+            "content_excerpt": "The postmortem explains autonomous software engineering failures, coding-agent harness gaps, local LLM vs frontier model behavior, and how the agent created hundreds of pull requests.",
+            "engagement": {"score": 4, "comments": 1},
+        }]
+
+    collect_watch_signals(config, fetcher=fake_fetcher)
+    build_watch_stories(config)
+    judge_watch_issues(config)
+
+    with sqlite3.connect(config.database_path) as conn:
+        conn.row_factory = sqlite3.Row
+        story = conn.execute("SELECT current_importance_score, report_status FROM watch_issue_stories").fetchone()
+        judgment_json = conn.execute("SELECT llm_judgment_json FROM watch_issue_snapshots").fetchone()[0]
+
+    judgment = json.loads(judgment_json)
+    assert story["current_importance_score"] >= 0.36
+    assert story["report_status"] == "watching"
+    assert judgment["is_true_hot_issue"] is True
+    assert "practitioner" in judgment["judgment_reason"] or "editorial interest floor" in judgment["judgment_reason"]
+
+
+
 def test_generate_watch_report_suppresses_low_importance_momentum_only_false_positive(tmp_path: Path):
     config = load_pipeline_config(_write_config(tmp_path))
     bootstrap_workspace(config)

@@ -1,0 +1,22 @@
+source_id: jung-gubong-team-attention-oh-my-ralph-github-atom
+display_name: Team Attention oh-my-ralph GitHub commits
+company_tag: team-attention
+source_class: code
+source_role: org-repo
+ingest_strategy: atom
+source_type: atom
+base_url: https://github.com/team-attention/oh-my-ralph
+feed_url: https://github.com/team-attention/oh-my-ralph/commits/main.atom
+html_list_url: null
+poll_minutes: 60
+enabled: true
+validation_status: verified
+validation_notes:
+  - TeamAttention/Ralphton adjacent activity lane for 정구봉/TeamAttention tracking
+  - GitHub Atom feed returned HTTP 200 with recent commit entries during verification
+browser_required: false
+anti_bot_risk: low
+priority_weight: 0.66
+reaction_weight: 0.0
+cooldown_minutes: 60
+topic_tags: [team-attention, ralphton, oh-my-ralph, coding-agents, github]

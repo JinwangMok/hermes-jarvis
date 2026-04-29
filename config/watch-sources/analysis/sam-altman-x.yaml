@@ -1,0 +1,23 @@
+source_id: sam-altman-x
+display_name: Sam Altman on X
+company_tag: openai
+source_class: executive
+source_role: executive-origin
+source_type: x
+ingest_strategy: rss
+base_url: https://x.com/sama
+feed_url: https://nitter.net/sama/rss
+html_list_url: null
+poll_minutes: 30
+enabled: true
+validation_status: verified
+validation_notes:
+  - nitter RSS reachable over HTTP 200 during 2026-04-27 probe
+  - x.com profile returns public shell HTML but content/metrics remain JavaScript/auth-gated
+  - treat as known-account timeline signal until official X API search/metrics lane is configured
+browser_required: false
+anti_bot_risk: medium
+priority_weight: 0.95
+reaction_weight: 0.35
+cooldown_minutes: 30
+topic_tags: [frontier-ai, openai, company-strategy]

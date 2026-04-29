@@ -1,0 +1,22 @@
+source_id: jung-gubong-team-attention-hoyeon-github-atom
+display_name: Team Attention hoyeon GitHub commits
+company_tag: team-attention
+source_class: code
+source_role: org-repo
+ingest_strategy: atom
+source_type: atom
+base_url: https://github.com/team-attention/hoyeon
+feed_url: https://github.com/team-attention/hoyeon/commits/main.atom
+html_list_url: null
+poll_minutes: 60
+enabled: true
+validation_status: verified
+validation_notes:
+  - TeamAttention org activity lane for 정구봉/TeamAttention tracking when personal X identity is incomplete
+  - GitHub Atom feed returned HTTP 200 with recent commit entries during verification
+browser_required: false
+anti_bot_risk: low
+priority_weight: 0.66
+reaction_weight: 0.0
+cooldown_minutes: 60
+topic_tags: [team-attention, hoyeon, coding-agents, github, harness]

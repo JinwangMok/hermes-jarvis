@@ -2,8 +2,9 @@
 """Render Jinwang Jarvis daily hot-issues markdown into a polished PDF.
 
 The renderer intentionally stays dependency-light: a small Markdown subset is converted
-into HTML and then rendered with WeasyPrint. The visual language is a newspaper-like
-business report: dark masthead, compact readable columns, issue cards, and fixed footer.
+into HTML and then rendered with WeasyPrint. The visual language is a reader-first
+business briefing: dark masthead, compact readable single-column body, issue cards,
+and fixed footer.
 """
 from __future__ import annotations
 
@@ -20,7 +21,7 @@ CSS = """
   size: A4;
   margin: 12mm 11mm 15mm 11mm;
   @bottom-left { content: "Jinwang Jarvis · 오늘의 핫이슈"; font-size: 7.5pt; color: #64748b; }
-  @bottom-center { content: "매일 핵심 이슈 브리핑"; font-size: 7.2pt; color: #94a3b8; }
+  @bottom-center { content: "독자형 출처 라벨 · 사실/해석 분리"; font-size: 7.2pt; color: #94a3b8; }
   @bottom-right { content: "page " counter(page); font-size: 7.5pt; color: #64748b; }
 }
 :root {
@@ -53,11 +54,11 @@ code {
   font-size: 8pt;
 }
 .report-cover {
-  background: linear-gradient(135deg, #0f172a 0%, #111827 62%, #312e81 100%);
+  background: linear-gradient(135deg, #0f172a 0%, #111827 64%, #1e1b4b 100%);
   color: white;
-  min-height: 80mm;
-  padding: 13mm 12mm 10mm;
-  margin: -1mm 0 8mm 0;
+  min-height: 52mm;
+  padding: 9mm 10mm 7mm;
+  margin: -1mm 0 6mm 0;
   position: relative;
   overflow: hidden;
 }
@@ -73,47 +74,48 @@ code {
 }
 .cover-kicker, .cover-title, .cover-meta, .cover-cards { position: relative; z-index: 1; }
 .cover-kicker {
-  font-size: 8pt;
-  letter-spacing: 0.22em;
+  font-size: 7.5pt;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
   color: #cbd5e1;
-  border-bottom: 0.6pt solid rgba(255,255,255,0.42);
-  padding-bottom: 4pt;
-  margin-bottom: 10mm;
+  border-bottom: 0.6pt solid rgba(255,255,255,0.36);
+  padding-bottom: 3pt;
+  margin-bottom: 5mm;
 }
 .cover-title {
   display: inline-block;
-  border: 1.2pt solid rgba(255,255,255,0.82);
-  padding: 7mm 9mm;
+  border: 1pt solid rgba(255,255,255,0.76);
+  padding: 4.5mm 6mm;
   font-weight: 900;
-  font-size: 26pt;
+  font-size: 20pt;
   line-height: 1.08;
   letter-spacing: -0.04em;
-  max-width: 150mm;
+  max-width: 155mm;
 }
 .cover-meta {
-  margin-top: 6mm;
+  margin-top: 3.5mm;
   color: #e5e7eb;
-  font-size: 9pt;
+  font-size: 8.2pt;
 }
 .cover-cards {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 4mm;
-  margin-top: 9mm;
+  margin-top: 4.5mm;
 }
 .cover-card {
-  background: rgba(255,255,255,0.10);
-  border-left: 3pt solid #a78bfa;
-  padding: 4mm;
-  min-height: 22mm;
+  display: inline-block;
+  width: 31.5%;
+  vertical-align: top;
+  background: rgba(255,255,255,0.09);
+  border-left: 2.2pt solid #a78bfa;
+  padding: 2.5mm 3mm;
+  min-height: 14mm;
+  margin-right: 1.6%;
 }
-.cover-card b { display: block; font-size: 8pt; color: #ffffff; margin-bottom: 2pt; }
-.cover-card span { color: #d1d5db; font-size: 7.6pt; }
+.cover-card b { display: block; font-size: 7.7pt; color: #ffffff; margin-bottom: 1pt; }
+.cover-card span { color: #d1d5db; font-size: 7pt; }
 .body-grid {
-  column-count: 2;
-  column-gap: 9mm;
-  column-rule: 0.4pt solid #e2e8f0;
+  column-count: 1;
+  max-width: 178mm;
+  margin: 0 auto;
 }
 .reader-note, .action-checklist {
   column-span: all;
@@ -232,6 +234,25 @@ def extract_title(md: str) -> str:
     return "오늘의 핫이슈"
 
 
+def extract_report_time(md: str, fallback: str) -> str:
+    for line in prepare_markdown(md).splitlines()[:20]:
+        match = re.search(r"(?:보고 기준 시각|생성 시각|기준 시각)\s*:\s*(.+)$", line)
+        if match:
+            return match.group(1).strip()
+    return fallback
+
+
+def strip_issue_heading_number(text: str) -> str:
+    """Avoid duplicated numbering when markdown headings are already numbered.
+
+    The PDF renderer adds the visual issue number with ``data-no``. If the source
+    markdown says ``### 1. Title`` or ``### 01) Title``, keeping that prefix makes
+    the rendered card read like ``01 1. Title``. Strip only simple leading issue
+    ordinals from issue-card headings; leave all other title text untouched.
+    """
+    return re.sub(r"^\s*\d{1,2}\s*[.)]\s+", "", text).strip()
+
+
 def _flush_list(out: list[str], in_ul: bool) -> bool:
     if in_ul:
         out.append("</ul>")
@@ -268,12 +289,16 @@ def markdown_to_html(md: str) -> str:
         elif line.startswith("## "):
             close_issue_card()
             in_lead = False
-            out.append(f"<h2>{md_inline(line[3:])}</h2>")
+            heading = line[3:].strip()
+            if heading == "주요 이슈":
+                continue
+            out.append(f"<h2>{md_inline(heading)}</h2>")
         elif line.startswith("### "):
             close_issue_card()
             in_lead = False
             issue_no += 1
-            out.append(f'<section class="issue-card"><h3 class="issue-title" data-no="{issue_no:02d}">{md_inline(line[4:])}</h3>')
+            heading = strip_issue_heading_number(line[4:])
+            out.append(f'<section class="issue-card"><h3 class="issue-title" data-no="{issue_no:02d}">{md_inline(heading)}</h3>')
             in_issue_card = True
         elif line.startswith("- "):
             if in_lead:
@@ -289,7 +314,8 @@ def markdown_to_html(md: str) -> str:
             in_lead = False
             text = re.sub(r"^\d+\.\s+", "", line)
             issue_no += 1
-            out.append(f'<section class="issue-card"><h3 class="issue-title" data-no="{issue_no:02d}">{md_inline(text)}</h3>')
+            heading = strip_issue_heading_number(text)
+            out.append(f'<section class="issue-card"><h3 class="issue-title" data-no="{issue_no:02d}">{md_inline(heading)}</h3>')
             in_issue_card = True
         else:
             in_ul = _flush_list(out, in_ul)
@@ -310,17 +336,18 @@ def markdown_to_html(md: str) -> str:
 
 def render_document(md: str, now: str) -> str:
     title = extract_title(md)
+    report_time = extract_report_time(md, now)
     body = markdown_to_html(md)
     return f"""<!doctype html>
 <html lang="ko"><head><meta charset="utf-8"><style>{CSS}</style></head><body>
-<section class="report-cover">
-  <div class="cover-kicker">TODAY'S HOT ISSUES · BUSINESS INTELLIGENCE REPORT</div>
+<section class="report-cover reader-first-cover">
+  <div class="cover-kicker">TODAY'S HOT ISSUES · READER-FIRST BRIEFING</div>
   <div class="cover-title">{md_inline(title)}</div>
-  <div class="cover-meta">Generated by Jinwang Jarvis · {html.escape(now)}</div>
+  <div class="cover-meta">보고 기준 · {html.escape(report_time)}</div>
   <div class="cover-cards">
-    <div class="cover-card"><b>원문·공식 발표 우선</b><span>제목/반응보다 출처가 실제로 말한 내용 중심</span></div>
-    <div class="cover-card"><b>연결 맥락</b><span>기업·정책·시장·기회 소스를 독자 언어로 설명</span></div>
-    <div class="cover-card"><b>오늘의 체크리스트</b><span>지금 할 일/이번 주 확인/보류 항목 분리</span></div>
+    <div class="cover-card"><b>독자형 출처 라벨</b><span>공식·보도·주장 구분</span></div>
+    <div class="cover-card"><b>사실/해석 분리</b><span>원문과 해석 구분</span></div>
+    <div class="cover-card"><b>행동 가능성 검증</b><span>URL·마감·자격 확인</span></div>
   </div>
 </section>
 <main class="body-grid">

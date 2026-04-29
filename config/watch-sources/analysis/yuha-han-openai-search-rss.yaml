@@ -1,0 +1,23 @@
+source_id: yuha-han-openai-search-rss
+display_name: Yuha/Youha/Yooha Han OpenAI discovery search RSS
+company_tag: han-yuha
+source_class: discovery
+source_role: identity-discovery
+source_type: rss
+ingest_strategy: rss
+base_url: https://www.bing.com/search?q=(%22Yuha%20Han%22%20OR%20%22Youha%20Han%22%20OR%20%22Yooha%20Han%22%20OR%20%22Han%20Yuha%22)%20OpenAI%20Korea
+feed_url: https://www.bing.com/search?format=rss&q=(%22Yuha%20Han%22%20OR%20%22Youha%20Han%22%20OR%20%22Yooha%20Han%22%20OR%20%22Han%20Yuha%22)%20OpenAI%20Korea
+html_list_url: null
+poll_minutes: 720
+enabled: false
+validation_status: manual_discovery_query_noisy
+validation_notes:
+  - English/romanization manual discovery lane for 한유하/OpenAI; not a personal identity source by itself
+  - Bing RSS returned HTTP 200 but current items are noisy/irrelevant; keep disabled until a stricter search provider or post-filter exists
+  - Use to catch future public pages, event profiles, or LinkedIn-like snippets that connect the person to OpenAI Korea
+browser_required: false
+anti_bot_risk: medium
+priority_weight: 0.50
+reaction_weight: 0.0
+cooldown_minutes: 720
+topic_tags: [openai, korea, account-director, identity-discovery, practitioner-graph]

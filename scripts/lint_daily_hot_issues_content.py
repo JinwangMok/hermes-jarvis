@@ -18,11 +18,21 @@ BANNED_PATTERNS = [
     (re.compile(r"\b(advisory|canonical|deduped|fetch(?:ed)?|watch lane|action_required|registry|source audit)\b", re.I), "remove internal pipeline jargon from reader-facing PDF"),
     (re.compile(r"신호"), "do not use vague '신호'; say 발표/보도/공고/변화/검증 전 참고"),
     (re.compile(r"약신호|전략 잔존"), "replace analyst shorthand with reader-facing explanation"),
-    (re.compile(r"Jinwang 관점|Hermes/Jarvis류"), "use reader-facing wording, not internal personalization labels"),
+    (re.compile(r"Jinwang 관점|Hermes/Jarvis류|Hermes/Jarvis식"), "use reader-facing wording, not internal personalization labels"),
+    (re.compile(r"낮춘 기준"), "do not say the quality/selection criterion was lowered; say '확장 기준' or explain inclusion scope"),
 ]
 
-REQUIRED_ISSUE_FIELDS = ["확인된 사실", "왜 중요한가", "오늘 할 일", "근거", "불확실성"]
+REQUIRED_ISSUE_FIELDS = ["출처 성격", "확인된 사실", "왜 중요한가", "오늘 할 일", "근거", "불확실성"]
 MIN_SOURCE_URLS = 1
+SOURCE_TYPE_PATTERN = re.compile(r"(?:^|\n)\s*-?\s*출처 성격\s*:\s*(공식 발표|공식 블로그|공식 공고|보도|커뮤니티 소개|개인 게시물 주장|분석/칼럼|GitHub 공개 프로젝트|내부 운영 변경|검증 전 후보)\s*[.。]?\s*(?:\n|$)")
+INTERNAL_OPS_PATTERN = re.compile(r"\b(Jarvis|Hermes)\b|운영 보강|GitHub 변경|커밋|푸시|자동 확인|모니터링 경로|내부 설정")
+OPPORTUNITY_PATTERN = re.compile(r"(공고|지원사업|신청|접수|마감|자격|eligibility|deadline|IRIS|복지로|청년|R&D|정부 ?사업)", re.I)
+OPPORTUNITY_REQUIRED_TERMS = [
+    (re.compile(r"(공식 공고|공고 URL|notice URL|상세 URL|첨부파일|RFP)", re.I), "official notice URL/detail"),
+    (re.compile(r"(마감|접수기간|deadline|window|기간)", re.I), "deadline/window"),
+    (re.compile(r"(자격|eligibility|지원대상|신청대상|기관 조건|개인 조건)", re.I), "eligibility"),
+    (re.compile(r"(지원내용|지원 규모|예산|금액|support contents|사업비)", re.I), "support contents"),
+]
 
 
 def strip_frontmatter(text: str) -> str:
@@ -33,14 +43,21 @@ def strip_frontmatter(text: str) -> str:
     return text
 
 
-def issue_blocks(text: str) -> list[tuple[str, str]]:
+def issue_blocks(text: str) -> list[tuple[str, str, str]]:
     text = strip_frontmatter(text)
     matches = list(re.finditer(r"^###\s+(.+)$", text, flags=re.M))
-    blocks: list[tuple[str, str]] = []
+    section_matches = list(re.finditer(r"^##\s+(.+)$", text, flags=re.M))
+    blocks: list[tuple[str, str, str]] = []
     for i, m in enumerate(matches):
         start = m.end()
         end = matches[i + 1].start() if i + 1 < len(matches) else len(text)
-        blocks.append((m.group(1).strip(), text[start:end].strip()))
+        section = ""
+        for sm in section_matches:
+            if sm.start() < m.start():
+                section = sm.group(1).strip()
+            else:
+                break
+        blocks.append((m.group(1).strip(), text[start:end].strip(), section))
     return blocks
 
 
@@ -58,16 +75,34 @@ def lint_text(text: str) -> list[str]:
         errors.append("no ### issue cards found")
         return errors
 
-    for title, block in blocks:
+    for title, block, section in blocks:
         # Skip appendix-like sections accidentally using ### only if explicitly marked.
         if title.lower().startswith(("appendix", "source")):
             continue
         missing = [field for field in REQUIRED_ISSUE_FIELDS if field not in block]
         if missing:
             errors.append(f"issue '{title}' missing fields: {', '.join(missing)}")
+        if "출처 성격" in block and not SOURCE_TYPE_PATTERN.search(block):
+            errors.append(
+                f"issue '{title}' has unclear 출처 성격 — use one of 공식 발표/공식 블로그/공식 공고/보도/커뮤니티 소개/개인 게시물 주장/분석/칼럼/GitHub 공개 프로젝트/검증 전 후보"
+            )
+        if INTERNAL_OPS_PATTERN.search(title) or INTERNAL_OPS_PATTERN.search(block):
+            in_internal_section = section in {"내부 운영", "운영 메모"}
+            explicitly_internal = bool(re.search(r"(?:^|\n)\s*-?\s*출처 성격\s*:\s*내부 운영 변경\s*[.。]?\s*(?:\n|$)", block))
+            if not (in_internal_section and explicitly_internal):
+                errors.append(f"issue '{title}' appears to mix internal ops into main hot issues; move to an internal ops appendix")
+            if title.startswith("Jarvis") or title.startswith("Hermes"):
+                errors.append(f"issue '{title}' is an internal ops item, not a reader-facing external hot issue")
         url_count = len(re.findall(r"https?://", block))
         if url_count < MIN_SOURCE_URLS and "신청 가능한 공고 없음" not in block:
             errors.append(f"issue '{title}' has no external source URL in the card")
+        if OPPORTUNITY_PATTERN.search(title) or OPPORTUNITY_PATTERN.search(block):
+            # Generic homepages are not enough when a report may imply a policy/R&D/life opportunity.
+            if re.search(r"https?://(?:www\.)?(?:iris\.go\.kr|bokjiro\.go\.kr)/?\s*[,.)]?", block):
+                errors.append(f"issue '{title}' opportunity evidence is only a generic homepage; include a direct notice/detail URL or mark as not verified")
+            for pattern, label in OPPORTUNITY_REQUIRED_TERMS:
+                if not pattern.search(block):
+                    errors.append(f"issue '{title}' opportunity contract missing {label}")
     return errors
 
 

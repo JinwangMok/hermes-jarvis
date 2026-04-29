@@ -4,6 +4,9 @@ notes:
   - prefer verified RSS/API sources first
   - staged HTML/high-risk sources remain disabled until implementation exists
   - '2026-04-25: added verified dev-infra, OSS, practitioner-analysis, and media AI feeds requested by Jinwang'
+  - '2026-04-27: expanded known X account watch sources for trend-sensitive AI/practitioner monitoring'
+  - '2026-04-27: added OmOCon discovered X accounts from Sigrid Jin activity and GitHub cross-links'
+  - '2026-04-27: added second-hop OmOCon X accounts from newly discovered account actions'
 sources:
   - openai-news
   - google-blog
@@ -41,3 +44,63 @@ sources:
   - venturebeat-ai
   - the-verge-ai
   - mit-tech-review-ai
+  - andrej-karpathy-x
+  - yann-lecun-x
+  - sam-altman-x
+  - clem-delangue-x
+  - jeff-dean-x
+  - satya-nadella-x
+  - francois-chollet-x
+  - harrison-chase-x
+  - jack-clark-x
+  - shreya-shankar-x
+  - swyx-x
+  - near-cyan-x
+  - soumith-chintala-x
+  - sebastian-raschka-x
+  - alexander-doria-x
+  - omocon-jqonly-x
+  - omocon-junghwan-na-x
+  - omocon-q-yeongyu-kim-x
+  - omocon-jeffrey-kim-x
+  - omocon-justsisyphus-x
+  - omocon-bloatedaislop-x
+
+  - omocon-manaflowai-x
+  - omocon-austin-wang-x
+  - omocon-ashley-ha-x
+  - omocon-ivan-leo-x
+
+  - omocon-luma-seowoo-han-x
+  - omocon-luma-vaibhav-srivastav-x
+  - omocon-luma-won-park-x
+  - omocon-luma-doyun-ha-x
+  - omocon-luma-woonggi-min-x
+  - omocon-luma-hyunjae-chung-x
+  - omocon-luma-pia-park-x
+  - omocon-luma-howard-jiacheng-li-x
+  - omocon-luma-tony0x-x
+  - omocon-luma-benedetto-x
+  - omocon-luma-lena-kang-x
+  - omocon-luma-lucy-park-x
+  - omocon-luma-florian-ludot-x
+  - omocon-luma-gabe-kaufman-x
+  - omocon-luma-jun-kim-x
+  - omocon-luma-jae-ahn-x
+  - omocon-luma-taemin-yoo-x
+  - omocon-luma-sarah-hatcher-x
+  - omocon-luma-sungjoo-ha-x
+  - omocon-luma-twinfin-x
+
+  - yeachan-oh-my-codex-github-atom
+  - yeachan-oh-my-claudecode-github-atom
+  - yeachan-clawhip-github-atom
+  - jung-seungheon-roach-pi-github-atom
+  - jung-gubong-claw-code-github-atom
+
+  - jung-gubong-goobongjeong-x
+  - jung-gubong-team-attention-hoyeon-github-atom
+  - jung-gubong-team-attention-agent-council-github-atom
+  - jung-gubong-team-attention-oh-my-ralph-github-atom
+  - han-yuha-openai-korea-search-rss
+  - yuha-han-openai-search-rss

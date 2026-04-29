@@ -1,0 +1,23 @@
+source_id: han-yuha-openai-korea-search-rss
+display_name: 한유하/OpenAI Korea discovery search RSS
+company_tag: han-yuha
+source_class: discovery
+source_role: identity-discovery
+source_type: rss
+ingest_strategy: rss
+base_url: https://www.bing.com/search?q=%22%ED%95%9C%EC%9C%A0%ED%95%98%22%20OpenAI%20OR%20%EC%98%A4%ED%94%88AI
+feed_url: https://www.bing.com/search?format=rss&q=%22%ED%95%9C%EC%9C%A0%ED%95%98%22%20OpenAI%20OR%20%EC%98%A4%ED%94%88AI
+html_list_url: null
+poll_minutes: 720
+enabled: false
+validation_status: manual_discovery_query_noisy
+validation_notes:
+  - No safe personal X handle found for 한유하/OpenAI yet; this search RSS is a manual discovery lane, not identity confirmation
+  - Bing RSS returned HTTP 200 but current items are noisy/irrelevant; keep disabled until a stricter search provider or post-filter exists
+  - Filter future hits manually before promoting to canonical x_handle
+browser_required: false
+anti_bot_risk: medium
+priority_weight: 0.52
+reaction_weight: 0.0
+cooldown_minutes: 720
+topic_tags: [openai, korea, account-director, identity-discovery, practitioner-graph]

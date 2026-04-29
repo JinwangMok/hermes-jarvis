@@ -256,6 +256,7 @@ def _render_news_markdown(items: list[dict], *, generated_day: str, title: str =
             for item in bucket[:4]:
                 lines.extend(
                     [
+                        f"- 출처 성격: 보도.",
                         f"- 확인된 사실: {item['title']} — {_summarize_item(item)}",
                         f"- 왜 중요한가: {ko} 영역의 오늘 주요 흐름을 파악하기 위한 참고 기사입니다.",
                         f"- 오늘 할 일: [{item.get('source') or item['provider']}]({item['url']}) 원문에서 세부 사실과 날짜를 확인합니다.",

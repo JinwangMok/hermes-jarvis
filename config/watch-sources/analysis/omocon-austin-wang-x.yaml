@@ -1,0 +1,24 @@
+source_id: omocon-austin-wang-x
+display_name: Austin Wang on X
+company_tag: cmux
+source_class: practitioner
+source_role: omocon-speaker-community-signal
+source_type: x
+ingest_strategy: rss
+base_url: https://x.com/austinywang
+feed_url: https://nitter.net/austinywang/rss
+html_list_url: null
+poll_minutes: 60
+enabled: true
+validation_status: verified
+validation_notes:
+  - Sigrid Jin's Seoul OmOCon event tweet listed @austinywang among speakers/builders
+  - q_yeon_gyu_kim and bloatedaislop OmOCon activity repeatedly mentions @austinywang in the cmux/OMO/OMX graph
+  - Nitter RSS title resolves to Austin Wang / @austinywang and returns recent feed items
+  - x.com profile content/metrics remain JavaScript/auth-gated; use RSS as supporting timeline signal until official X API is configured
+browser_required: false
+anti_bot_risk: medium
+priority_weight: 0.78
+reaction_weight: 0.48
+cooldown_minutes: 60
+topic_tags: [agentic-ai, omocon, cmux, codex, claude, harness]

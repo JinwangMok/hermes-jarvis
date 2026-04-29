@@ -1,0 +1,24 @@
+source_id: omocon-ashley-ha-x
+display_name: Ashley Ha on X
+company_tag: korean-ai-community
+source_class: practitioner
+source_role: omocon-attendee-amplifier
+source_type: x
+ingest_strategy: rss
+base_url: https://x.com/ashleybchae
+feed_url: https://nitter.net/ashleybchae/rss
+html_list_url: null
+poll_minutes: 90
+enabled: true
+validation_status: verified
+validation_notes:
+  - '@justsisyphus amplified Sigrid''s Seoul OmOCon post that quoted Ashley''s event/vibes note and credited @hashed_official'
+  - Sigrid's OmOCon activity includes @ashleybchae in the Seoul event social graph
+  - Nitter RSS title resolves to Ashley Ha / @ashleybchae and returns recent feed items
+  - x.com profile content/metrics remain JavaScript/auth-gated; use RSS as supporting timeline signal until official X API is configured
+browser_required: false
+anti_bot_risk: medium
+priority_weight: 0.64
+reaction_weight: 0.42
+cooldown_minutes: 90
+topic_tags: [agentic-ai, omocon, korean-ai-community, event-signal]

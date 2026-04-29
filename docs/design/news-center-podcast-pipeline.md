@@ -10,7 +10,7 @@ Daily hot-issues reports can be enriched with Naver News and Google News items g
 - scope: domestic, international
 - source: naver-news, google-news
 
-The output is intentionally reader-facing. It avoids internal labels such as “신호” and keeps the same structure as the daily PDF report: 확인된 사실, 왜 중요한가, 오늘 할 일, 근거, 불확실성.
+The output is intentionally reader-facing. It avoids internal labels such as “신호” and keeps the same structure as the daily PDF report: 출처 성격, 확인된 사실, 왜 중요한가, 오늘 할 일, 근거, 불확실성. Source type must be explicit so official notices, news reports, community items, personal-post claims, and internal operations are not presented with the same trust level.
 
 ## Commands
 

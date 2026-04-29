@@ -1,0 +1,24 @@
+source_id: omocon-justsisyphus-x
+display_name: Sisyphus Labs / OmOCon on X
+company_tag: omocon-agentic-ai
+source_class: organizer-practitioner
+source_role: event-origin
+source_type: x
+ingest_strategy: rss
+base_url: https://x.com/justsisyphus
+feed_url: https://nitter.net/justsisyphus/rss
+html_list_url: null
+poll_minutes: 60
+enabled: true
+validation_status: verified
+validation_notes:
+  - nitter RSS title resolves to Sisyphus Labs / @justsisyphus
+  - Sigrid wrote that the second OmOCon came to Seoul by @justsisyphus
+  - recent activity links OmOCon to oh-my-opencode community
+  - x.com profile content/metrics remain JavaScript/auth-gated; use RSS as supporting timeline signal until official X API is configured
+browser_required: false
+anti_bot_risk: medium
+priority_weight: 0.78
+reaction_weight: 0.45
+cooldown_minutes: 60
+topic_tags: [agentic-ai, omocon, omo, community, opencode]

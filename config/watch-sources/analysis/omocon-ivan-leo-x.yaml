@@ -1,0 +1,24 @@
+source_id: omocon-ivan-leo-x
+display_name: Ivan Leo on X
+company_tag: google-deepmind
+source_class: practitioner
+source_role: omocon-agent-harness-community-signal
+source_type: x
+ingest_strategy: rss
+base_url: https://x.com/ivanleomk
+feed_url: https://nitter.net/ivanleomk/rss
+html_list_url: null
+poll_minutes: 90
+enabled: true
+validation_status: verified
+validation_notes:
+  - '@justsisyphus amplified Ivan''s first OmOCon note mentioning @q_yeon_gyu_kim and @realsigridjin around agents/harnesses'
+  - Account is relevant to Korea AI/agents community signals via Google DeepMind/Korea posts
+  - Nitter RSS title resolves to Ivan Leo / @ivanleomk and returns recent feed items
+  - x.com profile content/metrics remain JavaScript/auth-gated; use RSS as supporting timeline signal until official X API is configured
+browser_required: false
+anti_bot_risk: medium
+priority_weight: 0.66
+reaction_weight: 0.4
+cooldown_minutes: 90
+topic_tags: [agentic-ai, omocon, google-deepmind, korea-ai, harness]

@@ -1,0 +1,24 @@
+source_id: omocon-q-yeongyu-kim-x
+display_name: Q / YeonGyu Kim on X
+company_tag: oh-my-openagent
+source_class: developer
+source_role: practitioner-origin
+source_type: x
+ingest_strategy: rss
+base_url: https://x.com/q_yeon_gyu_kim
+feed_url: https://nitter.net/q_yeon_gyu_kim/rss
+html_list_url: null
+poll_minutes: 45
+enabled: true
+validation_status: verified
+validation_notes:
+  - GitHub API for code-yeongyu reports twitter_username q_yeon_gyu_kim
+  - code-yeongyu owns github.com/code-yeongyu/oh-my-openagent, previously oh-my-opencode
+  - Sigrid/OmOCon activity repeatedly references @q_yeon_gyu_kim around Seoul OmOCon
+  - x.com profile content/metrics remain JavaScript/auth-gated; use RSS as supporting timeline signal until official X API is configured
+browser_required: false
+anti_bot_risk: medium
+priority_weight: 0.84
+reaction_weight: 0.5
+cooldown_minutes: 45
+topic_tags: [agentic-ai, omocon, omo, oh-my-openagent, opencode, harness]
