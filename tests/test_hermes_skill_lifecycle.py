@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from jinwang_jarvis.cli import main
-from jinwang_jarvis.hermes_skill_lifecycle import audit_hermes_skill_lifecycle
+from jinwang_jarvis.hermes_skill_lifecycle import audit_hermes_skill_lifecycle, record_skill_telemetry
 
 
 def _write_skill(path: Path, body: str = "Do the thing.") -> None:
@@ -110,3 +110,69 @@ def test_audit_hermes_skill_lifecycle_includes_jarvis_external_dirs_from_config(
     assert any(root["path"] == str(external_skills) and root["kind"] == "external" for root in result["roots"])
     assert result["skills"][0]["source"] == "external"
     assert result["skills"][0]["name"] == "jarvis-owned"
+
+
+def test_record_skill_telemetry_writes_jarvis_sidecar_and_audit_consumes_it(tmp_path: Path) -> None:
+    hermes_home = tmp_path / "hermes"
+    skill = hermes_home / "skills" / "telemetry-skill"
+    telemetry_path = tmp_path / "jarvis" / "state" / "hermes-skill-usage.json"
+    _write_skill(skill)
+    now = datetime(2026, 4, 29, 12, 0, tzinfo=timezone.utc)
+
+    first = record_skill_telemetry(
+        skill="telemetry-skill",
+        event="viewed",
+        hermes_home=hermes_home,
+        hermes_config_path=hermes_home / "config.yaml",
+        telemetry_path=telemetry_path,
+        now=now,
+    )
+    second = record_skill_telemetry(
+        skill="telemetry-skill",
+        event="used",
+        hermes_home=hermes_home,
+        hermes_config_path=hermes_home / "config.yaml",
+        telemetry_path=telemetry_path,
+        now=now + timedelta(minutes=5),
+    )
+
+    assert first["ok"] is True
+    assert second["usage"]["use_count"] == 1
+    assert telemetry_path.exists()
+
+    audit = audit_hermes_skill_lifecycle(
+        hermes_home=hermes_home,
+        hermes_config_path=hermes_home / "config.yaml",
+        telemetry_path=telemetry_path,
+        now=now + timedelta(minutes=10),
+    )
+
+    entry = audit["skills"][0]
+    assert entry["usage_metadata_present"] is True
+    assert entry["usage_metadata_source"] == "jarvis_telemetry"
+    assert entry["use_count"] == 1
+    assert entry["last_used_at"] == (now + timedelta(minutes=5)).isoformat()
+
+
+def test_cli_records_skill_telemetry(tmp_path: Path, capsys) -> None:
+    hermes_home = tmp_path / "hermes"
+    telemetry_path = tmp_path / "jarvis" / "state" / "hermes-skill-usage.json"
+    _write_skill(hermes_home / "skills" / "cli-telemetry-skill")
+
+    exit_code = main([
+        "hermes-skill-telemetry",
+        "record",
+        "--skill",
+        "cli-telemetry-skill",
+        "--event",
+        "used",
+        "--hermes-home",
+        str(hermes_home),
+        "--telemetry-path",
+        str(telemetry_path),
+    ])
+
+    payload = json.loads(capsys.readouterr().out)
+    assert exit_code == 0
+    assert payload["ok"] is True
+    assert payload["usage"]["use_count"] == 1

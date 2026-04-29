@@ -14,7 +14,7 @@ from .config import load_pipeline_config
 from .digest import generate_digest
 from .feedback import record_proposal_feedback
 from .hermes_continuity import check_hermes_customizations
-from .hermes_skill_lifecycle import audit_hermes_skill_lifecycle
+from .hermes_skill_lifecycle import audit_hermes_skill_lifecycle, record_skill_telemetry
 from .intelligence import collect_knowledge_mail, generate_daily_intelligence_report
 from .knowledge import synthesize_knowledge
 from .mail import build_fake_mail_runner, collect_mail_snapshots
@@ -168,9 +168,23 @@ def build_parser() -> argparse.ArgumentParser:
     lifecycle_parser.add_argument("--hermes-home", default=str(Path.home() / ".hermes"), help="Hermes home directory")
     lifecycle_parser.add_argument("--hermes-config", default="", help="Hermes config.yaml path; defaults to <hermes-home>/config.yaml")
     lifecycle_parser.add_argument("--no-external-dirs", action="store_true", help="Only scan ~/.hermes/skills; skip skills.external_dirs")
+    lifecycle_parser.add_argument("--telemetry-path", default="state/hermes-skill-usage.json", help="Jarvis telemetry sidecar JSON path")
     lifecycle_parser.add_argument("--stale-after-days", type=int, default=30, help="Age threshold for stale review")
     lifecycle_parser.add_argument("--archive-after-days", type=int, default=90, help="Age threshold for archive candidates")
     lifecycle_parser.add_argument("--negative-claim-ttl-days", type=int, default=14, help="TTL before old negative/environment-dependent claims need revalidation")
+
+    telemetry_parser = subparsers.add_parser("hermes-skill-telemetry", help="Record Jarvis-owned Hermes skill lifecycle telemetry without modifying Hermes source")
+    telemetry_subparsers = telemetry_parser.add_subparsers(dest="telemetry_command", required=True)
+    telemetry_record_parser = telemetry_subparsers.add_parser("record", help="Record a viewed/used/successful_apply/patched event for a skill")
+    telemetry_record_parser.add_argument("--skill", default="", help="Skill name or directory basename")
+    telemetry_record_parser.add_argument("--skill-path", default="", help="Explicit skill directory or SKILL.md path")
+    telemetry_record_parser.add_argument("--event", required=True, choices=("viewed", "used", "successful_apply", "patched"), help="Telemetry event kind")
+    telemetry_record_parser.add_argument("--hermes-home", default=str(Path.home() / ".hermes"), help="Hermes home directory")
+    telemetry_record_parser.add_argument("--hermes-config", default="", help="Hermes config.yaml path; defaults to <hermes-home>/config.yaml")
+    telemetry_record_parser.add_argument("--telemetry-path", default="state/hermes-skill-usage.json", help="Jarvis telemetry sidecar JSON path")
+    telemetry_record_parser.add_argument("--no-external-dirs", action="store_true", help="Only scan ~/.hermes/skills; skip skills.external_dirs")
+    telemetry_record_parser.add_argument("--pinned", action="store_true", help="Mark the skill as pinned in Jarvis telemetry")
+    telemetry_record_parser.add_argument("--unpinned", action="store_true", help="Mark the skill as not pinned in Jarvis telemetry")
 
     samples_parser = subparsers.add_parser("styled-voice-samples", help="Manage the Jarvis styled-voice sample library")
     samples_subparsers = samples_parser.add_subparsers(dest="sample_command", required=True)
@@ -493,6 +507,24 @@ def main(argv: Sequence[str] | None = None) -> int:
             stale_after_days=args.stale_after_days,
             archive_after_days=args.archive_after_days,
             negative_claim_ttl_days=args.negative_claim_ttl_days,
+            telemetry_path=args.telemetry_path,
+        )
+        print(json.dumps(result, ensure_ascii=False))
+        return 0 if result.get("ok") else 1
+
+    if args.command == "hermes-skill-telemetry":
+        if args.pinned and args.unpinned:
+            parser.error("--pinned and --unpinned are mutually exclusive")
+        pinned = True if args.pinned else False if args.unpinned else None
+        result = record_skill_telemetry(
+            skill=args.skill or None,
+            skill_path=args.skill_path or None,
+            event=args.event,
+            hermes_home=args.hermes_home,
+            hermes_config_path=args.hermes_config or None,
+            telemetry_path=args.telemetry_path,
+            include_external_dirs=not args.no_external_dirs,
+            pinned=pinned,
         )
         print(json.dumps(result, ensure_ascii=False))
         return 0 if result.get("ok") else 1
