@@ -14,6 +14,7 @@ from .config import load_pipeline_config
 from .digest import generate_digest
 from .feedback import record_proposal_feedback
 from .hermes_continuity import check_hermes_customizations
+from .hermes_skill_lifecycle import audit_hermes_skill_lifecycle
 from .intelligence import collect_knowledge_mail, generate_daily_intelligence_report
 from .knowledge import synthesize_knowledge
 from .mail import build_fake_mail_runner, collect_mail_snapshots
@@ -162,6 +163,14 @@ def build_parser() -> argparse.ArgumentParser:
     customization_parser.add_argument("--hermes-agent-dir", default=str(Path.home() / ".hermes/hermes-agent"), help="Hermes agent checkout directory")
     customization_parser.add_argument("--hermes-config", default="", help="Hermes config.yaml path; defaults to <hermes-home>/config.yaml")
     customization_parser.add_argument("--include-network", action="store_true", help="Also probe external backends such as VoxCPM health")
+
+    lifecycle_parser = subparsers.add_parser("hermes-skill-lifecycle-audit", help="Passively audit Hermes skill lifecycle metadata, staleness, archives, and negative-claim revalidation candidates")
+    lifecycle_parser.add_argument("--hermes-home", default=str(Path.home() / ".hermes"), help="Hermes home directory")
+    lifecycle_parser.add_argument("--hermes-config", default="", help="Hermes config.yaml path; defaults to <hermes-home>/config.yaml")
+    lifecycle_parser.add_argument("--no-external-dirs", action="store_true", help="Only scan ~/.hermes/skills; skip skills.external_dirs")
+    lifecycle_parser.add_argument("--stale-after-days", type=int, default=30, help="Age threshold for stale review")
+    lifecycle_parser.add_argument("--archive-after-days", type=int, default=90, help="Age threshold for archive candidates")
+    lifecycle_parser.add_argument("--negative-claim-ttl-days", type=int, default=14, help="TTL before old negative/environment-dependent claims need revalidation")
 
     samples_parser = subparsers.add_parser("styled-voice-samples", help="Manage the Jarvis styled-voice sample library")
     samples_subparsers = samples_parser.add_subparsers(dest="sample_command", required=True)
@@ -472,6 +481,18 @@ def main(argv: Sequence[str] | None = None) -> int:
             hermes_agent_dir=args.hermes_agent_dir,
             hermes_config_path=args.hermes_config or None,
             include_network=args.include_network,
+        )
+        print(json.dumps(result, ensure_ascii=False))
+        return 0 if result.get("ok") else 1
+
+    if args.command == "hermes-skill-lifecycle-audit":
+        result = audit_hermes_skill_lifecycle(
+            hermes_home=args.hermes_home,
+            hermes_config_path=args.hermes_config or None,
+            include_external_dirs=not args.no_external_dirs,
+            stale_after_days=args.stale_after_days,
+            archive_after_days=args.archive_after_days,
+            negative_claim_ttl_days=args.negative_claim_ttl_days,
         )
         print(json.dumps(result, ensure_ascii=False))
         return 0 if result.get("ok") else 1
