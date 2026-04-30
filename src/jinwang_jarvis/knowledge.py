@@ -8,7 +8,7 @@ from pathlib import Path
 from .bootstrap import bootstrap_workspace
 from .briefing import generate_briefing
 from .config import PipelineConfig
-from .wiki_contract import run_wiki_lint_if_available, wiki_governance, wiki_operational_source
+from .wiki_contract import render_status_block, run_wiki_lint_if_available, wiki_governance, wiki_operational_source
 
 WATCHLIST_NOTE_RELATIVE_PATH = "queries/jinwang-jarvis-importance-shift-watchlist.md"
 WATCHLIST_INDEX_LINE = "- [[jinwang-jarvis-importance-shift-watchlist]] — Rolling watchlist of suppressed-but-promotable mail threads and the current importance-shift patterns in Jinwang Jarvis."
@@ -262,6 +262,14 @@ def _write_wiki_summary(config: PipelineConfig, proposal_payload: dict, entries:
         "---",
         "",
         "# Jinwang Jarvis Importance Shift Watchlist",
+        "",
+        *render_status_block(
+            tldr=f"{len(entries)} watchlist candidates in the latest generated rollup.",
+            current_status="derived watchlist; not canonical",
+            last_verified=today,
+            evidence_coverage=f"Latest proposal artifact: {proposal_payload.get('generated_at', 'n/a')}; operational source: {wiki_operational_source(config)}.",
+            open_questions="Human review is required before durable promotion.",
+        ),
         "",
         "## Why this page exists",
         "Suppressed mail can become important later as deadlines approach, more replies accumulate, or older backfill windows reveal recurring workstreams.",

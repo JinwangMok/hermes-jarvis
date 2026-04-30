@@ -49,6 +49,56 @@ def test_cli_bootstrap_command_initializes_workspace(tmp_path: Path):
     assert (tmp_path / "data" / "snapshots" / "mail").is_dir()
 
 
+def test_cli_wiki_search_commands_emit_json(tmp_path: Path, capsys):
+    import sqlite3
+
+    config_file = tmp_path / "pipeline.yaml"
+    (tmp_path / "sender-map.md").write_text("## Current members\n- Professor | 김종원(JongWon Kim) | jongwon@smartx.kr\n", encoding="utf-8")
+    config_file.write_text(_config_text(tmp_path), encoding="utf-8")
+    main(["bootstrap", "--config", str(config_file)])
+    with sqlite3.connect(tmp_path / "state" / "personal_intel.db") as conn:
+        try:
+            conn.execute("CREATE VIRTUAL TABLE temp._fts_probe USING fts5(value)")
+            conn.execute("DROP TABLE temp._fts_probe")
+        except sqlite3.OperationalError:
+            return
+        conn.execute("INSERT INTO messages (message_id, account, folder_kind, subject, from_addr, sent_at, snippet, ingested_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", ("m1", "smartx", "inbox", "Jongwon search", "jongwon@smartx.kr", "2026-04-30T00:00:00Z", "searchable snippet", "2026-04-30T00:00:00Z"))
+        conn.commit()
+
+    assert main(["wiki-search-index", "--config", str(config_file)]) == 0
+    index_payload = json.loads(capsys.readouterr().out)
+    assert index_payload["ok"] is True
+
+    assert main(["wiki-search", "--config", str(config_file), "--query", "Jongwon", "--limit", "5"]) == 0
+    search_payload = json.loads(capsys.readouterr().out)
+    assert search_payload["ok"] is True
+    assert search_payload["rows"][0]["source_id"] == "m1"
+
+
+def test_cli_wiki_semantic_lint_accepts_wiki_root(tmp_path: Path, capsys):
+    wiki = tmp_path / "wiki"
+    report = wiki / "reports" / "daily" / "2026-04-30.md"
+    report.parent.mkdir(parents=True)
+    report.write_text(
+        """---
+title: Daily
+generated: true
+authority: derived
+refresh_policy: overwrite
+operational_source_of_truth: state/personal_intel.db
+---
+# Daily
+## Status
+- TL;DR: safe
+""",
+        encoding="utf-8",
+    )
+
+    assert main(["wiki-semantic-lint", "--wiki-root", str(wiki)]) == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload == {"ok": True, "error_count": 0, "warning_count": 0, "issues": []}
+
+
 def test_cli_collect_mail_command_runs_collection(tmp_path: Path):
     config_file = tmp_path / "pipeline.yaml"
     (tmp_path / "sender-map.md").write_text("## Current members\n- Professor | 김종원(JongWon Kim) | jongwon@smartx.kr\n", encoding="utf-8")

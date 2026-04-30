@@ -27,6 +27,8 @@ from .styled_voice_samples import add_samples as add_styled_voice_samples
 from .styled_voice_samples import collect_profile_audio, init_library as init_styled_voice_library, list_profiles as list_styled_voice_profiles, profile_dir as styled_voice_profile_dir
 from .unified_daily_report import generate_unified_daily_report
 from .watch import build_watch_stories, collect_watch_signals, generate_external_hot_issue_alert, generate_watch_report, judge_watch_issues, run_watch_cycle, sync_watch_sources
+from .wiki_search import rebuild_operational_search_index, search_operational_index
+from .wiki_semantic_lint import lint_wiki_semantics
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -66,6 +68,18 @@ def build_parser() -> argparse.ArgumentParser:
     knowledge_parser = subparsers.add_parser("synthesize-knowledge", help="Generate a rolling watchlist and optional wiki synthesis from the latest proposal artifact")
     knowledge_parser.add_argument("--config", required=True, help="Path to pipeline.yaml")
     knowledge_parser.add_argument("--no-write-wiki", action="store_true", help="Only write watchlist artifact/DB state; skip wiki update")
+
+    wiki_search_index_parser = subparsers.add_parser("wiki-search-index", help="Rebuild operational wiki/search FTS sidecar tables")
+    wiki_search_index_parser.add_argument("--config", required=True, help="Path to pipeline.yaml")
+
+    wiki_search_parser = subparsers.add_parser("wiki-search", help="Search operational Jarvis FTS sidecar tables")
+    wiki_search_parser.add_argument("--config", required=True, help="Path to pipeline.yaml")
+    wiki_search_parser.add_argument("--query", required=True, help="FTS search query")
+    wiki_search_parser.add_argument("--limit", type=int, default=10, help="Maximum result rows")
+
+    wiki_semantic_lint_parser = subparsers.add_parser("wiki-semantic-lint", help="Read-only semantic lint for generated/canonical wiki boundaries")
+    wiki_semantic_lint_parser.add_argument("--config", default="", help="Path to pipeline.yaml")
+    wiki_semantic_lint_parser.add_argument("--wiki-root", default="", help="Wiki root; overrides --config wiki_root")
 
     intelligence_parser = subparsers.add_parser("generate-daily-intelligence", help="Generate a category-based daily intelligence report and wiki notes from the knowledge lane")
     intelligence_parser.add_argument("--config", required=True, help="Path to pipeline.yaml")
@@ -316,6 +330,30 @@ def main(argv: Sequence[str] | None = None) -> int:
             "memory_note_paths": {key: str(value) for key, value in (result.get("memory_note_paths") or {}).items()},
         }, ensure_ascii=False))
         return 0
+
+    if args.command == "wiki-search-index":
+        config = load_pipeline_config(args.config)
+        result = rebuild_operational_search_index(config.database_path)
+        print(json.dumps(result, ensure_ascii=False))
+        return 0 if result.get("ok") else 1
+
+    if args.command == "wiki-search":
+        config = load_pipeline_config(args.config)
+        result = search_operational_index(config.database_path, query=args.query, limit=args.limit)
+        print(json.dumps(result, ensure_ascii=False))
+        return 0 if result.get("ok") else 1
+
+    if args.command == "wiki-semantic-lint":
+        if not args.config and not args.wiki_root:
+            parser.error("wiki-semantic-lint requires --config or --wiki-root")
+        if args.wiki_root:
+            wiki_root = Path(args.wiki_root).expanduser()
+        else:
+            config = load_pipeline_config(args.config)
+            wiki_root = config.wiki_root
+        result = lint_wiki_semantics(wiki_root)
+        print(json.dumps(result, ensure_ascii=False))
+        return 0 if result.get("ok") else 1
 
     if args.command == "generate-daily-intelligence":
         config = load_pipeline_config(args.config)

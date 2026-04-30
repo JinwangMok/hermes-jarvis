@@ -151,6 +151,28 @@ See `docs/productized-jarvis.en.md` / `docs/productized-jarvis.ko.md` for the fu
 
 For today’s hot-issues PDF pipeline, use `generate-unified-daily-report` as the single daily report composer. Personal Opportunity Radar daily user-facing output is deprecated; its artifacts feed the `개인 기회/공고 검토` section inside 오늘의 핫이슈 and must not imply an item is actionable unless official URL, deadline/window, eligibility, and support contents are all present.
 
+## Wiki search and semantic lint
+Rebuild the local operational search sidecars after collecting mail/knowledge/watch data:
+
+```bash
+PYTHONPATH=src python3 -m jinwang_jarvis.cli wiki-search-index --config config/pipeline.local.yaml
+```
+
+`wiki-search-index` rewrites only the four SQLite FTS sidecar tables and is safe to rerun. Search those sidecars with JSON output:
+
+```bash
+PYTHONPATH=src python3 -m jinwang_jarvis.cli wiki-search --config config/pipeline.local.yaml --query "jongwon" --limit 10
+```
+
+Run the read-only wiki boundary/evidence checker with either config or an explicit wiki root:
+
+```bash
+PYTHONPATH=src python3 -m jinwang_jarvis.cli wiki-semantic-lint --config config/pipeline.local.yaml
+PYTHONPATH=src python3 -m jinwang_jarvis.cli wiki-semantic-lint --wiki-root /home/jinwang/wiki
+```
+
+`wiki-semantic-lint` reports generated/canonical/evidence issues as JSON only; it does not edit wiki files, queues, indexes, or logs.
+
 ## Notes
 - Keep personal values in `config/pipeline.local.yaml`.
 - Keep `config/sender-map.md` private.

@@ -182,6 +182,9 @@ def test_synthesize_knowledge_creates_watchlist_artifact_and_wiki_summary(tmp_pa
     assert "generator: jinwang-jarvis" in wiki_text
     assert "authority: derived" in wiki_text
     assert f"operational_source_of_truth: {config.database_path}" in wiki_text
+    assert "## Status" in wiki_text
+    assert "- Current status: derived watchlist; not canonical" in wiki_text
+    assert "- TL;DR: 1 watchlist candidates" in wiki_text
     assert result["wiki_governance"]["generated_report_contract"].endswith("generated-report-contract.md")
 
     index_text = (config.wiki_root / "index.md").read_text(encoding="utf-8")

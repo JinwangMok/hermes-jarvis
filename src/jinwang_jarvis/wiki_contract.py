@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import hashlib
+import re
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
@@ -79,6 +81,16 @@ class WikiGovernance:
         }
 
 
+@dataclass(frozen=True)
+class EvidenceRef:
+    source_id: str
+    source_kind: str
+    source_url: str = ""
+    source_hash: str = ""
+    observed_at: str = ""
+    confidence: float | None = None
+
+
 def wiki_governance(wiki_root: Path) -> WikiGovernance:
     governance = WikiGovernance(wiki_root)
     governance.ensure_operational_dirs()
@@ -98,6 +110,49 @@ def yaml_scalar(value: object) -> str:
 
 def yaml_list(values: Iterable[str]) -> str:
     return "[" + ", ".join(str(value) for value in values) + "]"
+
+
+SECRET_ASSIGNMENT_RE = re.compile(r"(?i)\b(password|token|api_key|secret)\b\s*([=:])\s*([^\s,;`]+)")
+
+
+def redact_obvious_secrets(text: str) -> str:
+    return SECRET_ASSIGNMENT_RE.sub(lambda match: f"{match.group(1)}{match.group(2)}[REDACTED]", text)
+
+
+def stable_source_hash(payload: object) -> str:
+    canonical = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def render_evidence_line(label: str, evidence: EvidenceRef) -> str:
+    parts = [f"- {redact_obvious_secrets(label)}: `{redact_obvious_secrets(evidence.source_id)}`", f"kind={redact_obvious_secrets(evidence.source_kind)}"]
+    if evidence.source_url:
+        parts.append(f"url={redact_obvious_secrets(evidence.source_url)}")
+    if evidence.source_hash:
+        parts.append(f"hash={redact_obvious_secrets(evidence.source_hash)}")
+    if evidence.observed_at:
+        parts.append(f"observed_at={redact_obvious_secrets(evidence.observed_at)}")
+    if evidence.confidence is not None:
+        parts.append(f"confidence={evidence.confidence:.2f}")
+    return " | ".join(parts)
+
+
+def render_status_block(
+    *,
+    tldr: str,
+    current_status: str,
+    last_verified: str,
+    evidence_coverage: str,
+    open_questions: str,
+) -> list[str]:
+    return [
+        "## Status",
+        f"- TL;DR: {redact_obvious_secrets(tldr)}",
+        f"- Current status: {redact_obvious_secrets(current_status)}",
+        f"- Last verified: {redact_obvious_secrets(last_verified)}",
+        f"- Evidence coverage: {redact_obvious_secrets(evidence_coverage)}",
+        f"- Open questions: {redact_obvious_secrets(open_questions)}",
+    ]
 
 
 def render_frontmatter(

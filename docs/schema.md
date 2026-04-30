@@ -24,6 +24,36 @@
 - `backfill_runs`
 - `message_watchlist`
 
+## Operational FTS sidecar tables
+These tables are rebuildable search indexes created only when SQLite FTS5 is available. `wiki-search-index` deletes/reinserts rows only in these sidecars and does not rewrite source tables.
+
+- `messages_fts(message_id, subject, from_addr, snippet, sent_at, folder_kind)`
+- `knowledge_messages_fts(knowledge_id, subject, from_addr, summary_text, category, sent_at)`
+- `watch_signals_fts(signal_id, title, summary_text, author, url, published_at)`
+- `watch_issue_stories_fts(issue_id, canonical_title, canonical_summary, primary_company_tag, last_seen_at)`
+
+`wiki-search` returns JSON rows with `source_table`, `source_id`, `title`, `summary`, `timestamp`, and `rank`.
+
+## Wiki semantic lint JSON
+`wiki-semantic-lint` is read-only and reports generated/canonical boundary and evidence issues without editing wiki content or metadata queues.
+
+```json
+{
+  "ok": false,
+  "error_count": 1,
+  "warning_count": 1,
+  "issues": [
+    {
+      "severity": "error",
+      "path": "queries/jinwang-jarvis-example.md",
+      "code": "generated_metadata_missing",
+      "message": "Generated report is missing required boundary metadata.",
+      "evidence": "refresh_policy, operational_source_of_truth"
+    }
+  ]
+}
+```
+
 ## Key artifacts
 - proposal runs: `data/proposals/proposal-run-*.json`
 - digests: `data/digests/digest-*.md`

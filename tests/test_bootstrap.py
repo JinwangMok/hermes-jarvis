@@ -1,7 +1,7 @@
 import sqlite3
 from pathlib import Path
 
-from jinwang_jarvis.bootstrap import REQUIRED_DIRECTORIES, bootstrap_workspace
+from jinwang_jarvis.bootstrap import REQUIRED_DIRECTORIES, bootstrap_workspace, ensure_search_indexes
 from jinwang_jarvis.config import load_pipeline_config
 
 
@@ -59,3 +59,16 @@ watch:
         "event_proposals", "proposal_feedback", "backfill_runs", "watch_sources", "watch_signals",
         "watch_issue_stories", "watch_issue_signals", "watch_issue_snapshots", "watch_reports"
     } <= table_names
+
+    with sqlite3.connect(config.database_path) as conn:
+        search_state = ensure_search_indexes(conn)
+        if search_state.get("fts5_available"):
+            fts_tables = {
+                row[0]
+                for row in conn.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table'"
+                )
+            }
+            assert {"messages_fts", "knowledge_messages_fts", "watch_signals_fts", "watch_issue_stories_fts"} <= fts_tables
+        else:
+            assert search_state["reason"] == "fts5_unavailable"

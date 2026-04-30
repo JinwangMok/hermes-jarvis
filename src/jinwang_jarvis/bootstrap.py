@@ -292,6 +292,65 @@ SCHEMA_STATEMENTS = [
 ]
 
 
+FTS_TABLE_STATEMENTS = [
+    """
+    CREATE VIRTUAL TABLE IF NOT EXISTS messages_fts USING fts5(
+        message_id UNINDEXED,
+        subject,
+        from_addr,
+        snippet,
+        sent_at UNINDEXED,
+        folder_kind UNINDEXED
+    )
+    """,
+    """
+    CREATE VIRTUAL TABLE IF NOT EXISTS knowledge_messages_fts USING fts5(
+        knowledge_id UNINDEXED,
+        subject,
+        from_addr,
+        summary_text,
+        category UNINDEXED,
+        sent_at UNINDEXED
+    )
+    """,
+    """
+    CREATE VIRTUAL TABLE IF NOT EXISTS watch_signals_fts USING fts5(
+        signal_id UNINDEXED,
+        title,
+        summary_text,
+        author,
+        url UNINDEXED,
+        published_at UNINDEXED
+    )
+    """,
+    """
+    CREATE VIRTUAL TABLE IF NOT EXISTS watch_issue_stories_fts USING fts5(
+        issue_id UNINDEXED,
+        canonical_title,
+        canonical_summary,
+        primary_company_tag UNINDEXED,
+        last_seen_at UNINDEXED
+    )
+    """,
+]
+
+
+def ensure_search_indexes(conn: sqlite3.Connection) -> dict[str, object]:
+    """Create rebuildable FTS5 sidecar tables when the local SQLite supports FTS5."""
+    try:
+        conn.execute("CREATE VIRTUAL TABLE temp._jarvis_fts5_probe USING fts5(value)")
+        conn.execute("DROP TABLE temp._jarvis_fts5_probe")
+    except sqlite3.OperationalError as exc:
+        return {"fts5_available": False, "reason": "fts5_unavailable", "error": str(exc)}
+
+    for statement in FTS_TABLE_STATEMENTS:
+        conn.execute(statement)
+    return {
+        "fts5_available": True,
+        "tables": ["messages_fts", "knowledge_messages_fts", "watch_signals_fts", "watch_issue_stories_fts"],
+    }
+
+
 def bootstrap_workspace(config: PipelineConfig) -> None:
     for relative_dir in REQUIRED_DIRECTORIES:
         (config.workspace_root / relative_dir).mkdir(parents=True, exist_ok=True)
@@ -324,4 +383,5 @@ def bootstrap_workspace(config: PipelineConfig) -> None:
         }.items():
             if col not in existing_knowledge_cols:
                 conn.execute(f"ALTER TABLE knowledge_messages ADD COLUMN {col} {spec}")
+        ensure_search_indexes(conn)
         conn.commit()
