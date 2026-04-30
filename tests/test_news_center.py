@@ -108,7 +108,8 @@ categories:
     assert (wiki_root / "reports/news-center/daily/2026-04-26.md").exists()
     category_page = (wiki_root / "reports/news-center/categories/politics.md").read_text(encoding="utf-8")
     assert "국내" in category_page and "국외" in category_page
-    assert "확인된 사실" in category_page
+    assert "수집된 보도" in category_page
+    assert "확인된 사실" not in category_page
 
 
 def test_append_news_center_to_daily_report_is_idempotent(tmp_path: Path) -> None:
