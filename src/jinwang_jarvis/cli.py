@@ -25,6 +25,7 @@ from .review import generate_weekly_review
 from .runtime import check_hermes_jarvis_health, install_hermes_standby_units, install_systemd_user_units, run_pipeline_cycle
 from .styled_voice_samples import add_samples as add_styled_voice_samples
 from .styled_voice_samples import collect_profile_audio, init_library as init_styled_voice_library, list_profiles as list_styled_voice_profiles, profile_dir as styled_voice_profile_dir
+from .unified_daily_report import generate_unified_daily_report
 from .watch import build_watch_stories, collect_watch_signals, generate_external_hot_issue_alert, generate_watch_report, judge_watch_issues, run_watch_cycle, sync_watch_sources
 
 
@@ -128,6 +129,13 @@ def build_parser() -> argparse.ArgumentParser:
     append_news_parser = subparsers.add_parser("append-news-center-to-daily-report", help="Append or replace the news section in a daily hot-issues markdown report")
     append_news_parser.add_argument("--daily-report", required=True, help="Daily hot-issues markdown path")
     append_news_parser.add_argument("--news-markdown", required=True, help="News center markdown path")
+
+    unified_daily_parser = subparsers.add_parser("generate-unified-daily-report", help="Generate the deterministic unified daily hot-issues report")
+    unified_daily_parser.add_argument("--config", required=True, help="Path to pipeline.yaml")
+    unified_daily_parser.add_argument("--date", required=True, help="Report date YYYY-MM-DD")
+    unified_daily_parser.add_argument("--hot-issue", default="", help="Optional existing hot-issues/watch markdown artifact")
+    unified_daily_parser.add_argument("--news-json", default="", help="Optional news-center JSON artifact; defaults to data/news-center/latest.json")
+    unified_daily_parser.add_argument("--opportunity-json", default="", help="Optional personal opportunity candidate JSON artifact")
 
     podcast_parser = subparsers.add_parser("generate-podcast-script", help="Generate a conversational TTS podcast script from a daily report")
     podcast_parser.add_argument("--daily-report", required=True, help="Daily hot-issues markdown path")
@@ -438,6 +446,19 @@ def main(argv: Sequence[str] | None = None) -> int:
         news_markdown = Path(args.news_markdown).read_text(encoding="utf-8")
         append_news_center_to_daily_report(Path(args.daily_report), news_markdown)
         print(json.dumps({"daily_report": args.daily_report, "updated": True}, ensure_ascii=False))
+        return 0
+
+    if args.command == "generate-unified-daily-report":
+        config = load_pipeline_config(args.config)
+        result = generate_unified_daily_report(
+            report_date=args.date,
+            wiki_root=config.wiki_root,
+            workspace_root=config.workspace_root,
+            hot_issue_path=Path(args.hot_issue) if args.hot_issue else None,
+            news_json_path=Path(args.news_json) if args.news_json else None,
+            opportunity_json_path=Path(args.opportunity_json) if args.opportunity_json else None,
+        )
+        print(json.dumps(result, ensure_ascii=False))
         return 0
 
     if args.command == "generate-podcast-script":

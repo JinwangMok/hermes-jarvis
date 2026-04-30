@@ -50,7 +50,9 @@ def issue_blocks(text: str) -> list[tuple[str, str, str]]:
     blocks: list[tuple[str, str, str]] = []
     for i, m in enumerate(matches):
         start = m.end()
-        end = matches[i + 1].start() if i + 1 < len(matches) else len(text)
+        next_h3 = matches[i + 1].start() if i + 1 < len(matches) else len(text)
+        next_h2 = next((sm.start() for sm in section_matches if sm.start() > m.start()), len(text))
+        end = min(next_h3, next_h2)
         section = ""
         for sm in section_matches:
             if sm.start() < m.start():

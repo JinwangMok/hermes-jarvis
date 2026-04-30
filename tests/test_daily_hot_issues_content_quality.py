@@ -5,6 +5,7 @@ ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts" / "lint_daily_hot_issues_content.py"
 
 spec = importlib.util.spec_from_file_location("lint_daily_hot_issues_content", SCRIPT)
+assert spec is not None
 linter = importlib.util.module_from_spec(spec)
 assert spec.loader is not None
 spec.loader.exec_module(linter)
@@ -138,5 +139,27 @@ def test_daily_hot_issues_linter_accepts_reader_facing_issue_card():
 - 오늘 할 일: IITP, NRF, NIPA 신규 공고에서 AI, cloud, SW, 대학원생 키워드를 확인한다.
 - 근거: 보도 IT비즈뉴스, https://example.com/article, 2026-04-26 확인.
 - 불확실성: 아직 신청 가능한 공식 공고, 예산, 마감일, 지원대상/자격은 확인되지 않았다.
+"""
+    assert linter.lint_text(md) == []
+
+
+def test_daily_hot_issues_linter_stops_issue_card_at_next_h2_section():
+    md = """# 오늘의 핫이슈
+
+## 주요 이슈
+
+### OpenAI, 에이전트 권한 정책 공개
+- 출처 성격: 공식 블로그.
+- 확인된 사실: OpenAI가 에이전트 권한 관리와 검토 흐름을 공개했다.
+- 왜 중요한가: 자동화 도구의 권한 경계 설계에 참고가 된다.
+- 오늘 할 일: 공식 원문에서 권한 검토 절차를 확인한다.
+- 근거: https://example.com/openai-policy, 2026-04-30 확인.
+- 불확실성: 실제 제품별 적용 범위는 추가 확인이 필요하다.
+
+## 개인 기회/공고 검토
+
+- **IRIS AI 기반 대학 과학기술 혁신사업 후보** — 상태: **검토 필요**.
+  - 공고 URL: https://www.iris.go.kr/
+  - 보류 사유: 상세 공식 URL, 접수기간/마감, 지원대상/자격, 지원내용
 """
     assert linter.lint_text(md) == []

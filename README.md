@@ -52,6 +52,7 @@ You can use this as a lightweight personal operations summary, or feed it into a
 - All Mail-based knowledge lane and wiki intelligence notes
 - participant/thread/project-aware memory notes
 - daily morning briefing architecture for Discord delivery
+- unified daily hot-issues report generation with News Center and Personal Opportunity Radar evidence merged into one advisory/derived surface
 
 ## 3-minute quick start
 If you just want to see it working once:
@@ -147,6 +148,8 @@ sudo loginctl enable-linger $USER
 
 Use the 5-minute polling loop for collection/state refresh, then add a separate 08:00 KST morning digest schedule for Discord delivery.
 See `docs/productized-jarvis.en.md` / `docs/productized-jarvis.ko.md` for the full productized workflow.
+
+For today’s hot-issues PDF pipeline, use `generate-unified-daily-report` as the single daily report composer. Personal Opportunity Radar daily user-facing output is deprecated; its artifacts feed the `개인 기회/공고 검토` section inside 오늘의 핫이슈 and must not imply an item is actionable unless official URL, deadline/window, eligibility, and support contents are all present.
 
 ## Notes
 - Keep personal values in `config/pipeline.local.yaml`.

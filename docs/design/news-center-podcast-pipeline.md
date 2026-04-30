@@ -22,7 +22,17 @@ PYTHONPATH=src python3 -m jinwang_jarvis.cli generate-news-center \
   --per-source-limit 2
 ```
 
-Append the generated news markdown to the daily hot-issues report:
+Generate the unified daily hot-issues report. This is now the single user-facing daily report surface: News Center and Personal Opportunity Radar artifacts are inputs, and opportunity items appear only inside `## 개인 기회/공고 검토` with the evidence gate applied.
+
+```bash
+PYTHONPATH=src python3 -m jinwang_jarvis.cli generate-unified-daily-report \
+  --config config/pipeline.local.yaml \
+  --date YYYY-MM-DD
+```
+
+The command writes `/home/jinwang/wiki/reports/hot-issues/daily/YYYY-MM-DD.md` and returns the render target `data/reports/daily-hot-issues-YYYY-MM-DD.pdf`. Personal Opportunity Radar should not be scheduled as a separate user-facing daily report; keep its source-audit/coverage artifacts as evidence inputs only. Live Hermes cron/controller changes are handled outside this repo after code verification.
+
+Legacy append flow, kept for compatibility with older operators:
 
 ```bash
 PYTHONPATH=src python3 -m jinwang_jarvis.cli append-news-center-to-daily-report \
