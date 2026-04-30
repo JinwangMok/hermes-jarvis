@@ -10,4 +10,4 @@ Environment=PATH=/home/jinwang/.hermes/hermes-agent/venv/bin:/home/jinwang/.herm
 Environment=HERMES_HOME=/home/jinwang/.hermes
 Environment=JARVIS_HEALTH_DISCORD_CHANNEL=1496014213276241922
 EnvironmentFile=-/home/jinwang/.hermes/.env
-ExecStart=/bin/bash -lc 'cd /home/jinwang/workspace/jinwang-jarvis && PYTHONPATH=src python3 -m jinwang_jarvis.cli hermes-health-check --config config/pipeline.local.yaml --discord-alert --restart --stale-minutes 15'
+ExecStart=/bin/bash -lc 'cd /home/jinwang/workspace/jinwang-jarvis && PYTHONPATH=src python3 -m jinwang_jarvis.cli hermes-health-check --config config/pipeline.local.yaml --discord-alert --restart --stale-minutes 15 --readiness-timeout-seconds 45'
