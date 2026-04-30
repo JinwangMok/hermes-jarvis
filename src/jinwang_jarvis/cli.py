@@ -178,7 +178,9 @@ def build_parser() -> argparse.ArgumentParser:
     health_parser.add_argument("--stale-minutes", type=int, default=15, help="Alert when an enabled Hermes cron job is this many minutes overdue")
     health_parser.add_argument("--discord-alert", action="store_true", help="Send Discord alert when health issues are detected")
     health_parser.add_argument("--discord-channel", default="", help="Discord channel ID for health alerts")
-    health_parser.add_argument("--restart", action="store_true", help="Restart hermes-gateway.service if it is inactive/failed")
+    health_parser.add_argument("--restart", action="store_true", help="Restart hermes-gateway.service if it is inactive, failed, or not Discord-ready")
+    health_parser.add_argument("--readiness-timeout-seconds", type=int, default=45, help="Wait this long for Discord gateway readiness before alerting/restarting")
+    health_parser.add_argument("--skip-discord-api-check", action="store_true", help="Skip the non-mutating Discord bot identity API check")
 
     customization_parser = subparsers.add_parser("hermes-customization-check", help="Passively inspect the Hermes agent + jinwang-jarvis customization contract")
     customization_parser.add_argument("--hermes-home", default=str(Path.home() / ".hermes"), help="Hermes home directory")
@@ -544,6 +546,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             restart=args.restart,
             discord_alert=args.discord_alert,
             discord_channel=args.discord_channel,
+            readiness_timeout_seconds=args.readiness_timeout_seconds,
+            discord_api_check=not args.skip_discord_api_check,
         )
         print(json.dumps(result, ensure_ascii=False))
         return 0

@@ -2,10 +2,13 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shlex
 import subprocess
+import time
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any, cast
 from urllib import request
 from urllib.error import HTTPError, URLError
 
@@ -33,6 +36,7 @@ HERMES_HEALTH_TIMER_NAME = "jinwang-jarvis-hermes-health.timer"
 DEFAULT_POLL_MINUTES = 5
 DEFAULT_HEALTH_MINUTES = 5
 DEFAULT_STALE_MINUTES = 15
+DEFAULT_READINESS_TIMEOUT_SECONDS = 45
 
 
 def _config_arg(config: PipelineConfig) -> str:
@@ -42,7 +46,7 @@ def _config_arg(config: PipelineConfig) -> str:
         return str(config.config_path)
 
 
-def run_pipeline_cycle(config: PipelineConfig) -> dict:
+def run_pipeline_cycle(config: PipelineConfig) -> dict[str, Any]:
     bootstrap_workspace(config)
     mail_result = collect_mail_snapshots(config)
     calendar_result = collect_calendar_snapshots(config)
@@ -64,12 +68,12 @@ def run_pipeline_cycle(config: PipelineConfig) -> dict:
     }
 
 
-def run_watch_cycle(config: PipelineConfig) -> dict:
+def run_watch_cycle(config: PipelineConfig) -> dict[str, Any]:
     bootstrap_workspace(config)
     return run_external_watch_cycle(config)
 
 
-def run_weekly_review_cycle(config: PipelineConfig) -> dict:
+def run_weekly_review_cycle(config: PipelineConfig) -> dict[str, Any]:
     bootstrap_workspace(config)
     return generate_weekly_review(config)
 
@@ -185,7 +189,8 @@ def build_hermes_standby_unit_texts(
     health_command = (
         f"cd {quoted_workspace} && PYTHONPATH=src {python_exec} -m jinwang_jarvis.cli "
         f"hermes-health-check --config {quoted_config_arg} --discord-alert --restart "
-        f"--stale-minutes {int(stale_minutes)}"
+        f"--stale-minutes {int(stale_minutes)} "
+        f"--readiness-timeout-seconds {DEFAULT_READINESS_TIMEOUT_SECONDS}"
     )
 
     gateway_service = f"""[Unit]
@@ -253,6 +258,45 @@ def _run_systemctl(args: list[str]) -> tuple[int, str, str]:
     return proc.returncode, proc.stdout.strip(), proc.stderr.strip()
 
 
+def _run_systemctl_show(service_name: str) -> dict[str, str]:
+    rc, stdout, _stderr = _run_systemctl([
+        "show",
+        service_name,
+        "--property=ActiveState",
+        "--property=SubState",
+        "--property=MainPID",
+        "--property=ExecMainStatus",
+    ])
+    if rc != 0:
+        return {}
+    properties: dict[str, str] = {}
+    for line in stdout.splitlines():
+        if "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        properties[key] = value
+    return properties
+
+
+def _wait_for_systemd_active(service_name: str, *, timeout_seconds: int) -> tuple[int, str, str]:
+    deadline = time.monotonic() + max(0, timeout_seconds)
+    last_result = _run_systemctl(["is-active", service_name])
+    while last_result[0] != 0 or last_result[1] != "active":
+        if time.monotonic() >= deadline:
+            return last_result
+        time.sleep(min(2.0, max(0.1, deadline - time.monotonic())))
+        last_result = _run_systemctl(["is-active", service_name])
+    return last_result
+
+
+def _is_gateway_runtime_issue(issue: str) -> bool:
+    return (
+        issue.startswith(f"{HERMES_GATEWAY_SERVICE_NAME} is not active")
+        or issue.startswith("Hermes gateway is active but not Discord-ready")
+        or issue.startswith("Discord bot API check failed")
+    )
+
+
 def _parse_iso_datetime(value: str) -> datetime | None:
     try:
         return datetime.fromisoformat(value).astimezone(timezone.utc)
@@ -260,15 +304,163 @@ def _parse_iso_datetime(value: str) -> datetime | None:
         return None
 
 
-def _load_hermes_cron_jobs(hermes_home: Path) -> list[dict]:
+def _load_hermes_cron_jobs(hermes_home: Path) -> list[dict[str, object]]:
     jobs_file = hermes_home / "cron" / "jobs.json"
     if not jobs_file.exists():
         return []
     data = json.loads(jobs_file.read_text(encoding="utf-8"))
-    return list(data.get("jobs", []))
+    if not isinstance(data, dict):
+        return []
+    jobs = data.get("jobs", [])
+    if not isinstance(jobs, list):
+        return []
+    return [cast(dict[str, object], job) for job in jobs if isinstance(job, dict)]
 
 
-def send_discord_bot_message(message: str, *, channel_id: str = "", bot_token: str = "") -> dict:
+def _tail_gateway_log(log_path: Path, *, max_lines: int = 400) -> list[str]:
+    if not log_path.exists():
+        return []
+    try:
+        return log_path.read_text(encoding="utf-8", errors="replace").splitlines()[-max_lines:]
+    except OSError:
+        return []
+
+
+def _gateway_log_readiness(hermes_home: Path, *, expect_discord: bool) -> dict[str, Any]:
+    """Return whether the last gateway lifecycle in gateway.log reached ready.
+
+    systemd can report ``active`` before the Discord adapter is connected.  The
+    previous failure mode lived exactly in that gap, so the health check treats
+    gateway.log lifecycle markers as the source of truth for runtime readiness.
+    """
+    log_path = hermes_home / "logs" / "gateway.log"
+    lines = _tail_gateway_log(log_path)
+    if not lines:
+        return {"ready": False, "reason": f"missing or unreadable gateway log: {log_path}", "log_path": str(log_path)}
+
+    discord_connected = ""
+    gateway_running = ""
+    last_lifecycle = ""
+    negative_markers = (
+        "stopping gateway",
+        "gateway stopped",
+        "[discord] disconnected",
+        "✓ discord disconnected",
+        "failed to connect",
+        "no connected messaging platforms remain",
+        "gateway failed to connect",
+        "all messaging platforms failed",
+        "shutting down gateway",
+        "fatal whatsapp adapter error",
+    )
+    running_re = re.compile(r"Gateway running with\s+([1-9][0-9]*)\s+platform")
+
+    for line in lines:
+        lowered = line.lower()
+        if any(marker in lowered for marker in negative_markers):
+            discord_connected = ""
+            gateway_running = ""
+            last_lifecycle = line
+            continue
+        if "[discord] connected as" in line or "✓ discord connected" in line:
+            discord_connected = line
+            last_lifecycle = line
+            continue
+        if running_re.search(line):
+            gateway_running = line
+            last_lifecycle = line
+
+    needs_discord = expect_discord
+    ready = bool(gateway_running and (discord_connected or not needs_discord))
+    reason = "ready" if ready else "gateway log has no complete post-shutdown ready marker"
+    if last_lifecycle and not ready:
+        reason = f"last lifecycle marker is not ready: {last_lifecycle}"
+    return {
+        "ready": ready,
+        "reason": reason,
+        "log_path": str(log_path),
+        "discord_connected_marker": discord_connected,
+        "gateway_running_marker": gateway_running,
+        "last_lifecycle_marker": last_lifecycle,
+    }
+
+
+def _check_discord_bot_identity(*, bot_token: str = "") -> dict[str, Any]:
+    token = bot_token or os.environ.get("DISCORD_BOT_TOKEN", "") or os.environ.get("DISCORD_TOKEN", "")
+    if not token:
+        return {"ok": False, "reason": "missing DISCORD_BOT_TOKEN"}
+    req = request.Request(
+        "https://discord.com/api/v10/users/@me",
+        headers={"Authorization": f"Bot {token}", "User-Agent": "jinwang-jarvis-health-check/0.1"},
+    )
+    try:
+        with request.urlopen(req, timeout=10) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+            if not isinstance(payload, dict):
+                return {"ok": False, "status": response.status, "reason": "unexpected Discord API response"}
+            username = str(payload.get("username", ""))
+            discriminator = str(payload.get("discriminator", ""))
+            return {
+                "ok": True,
+                "status": response.status,
+                "bot": f"{username}#{discriminator}" if discriminator else username,
+                "id": str(payload.get("id", "")),
+            }
+    except HTTPError as exc:
+        return {"ok": False, "status": exc.code, "reason": exc.reason}
+    except (URLError, TimeoutError, OSError) as exc:
+        return {"ok": False, "reason": str(exc)}
+
+
+def _evaluate_gateway_readiness(
+    config: PipelineConfig,
+    *,
+    hermes_home: Path,
+    discord_channel: str,
+    discord_api_check: bool,
+) -> tuple[bool, dict[str, Any], list[str]]:
+    channel = discord_channel or _discord_channel_from_config(config)
+    expect_discord = bool(channel or str(config.deliver_channel).startswith("discord"))
+    log_readiness = _gateway_log_readiness(hermes_home, expect_discord=expect_discord)
+    details: dict[str, Any] = {"gateway_log": log_readiness}
+    issues: list[str] = []
+    if not log_readiness.get("ready"):
+        issues.append(f"Hermes gateway is active but not Discord-ready: {log_readiness.get('reason')}")
+
+    if discord_api_check and expect_discord:
+        discord_api = _check_discord_bot_identity()
+        details["discord_api"] = discord_api
+        if not discord_api.get("ok"):
+            issues.append(f"Discord bot API check failed: {discord_api.get('reason') or discord_api.get('status')}")
+
+    return not issues, details, issues
+
+
+def _wait_for_gateway_readiness(
+    config: PipelineConfig,
+    *,
+    hermes_home: Path,
+    discord_channel: str,
+    discord_api_check: bool,
+    timeout_seconds: int,
+) -> tuple[bool, dict[str, Any], list[str]]:
+    deadline = time.monotonic() + max(0, timeout_seconds)
+    last_ready = False
+    last_details: dict[str, Any] = {}
+    last_issues: list[str] = []
+    while True:
+        last_ready, last_details, last_issues = _evaluate_gateway_readiness(
+            config,
+            hermes_home=hermes_home,
+            discord_channel=discord_channel,
+            discord_api_check=discord_api_check,
+        )
+        if last_ready or time.monotonic() >= deadline:
+            return last_ready, last_details, last_issues
+        time.sleep(min(2.0, max(0.1, deadline - time.monotonic())))
+
+
+def send_discord_bot_message(message: str, *, channel_id: str = "", bot_token: str = "") -> dict[str, Any]:
     channel_id = channel_id or os.environ.get("JARVIS_HEALTH_DISCORD_CHANNEL", "") or os.environ.get("DISCORD_HOME_CHANNEL", "")
     bot_token = bot_token or os.environ.get("DISCORD_BOT_TOKEN", "")
     if not channel_id or not bot_token:
@@ -301,18 +493,34 @@ def check_hermes_jarvis_health(
     restart: bool = False,
     discord_alert: bool = False,
     discord_channel: str = "",
-) -> dict:
+    readiness_timeout_seconds: int = DEFAULT_READINESS_TIMEOUT_SECONDS,
+    discord_api_check: bool = True,
+) -> dict[str, Any]:
     hermes_home = Path(os.environ.get("HERMES_HOME", str(Path.home() / ".hermes"))).expanduser()
     now = datetime.now(timezone.utc)
     issues: list[str] = []
     actions: list[str] = []
+    checks: dict[str, Any] = {}
 
     active_rc, active_state, active_err = _run_systemctl(["is-active", HERMES_GATEWAY_SERVICE_NAME])
     enabled_rc, enabled_state, enabled_err = _run_systemctl(["is-enabled", HERMES_GATEWAY_SERVICE_NAME])
+    gateway_properties = _run_systemctl_show(HERMES_GATEWAY_SERVICE_NAME)
+    checks["systemd"] = gateway_properties
     if active_rc != 0 or active_state != "active":
         issues.append(f"{HERMES_GATEWAY_SERVICE_NAME} is not active: {active_state or active_err or active_rc}")
     if enabled_rc != 0 or enabled_state != "enabled":
         issues.append(f"{HERMES_GATEWAY_SERVICE_NAME} is not enabled: {enabled_state or enabled_err or enabled_rc}")
+
+    if active_rc == 0 and active_state == "active":
+        _ready, readiness_checks, readiness_issues = _wait_for_gateway_readiness(
+            config,
+            hermes_home=hermes_home,
+            discord_channel=discord_channel,
+            discord_api_check=discord_api_check,
+            timeout_seconds=readiness_timeout_seconds,
+        )
+        checks.update(readiness_checks)
+        issues.extend(readiness_issues)
 
     jobs = _load_hermes_cron_jobs(hermes_home)
     enabled_jobs = [job for job in jobs if job.get("enabled", True) and job.get("state") != "paused"]
@@ -330,10 +538,31 @@ def check_hermes_jarvis_health(
     if stale_jobs:
         issues.append("Hermes cron appears stale: " + "; ".join(stale_jobs[:5]))
 
-    if restart and any(HERMES_GATEWAY_SERVICE_NAME in issue for issue in issues):
+    if restart and any(_is_gateway_runtime_issue(issue) for issue in issues):
         restart_rc, restart_out, restart_err = _run_systemctl(["restart", HERMES_GATEWAY_SERVICE_NAME])
         if restart_rc == 0:
             actions.append(f"restarted {HERMES_GATEWAY_SERVICE_NAME}")
+            active_rc, active_state, active_err = _wait_for_systemd_active(
+                HERMES_GATEWAY_SERVICE_NAME,
+                timeout_seconds=readiness_timeout_seconds,
+            )
+            gateway_properties = _run_systemctl_show(HERMES_GATEWAY_SERVICE_NAME)
+            checks["systemd"] = gateway_properties
+            if active_rc == 0 and active_state == "active":
+                issues = [issue for issue in issues if not issue.startswith(f"{HERMES_GATEWAY_SERVICE_NAME} is not active")]
+                _ready, readiness_checks, readiness_issues = _wait_for_gateway_readiness(
+                    config,
+                    hermes_home=hermes_home,
+                    discord_channel=discord_channel,
+                    discord_api_check=discord_api_check,
+                    timeout_seconds=readiness_timeout_seconds,
+                )
+                checks.update(readiness_checks)
+                issues = [issue for issue in issues if not issue.startswith("Hermes gateway is active but not Discord-ready")]
+                issues = [issue for issue in issues if not issue.startswith("Discord bot API check failed")]
+                issues.extend(issue for issue in readiness_issues if issue not in issues)
+            else:
+                issues.append(f"{HERMES_GATEWAY_SERVICE_NAME} is still not active after restart: {active_state or active_err or active_rc}")
         else:
             issues.append(f"restart failed: {restart_err or restart_out or restart_rc}")
 
@@ -345,6 +574,7 @@ def check_hermes_jarvis_health(
         "gateway_active": active_state,
         "gateway_enabled": enabled_state,
         "enabled_cron_jobs": len(enabled_jobs),
+        "checks": checks,
         "issues": issues,
         "actions": actions,
     }
@@ -367,7 +597,7 @@ def install_hermes_standby_units(
     enable: bool = True,
     install_gateway: bool = False,
     workspace_only: bool = False,
-) -> dict:
+) -> dict[str, Any]:
     unit_dir = Path.home() / ".config" / "systemd" / "user"
     workspace_unit_dir = config.workspace_root / "systemd"
     workspace_unit_dir.mkdir(parents=True, exist_ok=True)
@@ -409,7 +639,7 @@ def install_hermes_standby_units(
     }
 
 
-def install_systemd_user_units(config: PipelineConfig, *, poll_minutes: int = DEFAULT_POLL_MINUTES, enable: bool = True) -> dict:
+def install_systemd_user_units(config: PipelineConfig, *, poll_minutes: int = DEFAULT_POLL_MINUTES, enable: bool = True) -> dict[str, Any]:
     unit_dir = Path.home() / ".config" / "systemd" / "user"
     unit_dir.mkdir(parents=True, exist_ok=True)
     workspace_unit_dir = config.workspace_root / "systemd"

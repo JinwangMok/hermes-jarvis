@@ -37,6 +37,41 @@ reproducibility:
 """.format(root=root.as_posix(), sender_map=(root / 'sender-map.md').as_posix())
 
 
+def _write_hermes_health_files(hermes_home: Path, *, gateway_log: str) -> None:
+    (hermes_home / "logs").mkdir(parents=True)
+    (hermes_home / "cron").mkdir(parents=True)
+    (hermes_home / "logs" / "gateway.log").write_text(gateway_log, encoding="utf-8")
+    (hermes_home / "cron" / "jobs.json").write_text(
+        '{"jobs":[{"id":"daily","enabled":true,"next_run_at":"2999-01-01T00:00:00+00:00"}]}',
+        encoding="utf-8",
+    )
+
+
+def _fake_systemctl(calls: list[list[str]], *, on_restart=None):
+    def fake_run(cmd, check=False, text=True, capture_output=True):
+        calls.append(cmd)
+        class Result:
+            returncode = 0
+            stdout = ""
+            stderr = ""
+
+        result = Result()
+        if cmd[:2] != ["systemctl", "--user"]:
+            return result
+        action = cmd[2]
+        if action == "is-active":
+            result.stdout = "active"
+        elif action == "is-enabled":
+            result.stdout = "enabled"
+        elif action == "show":
+            result.stdout = "ActiveState=active\nSubState=running\nMainPID=123\nExecMainStatus=0"
+        elif action == "restart" and on_restart:
+            on_restart()
+        return result
+
+    return fake_run
+
+
 def test_cli_bootstrap_command_initializes_workspace(tmp_path: Path):
     config_file = tmp_path / "pipeline.yaml"
     (tmp_path / "sender-map.md").write_text("## Current members\n- Professor | 김종원(JongWon Kim) | jongwon@smartx.kr\n", encoding="utf-8")
@@ -185,6 +220,54 @@ def test_cli_run_cycle_and_install_systemd_commands(tmp_path: Path, monkeypatch)
     assert calls == []
     assert (tmp_path / "systemd" / "hermes-gateway.service").exists()
     assert (tmp_path / "systemd" / "jinwang-jarvis-hermes-health.timer").exists()
+
+
+def test_cli_hermes_health_check_restarts_until_discord_ready(tmp_path: Path, monkeypatch, capsys):
+    config_file = tmp_path / "pipeline.yaml"
+    (tmp_path / "sender-map.md").write_text("## Current members\n- Professor | 김종원(JongWon Kim) | jongwon@smartx.kr\n", encoding="utf-8")
+    config_file.write_text(_config_text(tmp_path).replace("deliver_channel: discord-origin", "deliver_channel: discord:1496014213276241922"), encoding="utf-8")
+    hermes_home = tmp_path / ".hermes"
+    gateway_log = hermes_home / "logs" / "gateway.log"
+    _write_hermes_health_files(
+        hermes_home,
+        gateway_log="""
+2026-04-30 13:52:04,945 INFO gateway.run: Stopping gateway for restart...
+2026-04-30 13:52:04,958 INFO gateway.platforms.discord: [Discord] Disconnected
+2026-04-30 13:52:05,089 INFO gateway.run: Gateway stopped
+""",
+    )
+    monkeypatch.setenv("HERMES_HOME", str(hermes_home))
+    calls: list[list[str]] = []
+
+    def mark_ready_after_restart():
+        gateway_log.write_text(
+            """
+2026-04-30 13:53:00,001 INFO gateway.run: Starting Hermes Gateway...
+2026-04-30 13:53:02,100 INFO gateway.platforms.discord: [Discord] Connected as BoramaeBot#9049
+2026-04-30 13:53:02,101 INFO gateway.run: ✓ discord connected
+2026-04-30 13:53:02,102 INFO gateway.run: Gateway running with 1 platform(s)
+""",
+            encoding="utf-8",
+        )
+
+    monkeypatch.setattr("jinwang_jarvis.runtime.subprocess.run", _fake_systemctl(calls, on_restart=mark_ready_after_restart))
+
+    exit_code = main([
+        "hermes-health-check",
+        "--config",
+        str(config_file),
+        "--restart",
+        "--readiness-timeout-seconds",
+        "0",
+        "--skip-discord-api-check",
+    ])
+    payload = json.loads(capsys.readouterr().out)
+
+    assert exit_code == 0
+    assert payload["status"] == "ok"
+    assert payload["actions"] == ["restarted hermes-gateway.service"]
+    assert payload["checks"]["gateway_log"]["ready"] is True
+    assert ["systemctl", "--user", "restart", "hermes-gateway.service"] in calls
 
 
 def test_cli_generate_proposals_and_record_feedback_commands_run_pipeline(tmp_path: Path):
