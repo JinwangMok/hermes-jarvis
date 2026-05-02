@@ -1,0 +1,325 @@
+[0m
+> ​Sisyphus - Ultraworker · gpt-5.5
+[0m
+ULTRAWORK MODE ENABLED!
+
+I detect implementation intent — the request explicitly asks to continue and complete the Hermes skill retrieval sidecar now. My approach: inspect only the relevant existing patterns and git state, implement the two new modules plus minimal CLI/tests/result.md, then run targeted verification without touching the protected dirty files.
+[0m# [0mTodos
+[ ] Acceptance: inspect relevant existing Hermes lifecycle, wiki_search FTS5, CLI, and tests without touching unrelated dirty files. QA: record protected files' git status before edits.
+[ ] Acceptance: implement src/jinwang_jarvis/hermes_skill_search.py with safe frontmatter parsing, secret redaction, SQLite FTS5/meta schema, content_hash incremental indexing, deterministic scored search dicts. QA: diagnostics/tests cover relevance, update, redaction, pinned boost, negative penalty.
+[ ] Acceptance: implement src/jinwang_jarvis/hermes_skill_context.py with budget-aware snippets containing name/path/score/purpose/triggers/tags/related. QA: context budget test passes.
+[ ] Acceptance: minimally extend src/jinwang_jarvis/cli.py with hermes-skill-search-index, hermes-skill-search, hermes-skill-context supporting requested flags and JSON/table/names-only where practical. QA: CLI JSON test passes.
+[ ] Acceptance: add tests/test_hermes_skill_search.py and tests/test_hermes_skill_context.py using tmp_path mock SKILL.md directories and existing fixture style. QA: targeted pytest passes.
+[ ] Acceptance: run lsp diagnostics/targeted tests, confirm protected dirty files unchanged, and write orchestration/2026-04-30-opencode-skill-retrieval/result.md with changed files, commands, outcomes, risks.
+[0m
+[0m• [0mAudit Hermes patterns[90m Explore Agent[0m
+[0m✓ [0mAudit Hermes patterns[90m Explore Agent[0m
+[0m→ [0mRead tests/test_hermes_skill_lifecycle.py[90m [offset=1, limit=260][0m
+[0m→ [0mRead src/jinwang_jarvis/wiki_search.py[90m [offset=1, limit=260][0m
+[0m→ [0mRead src/jinwang_jarvis/hermes_skill_lifecycle.py[90m [offset=1, limit=220][0m
+[0m→ [0mRead src/jinwang_jarvis/cli.py[90m [offset=1, limit=260][0m
+[0m
+[0m$ [0mexport CI=true DEBIAN_FRONTEND=noninteractive GIT_TERMINAL_PROMPT=0 GCM_INTERACTIVE=never HOMEBREW_NO_AUTO_UPDATE=1 GIT_EDITOR=: EDITOR=: VISUAL='' GIT_SEQUENCE_EDITOR=: GIT_MERGE_AUTOEDIT=no GIT_PAGER=cat PAGER=cat npm_config_yes=true PIP_NO_INPUT=1 YARN_ENABLE_IMMUTABLE_INSTALLS=false; git status --short --untracked-files=all
+M scripts/lint_daily_hot_issues_content.py
+ M src/jinwang_jarvis/unified_daily_report.py
+ M tests/test_daily_hot_issues_content_quality.py
+ M tests/test_unified_daily_report.py
+?? orchestration/2026-04-30-opencode-skill-retrieval/opencode-followup-1.log
+?? orchestration/2026-04-30-opencode-skill-retrieval/opencode.log
+?? orchestration/2026-04-30-opencode-skill-retrieval/prompt-followup-1.txt
+?? orchestration/2026-04-30-opencode-skill-retrieval/prompt.txt
+[0m
+[0m✱ [0mGlob "tests/test_*search*.py"[90m in tests[0m
+[0m✱ [0mGlob "src/jinwang_jarvis/*search*.py"[90m in src/jinwang_jarvis[0m
+[0m→ [0mRead pyproject.toml[90m [offset=1, limit=220][0m
+[0m→ [0mRead src/jinwang_jarvis/cli.py[90m [offset=261, limit=380][0m
+[0m→ [0mRead src/jinwang_jarvis/hermes_skill_lifecycle.py[90m [offset=221, limit=180][0m
+[0m⚙ [0mapply_patch Success. Updated the following files:
+A src/jinwang_jarvis/hermes_skill_search.py
+A src/jinwang_jarvis/hermes_skill_context.py
+Implemented the two new core modules in `src/jinwang_jarvis/`; next I’m wiring the CLI and tests, then I’ll run the requested targeted verification and artifact write-up.
+[0m⚙ [0mbackground_output explore - Audit Hermes patterns
+[0m
+[0m# [0mTodos
+[x] Acceptance: inspect relevant existing Hermes lifecycle, wiki_search FTS5, CLI, and tests without touching unrelated dirty files. QA: record protected files' git status before edits.
+[ ] Acceptance: implement src/jinwang_jarvis/hermes_skill_search.py with safe frontmatter parsing, secret redaction, SQLite FTS5/meta schema, content_hash incremental indexing, deterministic scored search dicts. QA: diagnostics/tests cover relevance, update, redaction, pinned boost, negative penalty.
+[ ] Acceptance: implement src/jinwang_jarvis/hermes_skill_context.py with budget-aware snippets containing name/path/score/purpose/triggers/tags/related. QA: context budget test passes.
+[ ] Acceptance: minimally extend src/jinwang_jarvis/cli.py with hermes-skill-search-index, hermes-skill-search, hermes-skill-context supporting requested flags and JSON/table/names-only where practical. QA: CLI JSON test passes.
+[ ] Acceptance: add tests/test_hermes_skill_search.py and tests/test_hermes_skill_context.py using tmp_path mock SKILL.md directories and existing fixture style. QA: targeted pytest passes.
+[ ] Acceptance: run lsp diagnostics/targeted tests, confirm protected dirty files unchanged, and write orchestration/2026-04-30-opencode-skill-retrieval/result.md with changed files, commands, outcomes, risks.
+[0m
+[0m⚙ [0mapply_patch Success. Updated the following files:
+M src/jinwang_jarvis/cli.py
+CLI wiring is now added in `src/jinwang_jarvis/cli.py` with the requested index/search/context commands; I’m adding tmp-path tests next to lock down the scoring and budget behavior.
+[0m⚙ [0mapply_patch Success. Updated the following files:
+A tests/test_hermes_skill_search.py
+A tests/test_hermes_skill_context.py
+Tests now cover relevance, incremental indexing, redaction, boost/penalty scoring, context budgeting, and CLI JSON paths; I’m running the targeted suite to catch real behavior issues.
+[0m
+[0m# [0mTodos
+[x] Acceptance: inspect relevant existing Hermes lifecycle, wiki_search FTS5, CLI, and tests without touching unrelated dirty files. QA: record protected files' git status before edits.
+[x] Acceptance: implement src/jinwang_jarvis/hermes_skill_search.py with safe frontmatter parsing, secret redaction, SQLite FTS5/meta schema, content_hash incremental indexing, deterministic scored search dicts. QA: diagnostics/tests cover relevance, update, redaction, pinned boost, negative penalty.
+[x] Acceptance: implement src/jinwang_jarvis/hermes_skill_context.py with budget-aware snippets containing name/path/score/purpose/triggers/tags/related. QA: context budget test passes.
+[x] Acceptance: minimally extend src/jinwang_jarvis/cli.py with hermes-skill-search-index, hermes-skill-search, hermes-skill-context supporting requested flags and JSON/table/names-only where practical. QA: CLI JSON test passes.
+[ ] Acceptance: add tests/test_hermes_skill_search.py and tests/test_hermes_skill_context.py using tmp_path mock SKILL.md directories and existing fixture style. QA: targeted pytest passes.
+[ ] Acceptance: run lsp diagnostics/targeted tests, confirm protected dirty files unchanged, and write orchestration/2026-04-30-opencode-skill-retrieval/result.md with changed files, commands, outcomes, risks.
+[0m
+[0m$ [0mexport CI=true DEBIAN_FRONTEND=noninteractive GIT_TERMINAL_PROMPT=0 GCM_INTERACTIVE=never HOMEBREW_NO_AUTO_UPDATE=1 GIT_EDITOR=: EDITOR=: VISUAL='' GIT_SEQUENCE_EDITOR=: GIT_MERGE_AUTOEDIT=no GIT_PAGER=cat PAGER=cat npm_config_yes=true PIP_NO_INPUT=1 YARN_ENABLE_IMMUTABLE_INSTALLS=false; PYTHONPATH=src pytest tests/test_hermes_skill_search.py tests/test_hermes_skill_context.py
+============================= test session starts ==============================
+platform linux -- Python 3.11.15, pytest-9.0.3, pluggy-1.6.0
+rootdir: /home/jinwang/workspace/jinwang-jarvis
+configfile: pyproject.toml
+plugins: anyio-4.13.0, xdist-3.8.0, asyncio-1.3.0
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collected 9 items
+
+tests/test_hermes_skill_search.py .F.....                                [ 77%]
+tests/test_hermes_skill_context.py ..                                    [100%]
+
+=================================== FAILURES ===================================
+_______________ test_incremental_update_reindexes_changed_skill ________________
+
+tmp_path = PosixPath('/tmp/pytest-of-jinwang/pytest-536/test_incremental_update_reinde0')
+
+    def test_incremental_update_reindexes_changed_skill(tmp_path: Path) -> None:
+        root = tmp_path / "skills"
+        skill = root / "retrieval"
+        _write_skill(skill, description="Search old wiki pages", tags=["wiki"], body="Find old wiki entries.")
+        db_path = tmp_path / "skills.sqlite"
+    
+        first = build_skill_search_index(db_path, skill_roots=[root])
+        second = build_skill_search_index(db_path, skill_roots=[root])
+>       _write_skill(skill, description="Search Hermes skills", tags=["hermes"], body="Find Hermes retrieval sidecar skills.")
+
+tests/test_hermes_skill_search.py:71: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/test_hermes_skill_search.py:22: in _write_skill
+    skill_dir.mkdir(parents=True)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = PosixPath('/tmp/pytest-of-jinwang/pytest-536/test_incremental_update_reinde0/skills/retrieval')
+mode = 511, parents = True, exist_ok = False
+
+    def mkdir(self, mode=0o777, parents=False, exist_ok=False):
+        """
+        Create a new directory at this given path.
+        """
+        try:
+>           os.mkdir(self, mode)
+E           FileExistsError: [Errno 17] File exists: '/tmp/pytest-of-jinwang/pytest-536/test_incremental_update_reinde0/skills/retrieval'
+
+../../.local/share/uv/python/cpython-3.11.15-linux-x86_64-gnu/lib/python3.11/pathlib.py:1116: FileExistsError
+=========================== short test summary info ============================
+FAILED tests/test_hermes_skill_search.py::test_incremental_update_reindexes_changed_skill - FileExistsError: [Errno 17] File exists: '/tmp/pytest-of-jinwang/pytest-536/test_incremental_update_reinde0/skills/retrieval'
+========================= 1 failed, 8 passed in 1.27s ==========================
+[0m
+The first targeted run found a test fixture bug, not an implementation failure: the helper rewrote an existing tmp skill without `exist_ok=True`; I’m fixing that and rerunning the same suite.
+[0m⚙ [0mapply_patch Success. Updated the following files:
+M tests/test_hermes_skill_search.py
+[0m
+[0m$ [0mexport CI=true DEBIAN_FRONTEND=noninteractive GIT_TERMINAL_PROMPT=0 GCM_INTERACTIVE=never HOMEBREW_NO_AUTO_UPDATE=1 GIT_EDITOR=: EDITOR=: VISUAL='' GIT_SEQUENCE_EDITOR=: GIT_MERGE_AUTOEDIT=no GIT_PAGER=cat PAGER=cat npm_config_yes=true PIP_NO_INPUT=1 YARN_ENABLE_IMMUTABLE_INSTALLS=false; PYTHONPATH=src pytest tests/test_hermes_skill_search.py tests/test_hermes_skill_context.py
+============================= test session starts ==============================
+platform linux -- Python 3.11.15, pytest-9.0.3, pluggy-1.6.0
+rootdir: /home/jinwang/workspace/jinwang-jarvis
+configfile: pyproject.toml
+plugins: anyio-4.13.0, xdist-3.8.0, asyncio-1.3.0
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collected 9 items
+
+tests/test_hermes_skill_search.py .......                                [ 77%]
+tests/test_hermes_skill_context.py ..                                    [100%]
+
+============================== 9 passed in 1.15s ===============================
+[0m
+[0m# [0mTodos
+[x] Acceptance: inspect relevant existing Hermes lifecycle, wiki_search FTS5, CLI, and tests without touching unrelated dirty files. QA: record protected files' git status before edits.
+[x] Acceptance: implement src/jinwang_jarvis/hermes_skill_search.py with safe frontmatter parsing, secret redaction, SQLite FTS5/meta schema, content_hash incremental indexing, deterministic scored search dicts. QA: diagnostics/tests cover relevance, update, redaction, pinned boost, negative penalty.
+[x] Acceptance: implement src/jinwang_jarvis/hermes_skill_context.py with budget-aware snippets containing name/path/score/purpose/triggers/tags/related. QA: context budget test passes.
+[x] Acceptance: minimally extend src/jinwang_jarvis/cli.py with hermes-skill-search-index, hermes-skill-search, hermes-skill-context supporting requested flags and JSON/table/names-only where practical. QA: CLI JSON test passes.
+[x] Acceptance: add tests/test_hermes_skill_search.py and tests/test_hermes_skill_context.py using tmp_path mock SKILL.md directories and existing fixture style. QA: targeted pytest passes.
+[ ] Acceptance: run lsp diagnostics/targeted tests, confirm protected dirty files unchanged, and write orchestration/2026-04-30-opencode-skill-retrieval/result.md with changed files, commands, outcomes, risks.
+[0m
+Targeted tests pass (`9 passed`); I’m doing the final diagnostics and a real CLI smoke test before writing `result.md`.
+[0m⚙ [0mlsp_diagnostics {"filePath":"/home/jinwang/workspace/jinwang-jarvis/tests/test_hermes_skill_search.py","severity":"all"}
+[0m⚙ [0mlsp_diagnostics {"filePath":"/home/jinwang/workspace/jinwang-jarvis/tests/test_hermes_skill_context.py","severity":"all"}
+[0m⚙ [0mlsp_diagnostics {"filePath":"/home/jinwang/workspace/jinwang-jarvis/src/jinwang_jarvis/hermes_skill_context.py","severity":"all"}
+[0m⚙ [0mlsp_diagnostics {"filePath":"/home/jinwang/workspace/jinwang-jarvis/src/jinwang_jarvis/hermes_skill_search.py","severity":"all"}
+[0m⚙ [0mlsp_diagnostics {"filePath":"/home/jinwang/workspace/jinwang-jarvis/src/jinwang_jarvis/cli.py","severity":"all"}
+[0m→ [0mRead src/jinwang_jarvis/hermes_skill_search.py[90m [offset=120, limit=30][0m
+[0m→ [0mRead src/jinwang_jarvis/hermes_skill_search.py[90m [offset=590, limit=35][0m
+[0m⚙ [0mapply_patch Success. Updated the following files:
+M src/jinwang_jarvis/hermes_skill_search.py
+[0m⚙ [0mlsp_diagnostics {"filePath":"/home/jinwang/workspace/jinwang-jarvis/src/jinwang_jarvis/hermes_skill_search.py","severity":"all"}
+[0m
+[0m$ [0mexport CI=true DEBIAN_FRONTEND=noninteractive GIT_TERMINAL_PROMPT=0 GCM_INTERACTIVE=never HOMEBREW_NO_AUTO_UPDATE=1 GIT_EDITOR=: EDITOR=: VISUAL='' GIT_SEQUENCE_EDITOR=: GIT_MERGE_AUTOEDIT=no GIT_PAGER=cat PAGER=cat npm_config_yes=true PIP_NO_INPUT=1 YARN_ENABLE_IMMUTABLE_INSTALLS=false; tmpdir=$(mktemp -d); mkdir -p "$tmpdir/skills/manual-cli"; python - "$tmpdir" <<'PY'
+from pathlib import Path
+import sys
+root = Path(sys.argv[1]) / 'skills' / 'manual-cli'
+(root / 'SKILL.md').write_text('''---\nname: manual-cli\ndescription: Manual CLI smoke search skill\ntriggers:\n  - smoke retrieval\ntags:\n  - hermes\nrelated:\n  - context\n---\n\n# manual-cli\n\nUse smoke retrieval for Hermes CLI manual QA.\n''', encoding='utf-8')
+PY
+PYTHONPATH=src python -m jinwang_jarvis.cli hermes-skill-search-index --db "$tmpdir/skills.sqlite" --skill-root "$tmpdir/skills"; PYTHONPATH=src python -m jinwang_jarvis.cli hermes-skill-search --db "$tmpdir/skills.sqlite" --query "smoke retrieval" --top-k 1 --format json; PYTHONPATH=src python -m jinwang_jarvis.cli hermes-skill-context --db "$tmpdir/skills.sqlite" --query "smoke retrieval" --budget 160 --format json
+{"ok": true, "database_path": "/tmp/tmp.da7lMd4KGG/skills.sqlite", "indexed_at": "2026-04-30T18:54:55.089948+00:00", "roots": [{"kind": "explicit", "path": "/tmp/tmp.da7lMd4KGG/skills"}], "counts": {"inserted": 1, "updated": 0, "skipped": 0, "deleted": 0, "errors": 0}, "errors": []}
+{"ok": true, "database_path": "/tmp/tmp.da7lMd4KGG/skills.sqlite", "query": "smoke retrieval", "top_k": 1, "include_archived": false, "rows": [{"rank": 1, "name": "manual-cli", "path": "/tmp/tmp.da7lMd4KGG/skills/manual-cli", "score": 12.000004, "bm25_rank": -4e-06, "purpose": "Manual CLI smoke search skill", "triggers": ["smoke retrieval"], "tags": ["hermes"], "related": ["context"], "pinned": false, "archived": false, "stale": false, "use_count": 0, "last_used_at": null, "negative_claim_count": 0, "snippet": "manual-cli Manual CLI smoke search skill smoke retrieval hermes context # manual-cli Use smoke retrieval for Hermes CLI manual QA."}]}
+{"ok": true, "database_path": "/tmp/tmp.da7lMd4KGG/skills.sqlite", "query": "smoke retrieval", "budget_tokens": 160, "estimated_tokens": 92, "top_k": 5, "snippets": [{"name": "manual-cli", "path": "/tmp/tmp.da7lMd4KGG/skills/manual-cli", "score": 12.000004, "purpose": "Manual CLI smoke search skill", "triggers": ["smoke retrieval"], "tags": ["hermes"], "related": ["context"], "snippet": "manual-cli Manual CLI smoke search skill smoke retrieval hermes context # manual-cli Use smoke retrieval for Hermes CLI manual QA."}], "context": "Hermes skill search context for query: smoke retrieval\n\n### manual-cli\nPath: /tmp/tmp.da7lMd4KGG/skills/manual-cli\nScore: 12.000004\nPurpose: Manual CLI smoke search skill\nTriggers: smoke retrieval\nTags: hermes\nRelated: context\nSnippet: manual-cli Manual CLI smoke search skill smoke retrieval hermes context # manual-cli Use smoke retrieval for Hermes CLI manual QA."}
+[0m
+Diagnostics are clean on the modified Python files, and the CLI smoke test produced real JSON for index/search/context; I’m rerunning the targeted pytest after the type cleanup, then I’ll write the run artifact.
+[0m$ [0mexport CI=true DEBIAN_FRONTEND=noninteractive GIT_TERMINAL_PROMPT=0 GCM_INTERACTIVE=never HOMEBREW_NO_AUTO_UPDATE=1 GIT_EDITOR=: EDITOR=: VISUAL='' GIT_SEQUENCE_EDITOR=: GIT_MERGE_AUTOEDIT=no GIT_PAGER=cat PAGER=cat npm_config_yes=true PIP_NO_INPUT=1 YARN_ENABLE_IMMUTABLE_INSTALLS=false; PYTHONPATH=src pytest tests/test_hermes_skill_search.py tests/test_hermes_skill_context.py
+============================= test session starts ==============================
+platform linux -- Python 3.11.15, pytest-9.0.3, pluggy-1.6.0
+rootdir: /home/jinwang/workspace/jinwang-jarvis
+configfile: pyproject.toml
+plugins: anyio-4.13.0, xdist-3.8.0, asyncio-1.3.0
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collected 9 items
+
+tests/test_hermes_skill_search.py .......                                [ 77%]
+tests/test_hermes_skill_context.py ..                                    [100%]
+
+============================== 9 passed in 1.09s ===============================
+[0m
+[0m$ [0mexport CI=true DEBIAN_FRONTEND=noninteractive GIT_TERMINAL_PROMPT=0 GCM_INTERACTIVE=never HOMEBREW_NO_AUTO_UPDATE=1 GIT_EDITOR=: EDITOR=: VISUAL='' GIT_SEQUENCE_EDITOR=: GIT_MERGE_AUTOEDIT=no GIT_PAGER=cat PAGER=cat npm_config_yes=true PIP_NO_INPUT=1 YARN_ENABLE_IMMUTABLE_INSTALLS=false; git status --short --untracked-files=all
+M scripts/lint_daily_hot_issues_content.py
+ M src/jinwang_jarvis/cli.py
+ M src/jinwang_jarvis/unified_daily_report.py
+ M tests/test_daily_hot_issues_content_quality.py
+ M tests/test_unified_daily_report.py
+?? orchestration/2026-04-30-opencode-skill-retrieval/opencode-followup-1.log
+?? orchestration/2026-04-30-opencode-skill-retrieval/opencode.log
+?? orchestration/2026-04-30-opencode-skill-retrieval/prompt-followup-1.txt
+?? orchestration/2026-04-30-opencode-skill-retrieval/prompt.txt
+?? src/jinwang_jarvis/hermes_skill_context.py
+?? src/jinwang_jarvis/hermes_skill_search.py
+?? tests/test_hermes_skill_context.py
+?? tests/test_hermes_skill_search.py
+[0m
+[0m→ [0mRead orchestration/2026-04-30-opencode-skill-retrieval[90m [offset=1, limit=80][0m
+[0m
+[0m$ [0mexport CI=true DEBIAN_FRONTEND=noninteractive GIT_TERMINAL_PROMPT=0 GCM_INTERACTIVE=never HOMEBREW_NO_AUTO_UPDATE=1 GIT_EDITOR=: EDITOR=: VISUAL='' GIT_SEQUENCE_EDITOR=: GIT_MERGE_AUTOEDIT=no GIT_PAGER=cat PAGER=cat npm_config_yes=true PIP_NO_INPUT=1 YARN_ENABLE_IMMUTABLE_INSTALLS=false; git diff -- src/jinwang_jarvis/cli.py src/jinwang_jarvis/hermes_skill_search.py src/jinwang_jarvis/hermes_skill_context.py tests/test_hermes_skill_search.py tests/test_hermes_skill_context.py
+diff --git a/src/jinwang_jarvis/cli.py b/src/jinwang_jarvis/cli.py
+index 37bcc52..f5b35f9 100644
+--- a/src/jinwang_jarvis/cli.py
++++ b/src/jinwang_jarvis/cli.py
+@@ -14,7 +14,9 @@ from .config import load_pipeline_config
+ from .digest import generate_digest
+ from .feedback import record_proposal_feedback
+ from .hermes_continuity import check_hermes_customizations
++from .hermes_skill_context import generate_skill_context
+ from .hermes_skill_lifecycle import audit_hermes_skill_lifecycle, record_skill_telemetry
++from .hermes_skill_search import DEFAULT_SKILL_SEARCH_DB, build_skill_search_index, search_skills
+ from .intelligence import collect_knowledge_mail, generate_daily_intelligence_report
+ from .knowledge import synthesize_knowledge
+ from .mail import build_fake_mail_runner, collect_mail_snapshots
+@@ -197,6 +199,26 @@ def build_parser() -> argparse.ArgumentParser:
+     lifecycle_parser.add_argument("--archive-after-days", type=int, default=90, help="Age threshold for archive candidates")
+     lifecycle_parser.add_argument("--negative-claim-ttl-days", type=int, default=14, help="TTL before old negative/environment-dependent claims need revalidation")
+ 
++    skill_search_index_parser = subparsers.add_parser("hermes-skill-search-index", help="Build the Jarvis-owned Hermes skill retrieval FTS sidecar")
++    skill_search_index_parser.add_argument("--db", default=str(DEFAULT_SKILL_SEARCH_DB), help="SQLite sidecar path")
++    skill_search_index_parser.add_argument("--hermes-home", default=str(Path.home() / ".hermes"), help="Hermes home directory")
++    skill_search_index_parser.add_argument("--hermes-config", default="", help="Hermes config.yaml path for skills.external_dirs")
++    skill_search_index_parser.add_argument("--skill-root", action="append", default=None, help="Explicit skill root to scan; repeatable and overrides defaults")
++
++    skill_search_parser = subparsers.add_parser("hermes-skill-search", help="Search the Jarvis-owned Hermes skill retrieval sidecar")
++    skill_search_parser.add_argument("--db", default=str(DEFAULT_SKILL_SEARCH_DB), help="SQLite sidecar path")
++    skill_search_parser.add_argument("--query", required=True, help="Skill search query")
++    skill_search_parser.add_argument("--top-k", type=int, default=5, help="Maximum result rows")
++    skill_search_parser.add_argument("--include-archived", action="store_true", help="Include archived skills with penalties")
++    skill_search_parser.add_argument("--format", choices=("json", "table", "names-only"), default="json", help="Output format")
++
++    skill_context_parser = subparsers.add_parser("hermes-skill-context", help="Generate budget-aware Hermes skill context snippets")
++    skill_context_parser.add_argument("--db", default=str(DEFAULT_SKILL_SEARCH_DB), help="SQLite sidecar path")
++    skill_context_parser.add_argument("--query", required=True, help="Skill search query")
++    skill_context_parser.add_argument("--top-k", type=int, default=5, help="Maximum result rows to consider")
++    skill_context_parser.add_argument("--budget", type=int, default=2000, help="Approximate token budget")
++    skill_context_parser.add_argument("--format", choices=("json", "table", "names-only"), default="json", help="Output format")
++
+     telemetry_parser = subparsers.add_parser("hermes-skill-telemetry", help="Record Jarvis-owned Hermes skill lifecycle telemetry without modifying Hermes source")
+     telemetry_subparsers = telemetry_parser.add_subparsers(dest="telemetry_command", required=True)
+     telemetry_record_parser = telemetry_subparsers.add_parser("record", help="Record a viewed/used/successful_apply/patched event for a skill")
+@@ -575,6 +597,38 @@ def main(argv: Sequence[str] | None = None) -> int:
+         print(json.dumps(result, ensure_ascii=False))
+         return 0 if result.get("ok") else 1
+ 
++    if args.command == "hermes-skill-search-index":
++        result = build_skill_search_index(
++            args.db,
++            hermes_home=args.hermes_home,
++            hermes_config_path=args.hermes_config or None,
++            skill_roots=args.skill_root,
++        )
++        print(json.dumps(result, ensure_ascii=False))
++        return 0 if result.get("ok") else 1
++
++    if args.command == "hermes-skill-search":
++        result = search_skills(args.db, args.query, top_k=args.top_k, include_archived=args.include_archived)
++        if args.format == "json":
++            print(json.dumps(result, ensure_ascii=False))
++        elif args.format == "names-only":
++            print("\n".join(str(row["name"]) for row in result.get("rows", [])))
++        else:
++            print("rank\tscore\tname\tpath")
++            for row in result.get("rows", []):
++                print(f"{row['rank']}\t{row['score']}\t{row['name']}\t{row['path']}")
++        return 0 if result.get("ok") else 1
++
++    if args.command == "hermes-skill-context":
++        result = generate_skill_context(args.db, args.query, budget_tokens=args.budget, top_k=args.top_k)
++        if args.format == "json":
++            print(json.dumps(result, ensure_ascii=False))
++        elif args.format == "names-only":
++            print("\n".join(str(row["name"]) for row in result.get("snippets", [])))
++        else:
++            print(result.get("context", ""))
++        return 0 if result.get("ok") else 1
++
+     if args.command == "hermes-skill-telemetry":
+         if args.pinned and args.unpinned:
+             parser.error("--pinned and --unpinned are mutually exclusive")
+[0m
+[0m⚙ [0mapply_patch Success. Updated the following files:
+A orchestration/2026-04-30-opencode-skill-retrieval/result.md
+`result.md` has been written with changed files, verification commands, outcomes, protected-file status, and remaining risks; I’m doing one final status/readback check so the completion claim is based on the artifact on disk.
+[0m
+[0m$ [0mexport CI=true DEBIAN_FRONTEND=noninteractive GIT_TERMINAL_PROMPT=0 GCM_INTERACTIVE=never HOMEBREW_NO_AUTO_UPDATE=1 GIT_EDITOR=: EDITOR=: VISUAL='' GIT_SEQUENCE_EDITOR=: GIT_MERGE_AUTOEDIT=no GIT_PAGER=cat PAGER=cat npm_config_yes=true PIP_NO_INPUT=1 YARN_ENABLE_IMMUTABLE_INSTALLS=false; git status --short --untracked-files=all
+M scripts/lint_daily_hot_issues_content.py
+ M src/jinwang_jarvis/cli.py
+ M src/jinwang_jarvis/unified_daily_report.py
+ M tests/test_daily_hot_issues_content_quality.py
+ M tests/test_unified_daily_report.py
+?? orchestration/2026-04-30-opencode-skill-retrieval/opencode-followup-1.log
+?? orchestration/2026-04-30-opencode-skill-retrieval/opencode.log
+?? orchestration/2026-04-30-opencode-skill-retrieval/prompt-followup-1.txt
+?? orchestration/2026-04-30-opencode-skill-retrieval/prompt.txt
+?? orchestration/2026-04-30-opencode-skill-retrieval/result.md
+?? src/jinwang_jarvis/hermes_skill_context.py
+?? src/jinwang_jarvis/hermes_skill_search.py
+?? tests/test_hermes_skill_context.py
+?? tests/test_hermes_skill_search.py
+[0m
+[0m→ [0mRead orchestration/2026-04-30-opencode-skill-retrieval/result.md[90m [offset=1, limit=140][0m
+[0m
+[0m# [0mTodos
+[x] Acceptance: inspect relevant existing Hermes lifecycle, wiki_search FTS5, CLI, and tests without touching unrelated dirty files. QA: record protected files' git status before edits.
+[x] Acceptance: implement src/jinwang_jarvis/hermes_skill_search.py with safe frontmatter parsing, secret redaction, SQLite FTS5/meta schema, content_hash incremental indexing, deterministic scored search dicts. QA: diagnostics/tests cover relevance, update, redaction, pinned boost, negative penalty.
+[x] Acceptance: implement src/jinwang_jarvis/hermes_skill_context.py with budget-aware snippets containing name/path/score/purpose/triggers/tags/related. QA: context budget test passes.
+[x] Acceptance: minimally extend src/jinwang_jarvis/cli.py with hermes-skill-search-index, hermes-skill-search, hermes-skill-context supporting requested flags and JSON/table/names-only where practical. QA: CLI JSON test passes.
+[x] Acceptance: add tests/test_hermes_skill_search.py and tests/test_hermes_skill_context.py using tmp_path mock SKILL.md directories and existing fixture style. QA: targeted pytest passes.
+[x] Acceptance: run lsp diagnostics/targeted tests, confirm protected dirty files unchanged, and write orchestration/2026-04-30-opencode-skill-retrieval/result.md with changed files, commands, outcomes, risks.
+[0m
+Implemented the Hermes skill retrieval sidecar and wrote `orchestration/2026-04-30-opencode-skill-retrieval/result.md`.
+
+Changed:
+- Added `hermes_skill_search.py`
+- Added `hermes_skill_context.py`
+- Extended `cli.py` with:
+  - `hermes-skill-search-index`
+  - `hermes-skill-search`
+  - `hermes-skill-context`
+- Added targeted tests for indexing, search scoring, redaction, context budgeting, and CLI JSON.
+
+Verified:
+- `PYTHONPATH=src pytest tests/test_hermes_skill_search.py tests/test_hermes_skill_context.py` → `9 passed`
+- LSP diagnostics clean on modified Python files
+- Manual CLI smoke test succeeded for index/search/context JSON output
+
+Protected dirty files remained untouched, and nothing under `/home/jinwang/.hermes/hermes-agent` was modified.

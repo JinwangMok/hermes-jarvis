@@ -1,0 +1,42 @@
+/ulw Continue the prior Jarvis Hermes skill retrieval sidecar implementation, but complete synchronously in this process. The previous run only explored and exited after "Waiting for background exploration before edits"; no result.md exists. Do NOT wait for background agents. Do the implementation directly now.
+
+Workdir: /home/jinwang/workspace/jinwang-jarvis
+Run artifact dir: /home/jinwang/workspace/jinwang-jarvis/orchestration/2026-04-30-opencode-skill-retrieval
+
+Hard constraints:
+- Do NOT modify /home/jinwang/.hermes/hermes-agent.
+- Do NOT restart gateway, touch credentials, or edit unrelated dirty files.
+- Existing unrelated dirty files to avoid: scripts/lint_daily_hot_issues_content.py, src/jinwang_jarvis/unified_daily_report.py, tests/test_daily_hot_issues_content_quality.py, tests/test_unified_daily_report.py.
+- Required dependencies only: stdlib sqlite3 + existing PyYAML/requests.
+- Prefer new files plus minimal src/jinwang_jarvis/cli.py additions.
+
+Implement in this run:
+1. src/jinwang_jarvis/hermes_skill_search.py
+   - scan skill roots: ~/.hermes/skills plus external_dirs from Hermes config if passed; tests can pass explicit roots.
+   - parse SKILL.md YAML frontmatter safely; fallback to dirname.
+   - redact obvious secrets before storing/indexing.
+   - SQLite DB with FTS5 table and meta table; if FTS5 unavailable return/raise clear error in tests.
+   - content_hash incremental indexing.
+   - search_skills(db_path, query, top_k=5, include_archived=False) with composite scoring: BM25 base, name/tag/trigger/related overlap, use_count/last_used recency, pinned boost, archive/stale/negative penalty.
+   - deterministic JSON-serializable result dataclass/dicts.
+2. src/jinwang_jarvis/hermes_skill_context.py
+   - generate_skill_context(db_path, query, budget_tokens=2000, top_k=5) with snippets name/path/score/purpose/triggers/tags/related.
+   - rough token estimate; stay within budget by dropping/truncating lower-priority snippets.
+3. src/jinwang_jarvis/cli.py
+   - add hermes-skill-search-index, hermes-skill-search, hermes-skill-context.
+   - support --db, --hermes-home, --hermes-config, --skill-root repeated or default root, --query, --top-k, --budget, --format json|table|names-only where practical.
+4. tests
+   - add tests/test_hermes_skill_search.py and tests/test_hermes_skill_context.py; CLI tests can be included in same file.
+   - Use tmp_path mock SKILL.md directories.
+   - Cover index/search relevance, incremental update, secret redaction, pinned boost, negative claim penalty, context budget, CLI JSON.
+5. Verification
+   - Run targeted pytest for new tests.
+   - Ensure unrelated dirty files unchanged.
+   - Write result.md in the run artifact dir with changed files, commands run, test outcomes, and remaining risks.
+
+Use existing patterns:
+- tests/test_hermes_skill_lifecycle.py for fixture style.
+- src/jinwang_jarvis/hermes_skill_lifecycle.py for skill root/telemetry conventions.
+- src/jinwang_jarvis/wiki_search.py for FTS5 pattern.
+
+Definition of done: targeted tests pass and result.md exists. If blocked, still write result.md with precise blocker evidence.

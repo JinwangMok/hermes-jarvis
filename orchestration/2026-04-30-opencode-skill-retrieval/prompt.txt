@@ -1,0 +1,48 @@
+/ulw Implement Jarvis-owned Hermes skill retrieval sidecar, following the plan below. You are an implementation worker; Boramae is the controller. Work in /home/jinwang/workspace/jinwang-jarvis only.
+
+Repository constraints:
+- DO NOT modify Hermes core at /home/jinwang/.hermes/hermes-agent.
+- Preserve source-untouched / two-component model: Hermes calls Jarvis sidecar/CLI; Jarvis owns index, telemetry, state, CLI.
+- Do NOT restart Hermes gateway or touch credentials.
+- Existing dirty files are unrelated and must NOT be edited: scripts/lint_daily_hot_issues_content.py, src/jinwang_jarvis/unified_daily_report.py, tests/test_daily_hot_issues_content_quality.py, tests/test_unified_daily_report.py.
+- Prefer new files and minimal cli.py additions.
+- Use stdlib sqlite3 + existing PyYAML only. No new required dependencies.
+- State DB should live under state/hermes-skill-search.db by default and be runtime artifact.
+
+Implement target scope for this run:
+1) Phase 1 core search/index:
+   - Create src/jinwang_jarvis/hermes_skill_search.py.
+   - Scan Hermes skills under ~/.hermes/skills and skills.external_dirs from config, reusing/compatible with hermes_skill_lifecycle patterns when reasonable.
+   - Parse SKILL.md frontmatter safely with PyYAML; fallback to directory name.
+   - Redact obvious secrets before indexing.
+   - Build SQLite FTS5 index plus meta table.
+   - Support incremental indexing via content_hash.
+   - Search with FTS5 BM25 and composite scoring: exact name/tag/trigger/related overlap, source kind, usage telemetry, pinned boost, archived/stale/negative-claim penalty.
+2) Phase 2 context/CLI:
+   - Create src/jinwang_jarvis/hermes_skill_context.py.
+   - Generate token-budget-aware snippets for top-k skills.
+   - Add CLI commands to src/jinwang_jarvis/cli.py:
+     * hermes-skill-search-index
+     * hermes-skill-search
+     * hermes-skill-context
+   - JSON output should be deterministic and secret-safe.
+3) Tests:
+   - Add tests/test_hermes_skill_search.py and tests/test_hermes_skill_context.py, plus CLI tests if feasible.
+   - Use temp dirs/mock SKILL.md fixtures in tests; do not depend on real ~/.hermes.
+   - Cover: index creation, search relevance, incremental skip/update, secret redaction, pinned boost, negative claim penalty, context budget, CLI JSON output.
+4) Verification:
+   - Run targeted tests you add.
+   - Run at least pytest for affected tests; full suite if time permits.
+   - Write a concise result artifact to this exact file: /home/jinwang/workspace/jinwang-jarvis/orchestration/2026-04-30-opencode-skill-retrieval/result.md
+
+Important implementation hints:
+- Existing src/jinwang_jarvis/hermes_skill_lifecycle.py contains _iter_skill_dirs, _skill_name, _load_telemetry, _skill_roots, negative-claim logic and telemetry shape. You may import non-public helpers if quickest, or duplicate small safe utilities if cleaner.
+- Existing src/jinwang_jarvis/wiki_search.py shows sqlite FTS5 style.
+- Existing tests/test_hermes_skill_lifecycle.py shows project testing style.
+- pyproject currently only depends on PyYAML and requests.
+
+Definition of done:
+- New CLI commands work on mock/temp input through tests.
+- Targeted tests pass.
+- Existing dirty files remain untouched.
+- result.md lists changed files, commands run, tests passed/failed, and remaining risks.

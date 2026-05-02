@@ -1,0 +1,71 @@
+/ulw Continue the Jarvis-owned Hermes skill retrieval sidecar work. Complete Phase 3 and Phase 4 with tests, assess Phase 5 without adding heavy dependencies unless strictly needed, and write Phase 6 notes/artifact.
+
+Repository: /home/jinwang/workspace/jinwang-jarvis
+Run directory: /home/jinwang/workspace/jinwang-jarvis/orchestration/2026-04-30-opencode-skill-retrieval
+
+Hard constraints:
+- Modify ONLY Jarvis repo files. Do NOT modify Hermes core, ~/.hermes skills, raw wiki, or gateway config.
+- Do NOT restart or stop Hermes gateway.
+- Do NOT expose secrets. If a secret-like value appears, redact as [REDACTED].
+- Preserve unrelated existing dirty files. Do NOT touch these paths unless unavoidable, and if touched explain why:
+  - scripts/lint_daily_hot_issues_content.py
+  - src/jinwang_jarvis/unified_daily_report.py
+  - tests/test_daily_hot_issues_content_quality.py
+  - tests/test_unified_daily_report.py
+- Existing Phase 1-2 files are available:
+  - src/jinwang_jarvis/hermes_skill_search.py
+  - src/jinwang_jarvis/hermes_skill_context.py
+  - tests/test_hermes_skill_search.py
+  - tests/test_hermes_skill_context.py
+  - src/jinwang_jarvis/cli.py has hermes-skill-search-index/search/context commands.
+- Existing lifecycle/telemetry file:
+  - src/jinwang_jarvis/hermes_skill_lifecycle.py
+  - tests/test_hermes_skill_lifecycle.py
+- Work synchronously in this process. Do NOT stop after planning or waiting for background agents. Do the implementation now.
+
+Phase 3 requirements: connect existing Jarvis skill telemetry and search logs
+1. Inspect hermes_skill_lifecycle.py and current search module.
+2. Add support for Jarvis central telemetry state, likely state/hermes-skill-usage.json, to skill indexing/ranking without requiring writes to Hermes skill directories.
+   - Keep backward compatibility with per-skill .usage.json if already implemented.
+   - Make the telemetry path configurable in Python API and CLI index command.
+   - Usage should influence ranking deterministically but not overwhelm lexical relevance.
+3. Add search logging that records query, top_k, returned skill names, timestamp, and optionally selected/clicked skill if provided.
+   - Default path should be Jarvis-owned local state such as state/hermes-skill-search-log.jsonl.
+   - Logging must be opt-in or controlled by CLI flags/API parameters so tests are deterministic.
+   - Never log full secret-bearing skill bodies.
+4. Add CLI flags for telemetry path and search log path where appropriate.
+
+Phase 4 requirements: gold query eval harness
+1. Add a small gold query fixture under tests/fixtures or data with expected relevant skill names for queries such as:
+   - source untouched jarvis -> jinwang-jarvis, hermes-jinwang-customization
+   - opencode tmux ulw -> opencode, jinwang-opencode-tmux-team
+   - hermes jinwang customization -> hermes-jinwang-customization
+   - skill retrieval context budget -> hermes-agent or jinwang-jarvis or relevant retrieval-sidecar fixture skills if using isolated tests
+2. Implement Python API and/or CLI command for evaluation returning Recall@K and MRR@K.
+   - It must be runnable against a temporary test corpus and, optionally, the real corpus.
+   - Add tests that fail if exact-name/path boosts regress obvious expected results.
+3. Improve ranking if needed so exact skill name/path/token matches are not buried. Especially ensure an isolated or real-corpus smoke for query 'hermes jinwang customization' ranks hermes-jinwang-customization in top results.
+
+Phase 5 requirement:
+- Assess if optional embedding reranker is needed after lexical eval. Do NOT add heavy external dependencies unless eval clearly fails and a tiny optional interface is warranted.
+- If not implemented, write the rationale in result.md and/or a small design note.
+
+Phase 6 requirement:
+- Add a concise implementation note or result section describing how this can later be exposed as MCP/custom tool or upstream PR candidate while preserving source-untouched mode.
+- Do not implement actual MCP server unless it is tiny and fully tested; prefer design note if scope grows.
+
+Verification requirements:
+- Add/adjust tests for telemetry merge, search logging, eval metrics, and ranking regression.
+- Run targeted tests:
+  PYTHONPATH=src pytest tests/test_hermes_skill_search.py tests/test_hermes_skill_context.py tests/test_hermes_skill_lifecycle.py -q
+- Run full suite if feasible:
+  PYTHONPATH=src pytest -q
+- Run a real-corpus smoke against /home/jinwang/.hermes/skills if available, using a temp DB, without mutating skill dirs.
+
+Final artifact:
+- Update /home/jinwang/workspace/jinwang-jarvis/orchestration/2026-04-30-opencode-skill-retrieval/result-phase3-6.md with:
+  - files changed
+  - what Phase 3/4/5/6 completed or deferred
+  - commands run and exact test results
+  - smoke results for key queries
+  - risks/remaining work

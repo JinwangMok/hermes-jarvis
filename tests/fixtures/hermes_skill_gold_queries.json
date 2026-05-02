@@ -1,0 +1,20 @@
+{
+  "queries": [
+    {
+      "query": "source untouched jarvis",
+      "expected_skill_names": ["jinwang-jarvis", "hermes-jinwang-customization"]
+    },
+    {
+      "query": "opencode tmux ulw",
+      "expected_skill_names": ["opencode", "jinwang-opencode-tmux-team"]
+    },
+    {
+      "query": "hermes jinwang customization",
+      "expected_skill_names": ["hermes-jinwang-customization"]
+    },
+    {
+      "query": "skill retrieval context budget",
+      "expected_skill_names": ["jinwang-jarvis", "hermes-agent"]
+    }
+  ]
+}

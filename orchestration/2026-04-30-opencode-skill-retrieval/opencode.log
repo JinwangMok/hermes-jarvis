@@ -1,0 +1,42 @@
+[0m
+> ​Sisyphus - Ultraworker · gpt-5.5
+[0m
+ULTRAWORK MODE ENABLED!
+[0m→ [0mSkill "omc-reference"
+I detect implementation intent - the request explicitly asks to implement a scoped sidecar, CLI, tests, and result artifact. My approach: parallel codebase/reference exploration → minimal implementation in new files plus small CLI additions → targeted verification → write the requested artifact.
+[0m
+[0m# [0mTodos
+[ ] Explore existing Hermes lifecycle, wiki search, CLI, and test patterns; QA: identify exact reusable patterns without touching unrelated dirty files
+[ ] Implement hermes_skill_search.py with skill discovery, redaction, SQLite FTS5 index, incremental hashes, deterministic search scoring, and JSON-safe models; QA: unit tests cover index/search/incremental/redaction/scoring
+[ ] Implement hermes_skill_context.py with token-budget-aware top-k snippets; QA: context tests cover budget enforcement and secret-safe output
+[ ] Add minimal CLI commands hermes-skill-search-index, hermes-skill-search, hermes-skill-context; QA: CLI JSON tests use temp fixtures and deterministic output
+[ ] Run targeted diagnostics/tests and fix only issues caused by this change; QA: lsp/pytest evidence collected
+[ ] Write orchestration/2026-04-30-opencode-skill-retrieval/result.md with changed files, commands, test outcomes, and remaining risks; QA: artifact exists at exact requested path
+[0m
+[0m• [0mMap Hermes lifecycle patterns[90m Explore Agent[0m
+[0m• [0mMap CLI test patterns[90m Explore Agent[0m
+[0m• [0mResearch sqlite FTS patterns[90m Librarian Agent[0m
+[0m✱ [0mGrep "def main\(|argparse|subparsers|add_parser|json\.dumps|CliRunner|capsys"[90m in tests[0m
+[0m⚙ [0mast_grep_search {"pattern":"subparsers.add_parser($$$ARGS)","lang":"python","paths":["/home/jinwang/workspace/jinwang-jarvis/src/jinwang_jarvis/cli.py"],"globs":["*.py"],"context":2}
+[0m✓ [0mMap Hermes lifecycle patterns[90m Explore Agent[0m
+[0m✓ [0mMap CLI test patterns[90m Explore Agent[0m
+[0m✓ [0mResearch sqlite FTS patterns[90m Librarian Agent[0m
+[0m
+[0m$ [0mexport CI=true DEBIAN_FRONTEND=noninteractive GIT_TERMINAL_PROMPT=0 GCM_INTERACTIVE=never HOMEBREW_NO_AUTO_UPDATE=1 GIT_EDITOR=: EDITOR=: VISUAL='' GIT_SEQUENCE_EDITOR=: GIT_MERGE_AUTOEDIT=no GIT_PAGER=cat PAGER=cat npm_config_yes=true PIP_NO_INPUT=1 YARN_ENABLE_IMMUTABLE_INSTALLS=false; git status --short
+M scripts/lint_daily_hot_issues_content.py
+ M src/jinwang_jarvis/unified_daily_report.py
+ M tests/test_daily_hot_issues_content_quality.py
+ M tests/test_unified_daily_report.py
+?? orchestration/2026-04-30-opencode-skill-retrieval/
+[0m
+[0m→ [0mRead tests/test_hermes_skill_lifecycle.py[90m [offset=1, limit=260][0m
+[0m→ [0mRead src/jinwang_jarvis/hermes_skill_lifecycle.py[90m [offset=1, limit=240][0m
+[0m→ [0mRead src/jinwang_jarvis/cli.py[90m [offset=1, limit=260][0m
+[0m→ [0mRead src/jinwang_jarvis/wiki_search.py[90m [offset=1, limit=240][0m
+[0m✱ [0mGrep "sqlite3|CREATE VIRTUAL TABLE|bm25\(|MATCH \?|FTS5|ensure_search_indexes|row_factory"[90m in src/jinwang_jarvis[0m
+[0m✱ [0mGrep "hermes-skill|_negative_claims|_load_telemetry|_iter_skill_dirs|external_dirs"[90m in src/jinwang_jarvis[0m
+[0m→ [0mRead pyproject.toml[90m [offset=1, limit=220][0m
+[0m→ [0mRead tests/test_cli.py[90m [offset=70, limit=75][0m
+[0m→ [0mRead src/jinwang_jarvis/cli.py[90m [offset=240, limit=420][0m
+[0m→ [0mRead src/jinwang_jarvis/hermes_skill_lifecycle.py[90m [offset=241, limit=160][0m
+Waiting for background exploration before edits, per the implementation gate.
