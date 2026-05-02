@@ -100,6 +100,28 @@ def test_compose_unified_daily_report_hides_visible_raw_urls_in_body_text() -> N
     assert validate_unified_daily_report(report.markdown) == []
 
 
+def test_compose_unified_daily_report_strips_html_and_raw_urls_from_fallback_hot_issue_summary() -> None:
+    hot = """# 오늘의 핫이슈
+
+## 주요 이슈
+
+### shooting podcast with <a href=\"https://nitter.net/JqOnly\">@JqOnly</a>
+<p>recording with <a href=\"https://nitter.net/JqOnly\" title=\"JQ Lee\">@JqOnly</a></p>
+정량 신호: 관측 총 1건
+<img src=\"https://nitter.net/pic/media.jpg\">
+"""
+    report = compose_unified_daily_report(report_date="2026-04-30", hot_issue_markdown=hot, news_items=[], opportunity_candidates=[])
+    visible_text = _markdown_visible_text(report.markdown)
+    main_issue = report.markdown.split("## 주요 이슈", 1)[1].split("## 개인 기회/공고 검토", 1)[0]
+
+    assert "<a" not in main_issue
+    assert "<img" not in main_issue
+    assert "정량 신호" not in main_issue
+    assert "정량 지표" in main_issue
+    assert "https://" not in visible_text
+    assert "[원문 링크](https://nitter.net/JqOnly)" in report.markdown
+
+
 def test_opportunity_candidates_are_gated_inside_unified_report_only() -> None:
     unqualified = OpportunityCandidate(
         title="IRIS AI 기반 대학 과학기술 혁신사업 후보",

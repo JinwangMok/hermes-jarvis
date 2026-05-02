@@ -98,8 +98,10 @@ def lint_text(text: str) -> list[str]:
         url_count = len(re.findall(r"https?://", block))
         if url_count < MIN_SOURCE_URLS and "신청 가능한 공고 없음" not in block:
             errors.append(f"issue '{title}' has no external source URL in the card")
-        if OPPORTUNITY_PATTERN.search(title) or OPPORTUNITY_PATTERN.search(block):
-            # Generic homepages are not enough when a report may imply a policy/R&D/life opportunity.
+        if section == "주요 이슈" and (OPPORTUNITY_PATTERN.search(title) or OPPORTUNITY_PATTERN.search(block)):
+            # Generic homepages are not enough when a main issue card may imply a policy/R&D/life opportunity.
+            # Category news briefs can naturally contain words like "접수" or "신청" without being user-actionable
+            # opportunity recommendations, so do not apply the opportunity evidence contract there.
             if re.search(r"https?://(?:www\.)?(?:iris\.go\.kr|bokjiro\.go\.kr)/?\s*[,.)]?", block):
                 errors.append(f"issue '{title}' opportunity evidence is only a generic homepage; include a direct notice/detail URL or mark as not verified")
             for pattern, label in OPPORTUNITY_REQUIRED_TERMS:

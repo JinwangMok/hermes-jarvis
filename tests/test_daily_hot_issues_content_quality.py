@@ -163,3 +163,29 @@ def test_daily_hot_issues_linter_stops_issue_card_at_next_h2_section():
   - 보류 사유: 상세 공식 URL, 접수기간/마감, 지원대상/자격, 지원내용
 """
     assert linter.lint_text(md) == []
+
+
+def test_daily_hot_issues_linter_does_not_apply_opportunity_contract_to_news_category_briefs():
+    md = """# 오늘의 핫이슈
+
+## 주요 이슈
+
+### OpenAI, 에이전트 권한 정책 공개
+- 출처 성격: 공식 블로그.
+- 확인된 사실: OpenAI가 에이전트 권한 관리와 검토 흐름을 공개했다.
+- 왜 중요한가: 자동화 도구의 권한 경계 설계에 참고가 된다.
+- 오늘 할 일: 공식 원문에서 권한 검토 절차를 확인한다.
+- 근거: https://example.com/openai-policy, 2026-04-30 확인.
+- 불확실성: 실제 제품별 적용 범위는 추가 확인이 필요하다.
+
+## 뉴스 카테고리별 브리핑
+
+### 정치
+- 출처 성격: 보도.
+- 확인된 사실: 보궐선거 접수 마감 관련 보도가 수집됐습니다.
+- 왜 중요한가: 정치 분야 흐름을 원문 기준으로 확인하기 위한 브리핑입니다.
+- 오늘 할 일: Naver News 원문을 열어 발표 주체, 날짜, 후속 조치를 확인합니다.
+- 근거: naver-news / https://n.news.naver.com/example / 2026-04-30
+- 불확실성: 제목만으로 사실관계나 영향 범위를 단정하지 않습니다.
+"""
+    assert linter.lint_text(md) == []

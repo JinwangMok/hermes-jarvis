@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import html
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -24,7 +25,7 @@ REQUIRED_CATEGORY_ORDER = (
     ("entertainment", "예능"),
 )
 REQUIRED_ISSUE_FIELDS = ("출처 성격", "확인된 사실", "왜 중요한가", "오늘 할 일", "근거", "불확실성")
-URL_PATTERN = re.compile(r"https?://[^\s<>\]]+")
+URL_PATTERN = re.compile(r"https?://[^\s<>\]\)\"']+")
 URL_TRAILING_PUNCTUATION = ".,;:)]}，。"
 
 
@@ -48,6 +49,17 @@ class UnifiedDailyReport:
 
 def _safe_text(value: object, fallback: str = "확인 필요") -> str:
     text = re.sub(r"\s+", " ", str(value or "")).strip()
+    return text or fallback
+
+
+def _reader_text(value: object, fallback: str = "확인 필요") -> str:
+    """Return reader-facing prose with raw HTML/URLs stripped from source snippets."""
+    text = html.unescape(str(value or ""))
+    text = re.sub(r"<[^>]+>", " ", text)
+    text = re.sub(r"\[[^\]]+\]\((https?://[^\)]+)\)", lambda m: m.group(0).split("]", 1)[0].lstrip("["), text)
+    text = URL_PATTERN.sub(" ", text)
+    text = text.replace("신호", "지표")
+    text = re.sub(r"\s+", " ", text).strip()
     return text or fallback
 
 
@@ -90,7 +102,7 @@ def _format_official_url(url: str) -> str:
 
 
 def _first_url(text: str) -> str:
-    match = re.search(r"https?://\S+", text)
+    match = URL_PATTERN.search(text)
     return match.group(0).rstrip(".,)") if match else "https://news.google.com/"
 
 
@@ -109,7 +121,7 @@ def _extract_issue_cards(hot_issue_markdown: str, report_date: str) -> list[list
     matches = list(re.finditer(r"^###\s+(.+)$", hot_issue_markdown, flags=re.M))
     cards: list[list[str]] = []
     for index, match in enumerate(matches[:6]):
-        title = re.sub(r"^\d{1,2}\s*[.)]\s+", "", match.group(1)).strip()
+        title = _reader_text(re.sub(r"^\d{1,2}\s*[.)]\s+", "", match.group(1)).strip())
         start = match.end()
         end = matches[index + 1].start() if index + 1 < len(matches) else len(hot_issue_markdown)
         block = hot_issue_markdown[start:end].strip()
@@ -117,7 +129,8 @@ def _extract_issue_cards(hot_issue_markdown: str, report_date: str) -> list[list
         if all(field in block for field in REQUIRED_ISSUE_FIELDS):
             cards.extend([[f"### {title}"], [_label_visible_urls(line) for line in block.splitlines()], [""]])
             continue
-        summary = _safe_text(re.sub(r"[*_`#>-]", " ", block), "기존 핫이슈 산출물에 제목 중심 항목만 있어 세부 사실은 원문 확인이 필요합니다.")[:220]
+        summary = _reader_text(block, "기존 핫이슈 산출물에 제목 중심 항목만 있어 세부 사실은 원문 확인이 필요합니다.")
+        summary = _safe_text(re.sub(r"[*_`#>-]", " ", summary), "기존 핫이슈 산출물에 제목 중심 항목만 있어 세부 사실은 원문 확인이 필요합니다.")[:220]
         cards.append(
             [
                 f"### {title}",
@@ -201,10 +214,10 @@ def _render_category_briefing(news_items: Iterable[dict[str, object]], report_da
         bucket = grouped.get(category_key, [])[:3]
         lines.extend([f"### {ko}"])
         if bucket:
-            titles = "; ".join(_safe_text(item.get("title")) for item in bucket)
+            titles = "; ".join(_reader_text(item.get("title")) for item in bucket)
             first = bucket[0]
             url = str(first.get("url") or "https://news.google.com/")
-            summary = _safe_text(first.get("body_text") or first.get("summary") or first.get("title"))[:220]
+            summary = _reader_text(first.get("body_text") or first.get("summary") or first.get("title"))[:220]
             provider = _safe_text(first.get("provider"), "news")
             source = _safe_text(first.get("source") or first.get("site"), provider)
             source_link = _markdown_link(source, url)
@@ -264,8 +277,8 @@ def compose_unified_daily_report(
         f"# 오늘의 핫이슈 리포트 — {report_date}",
         "",
         f"- 보고 기준 시각: {report_date} 09:00 KST",
-        "- 해석 원칙: 생성 보고서는 조언형/파생 산출물이며 원문 확인 전 확정 사실로 승격하지 않습니다.",
-        "- 구성 원칙: 섹션 배치, 표기, PDF 경로는 프로그램이 결정하고 생성 문장은 검증된 필드 안에만 배치합니다.",
+        "- 해석 원칙: 이 보고서는 참고용 브리핑이며 원문 확인 전 확정 사실로 보지 않습니다.",
+        "- 구성 원칙: 주요 이슈, 개인 기회/공고, 뉴스 브리핑을 한 문서 안에서 구분해 읽습니다.",
         "",
         "## 한눈에 보기",
         "",
@@ -293,7 +306,7 @@ def compose_unified_daily_report(
             f"- 뉴스 입력 항목: {len(news_items_list)}개",
             f"- 개인 기회 후보: {len(opportunity_list)}개",
             f"- 필수 카테고리: {', '.join(ko for _, ko in REQUIRED_CATEGORY_ORDER)}",
-            "- 계약: 생성 보고서는 wiki contract에 따라 조언형/파생 산출물이며 원문 근거 없이는 행동 가능 또는 확정 사실을 암시하지 않습니다.",
+            "- 확인 원칙: 원문 근거가 없는 항목은 행동 가능 또는 확정 사실로 보지 않습니다.",
             "",
         ]
     )
