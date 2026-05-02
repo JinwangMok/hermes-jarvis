@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sqlite3
 from pathlib import Path
 from typing import Sequence
 
@@ -14,7 +15,10 @@ from .config import load_pipeline_config
 from .digest import generate_digest
 from .feedback import record_proposal_feedback
 from .hermes_continuity import check_hermes_customizations
+from .hermes_skill_context import generate_skill_context
 from .hermes_skill_lifecycle import audit_hermes_skill_lifecycle, record_skill_telemetry
+from .houroboros import HouroborosWorkflow
+from .hermes_skill_search import DEFAULT_SKILL_SEARCH_DB, build_skill_search_index, evaluate_skill_search, search_skills
 from .intelligence import collect_knowledge_mail, generate_daily_intelligence_report
 from .knowledge import synthesize_knowledge
 from .mail import build_fake_mail_runner, collect_mail_snapshots
@@ -197,6 +201,36 @@ def build_parser() -> argparse.ArgumentParser:
     lifecycle_parser.add_argument("--archive-after-days", type=int, default=90, help="Age threshold for archive candidates")
     lifecycle_parser.add_argument("--negative-claim-ttl-days", type=int, default=14, help="TTL before old negative/environment-dependent claims need revalidation")
 
+    skill_search_index_parser = subparsers.add_parser("hermes-skill-search-index", help="Build the Jarvis-owned Hermes skill retrieval FTS sidecar")
+    skill_search_index_parser.add_argument("--db", default=str(DEFAULT_SKILL_SEARCH_DB), help="SQLite sidecar path")
+    skill_search_index_parser.add_argument("--hermes-home", default=str(Path.home() / ".hermes"), help="Hermes home directory")
+    skill_search_index_parser.add_argument("--hermes-config", default="", help="Hermes config.yaml path for skills.external_dirs")
+    skill_search_index_parser.add_argument("--skill-root", action="append", default=None, help="Explicit skill root to scan; repeatable and overrides defaults")
+    skill_search_index_parser.add_argument("--telemetry-path", default="state/hermes-skill-usage.json", help="Jarvis telemetry sidecar JSON path; use empty string to disable")
+
+    skill_search_parser = subparsers.add_parser("hermes-skill-search", help="Search the Jarvis-owned Hermes skill retrieval sidecar")
+    skill_search_parser.add_argument("--db", default=str(DEFAULT_SKILL_SEARCH_DB), help="SQLite sidecar path")
+    skill_search_parser.add_argument("--query", required=True, help="Skill search query")
+    skill_search_parser.add_argument("--top-k", type=int, default=5, help="Maximum result rows")
+    skill_search_parser.add_argument("--include-archived", action="store_true", help="Include archived skills with penalties")
+    skill_search_parser.add_argument("--search-log-path", default="", help="Optional Jarvis-owned JSONL search log path")
+    skill_search_parser.add_argument("--selected-skill", default="", help="Optional selected skill name to include in the search log")
+    skill_search_parser.add_argument("--clicked-skill", default="", help="Optional clicked skill name to include in the search log")
+    skill_search_parser.add_argument("--format", choices=("json", "table", "names-only"), default="json", help="Output format")
+
+    skill_search_eval_parser = subparsers.add_parser("hermes-skill-search-eval", help="Evaluate Hermes skill search against a gold query fixture")
+    skill_search_eval_parser.add_argument("--db", default=str(DEFAULT_SKILL_SEARCH_DB), help="SQLite sidecar path")
+    skill_search_eval_parser.add_argument("--gold", required=True, help="Gold query JSON fixture path")
+    skill_search_eval_parser.add_argument("--k", type=int, default=5, help="K for Recall@K and MRR@K")
+    skill_search_eval_parser.add_argument("--include-archived", action="store_true", help="Include archived skills with penalties")
+
+    skill_context_parser = subparsers.add_parser("hermes-skill-context", help="Generate budget-aware Hermes skill context snippets")
+    skill_context_parser.add_argument("--db", default=str(DEFAULT_SKILL_SEARCH_DB), help="SQLite sidecar path")
+    skill_context_parser.add_argument("--query", required=True, help="Skill search query")
+    skill_context_parser.add_argument("--top-k", type=int, default=5, help="Maximum result rows to consider")
+    skill_context_parser.add_argument("--budget", type=int, default=2000, help="Approximate token budget")
+    skill_context_parser.add_argument("--format", choices=("json", "table", "names-only"), default="json", help="Output format")
+
     telemetry_parser = subparsers.add_parser("hermes-skill-telemetry", help="Record Jarvis-owned Hermes skill lifecycle telemetry without modifying Hermes source")
     telemetry_subparsers = telemetry_parser.add_subparsers(dest="telemetry_command", required=True)
     telemetry_record_parser = telemetry_subparsers.add_parser("record", help="Record a viewed/used/successful_apply/patched event for a skill")
@@ -233,6 +267,50 @@ def build_parser() -> argparse.ArgumentParser:
     samples_refs_parser = samples_subparsers.add_parser("refs", help="Print reference audio files for a profile")
     samples_refs_parser.add_argument("--library-dir", default="", help="Sample library root; defaults to data/styled-voice-samples")
     samples_refs_parser.add_argument("--profile", default="default", help="Profile, e.g. default, jongwon, jongwon/calm")
+
+    houroboros_parser = subparsers.add_parser("houroboros", aliases=["hooo"], help="Run the Jarvis-native Houroboros workflow harness")
+    houroboros_subparsers = houroboros_parser.add_subparsers(dest="houroboros_command", required=True)
+
+    houroboros_start_parser = houroboros_subparsers.add_parser("start", help="Start an interview-backed Houroboros run")
+    houroboros_start_parser.add_argument("--config", required=True, help="Path to pipeline.yaml")
+    houroboros_start_parser.add_argument("--goal", required=True, help="Workflow goal to crystallize")
+    houroboros_start_parser.add_argument("--origin-platform", default="", help="Optional origin platform, e.g. discord")
+    houroboros_start_parser.add_argument("--origin-channel-id", default="", help="Optional origin channel ID")
+    houroboros_start_parser.add_argument("--origin-thread-id", default="", help="Optional origin thread ID")
+    houroboros_start_parser.add_argument("--origin-message-id", default="", help="Optional origin Discord message ID")
+    houroboros_start_parser.add_argument("--auto-open-thread", action="store_true", help="Request Discord thread creation through the safe Jarvis handoff adapter")
+    houroboros_start_parser.add_argument("--thread-name", default="", help="Optional Discord thread name for the handoff request")
+
+    houroboros_mark_thread_parser = houroboros_subparsers.add_parser("mark-thread-created", help="Mark a pending Discord thread handoff as created")
+    houroboros_mark_thread_parser.add_argument("--config", required=True, help="Path to pipeline.yaml")
+    houroboros_mark_thread_parser.add_argument("--run-id", required=True, help="Houroboros run ID")
+    houroboros_mark_thread_parser.add_argument("--thread-id", required=True, help="Created Discord thread ID")
+    houroboros_mark_thread_parser.add_argument("--thread-name", default="", help="Created Discord thread name")
+    houroboros_mark_thread_parser.add_argument("--message-id", default="", help="Discord message ID associated with thread creation")
+    houroboros_mark_thread_parser.add_argument("--jump-url", default="", help="Discord jump URL for the created thread")
+    houroboros_mark_thread_parser.add_argument("--url", default="", help="Discord thread URL")
+
+    houroboros_turn_parser = houroboros_subparsers.add_parser("turn", help="Append an interview turn")
+    houroboros_turn_parser.add_argument("--config", required=True, help="Path to pipeline.yaml")
+    houroboros_turn_parser.add_argument("--run-id", required=True, help="Houroboros run ID")
+    houroboros_turn_parser.add_argument("--message", required=True, help="Interview message to append")
+
+    houroboros_interact_parser = houroboros_subparsers.add_parser("interact", help="Safely reduce a Discord button interaction into the Jarvis state machine")
+    houroboros_interact_parser.add_argument("--config", required=True, help="Path to pipeline.yaml")
+    houroboros_interact_parser.add_argument("--run-id", required=True, help="Houroboros run ID")
+    houroboros_interact_parser.add_argument("--action", choices=("continue_interview", "propose_seed", "cancel"), default="", help="Logical HOOO interaction action; optional when --custom-id is provided")
+    houroboros_interact_parser.add_argument("--custom-id", default="", help="Discord component custom_id; when present it must match the run/action/revision")
+    houroboros_interact_parser.add_argument("--card-revision", type=int, default=None, help="Card revision seen by the Discord interaction")
+    houroboros_interact_parser.add_argument("--origin-channel-id", default="", help="Discord channel ID from the interaction callback")
+    houroboros_interact_parser.add_argument("--origin-thread-id", default="", help="Discord thread ID from the interaction callback")
+    houroboros_interact_parser.add_argument("--actor-id", default="", help="Discord actor/user ID from the interaction callback")
+
+    for command_name in ("seed", "run", "evaluate", "evolve", "status", "export"):
+        command_parser = houroboros_subparsers.add_parser(command_name, help=f"Houroboros {command_name}")
+        command_parser.add_argument("--config", required=True, help="Path to pipeline.yaml")
+        command_parser.add_argument("--run-id", required=True, help="Houroboros run ID")
+        if command_name == "run":
+            command_parser.add_argument("--executor", default="", help="Optional execution backend, e.g. claude-code")
 
     return parser
 
@@ -575,6 +653,52 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(json.dumps(result, ensure_ascii=False))
         return 0 if result.get("ok") else 1
 
+    if args.command == "hermes-skill-search-index":
+        result = build_skill_search_index(
+            args.db,
+            hermes_home=args.hermes_home,
+            hermes_config_path=args.hermes_config or None,
+            skill_roots=args.skill_root,
+            telemetry_path=args.telemetry_path or None,
+        )
+        print(json.dumps(result, ensure_ascii=False))
+        return 0 if result.get("ok") else 1
+
+    if args.command == "hermes-skill-search":
+        result = search_skills(
+            args.db,
+            args.query,
+            top_k=args.top_k,
+            include_archived=args.include_archived,
+            search_log_path=args.search_log_path or None,
+            selected_skill=args.selected_skill or None,
+            clicked_skill=args.clicked_skill or None,
+        )
+        if args.format == "json":
+            print(json.dumps(result, ensure_ascii=False))
+        elif args.format == "names-only":
+            print("\n".join(str(row["name"]) for row in result.get("rows", [])))
+        else:
+            print("rank\tscore\tname\tpath")
+            for row in result.get("rows", []):
+                print(f"{row['rank']}\t{row['score']}\t{row['name']}\t{row['path']}")
+        return 0 if result.get("ok") else 1
+
+    if args.command == "hermes-skill-search-eval":
+        result = evaluate_skill_search(args.db, args.gold, k=args.k, include_archived=args.include_archived)
+        print(json.dumps(result, ensure_ascii=False))
+        return 0 if result.get("ok") else 1
+
+    if args.command == "hermes-skill-context":
+        result = generate_skill_context(args.db, args.query, budget_tokens=args.budget, top_k=args.top_k)
+        if args.format == "json":
+            print(json.dumps(result, ensure_ascii=False))
+        elif args.format == "names-only":
+            print("\n".join(str(row["name"]) for row in result.get("snippets", [])))
+        else:
+            print(result.get("context", ""))
+        return 0 if result.get("ok") else 1
+
     if args.command == "hermes-skill-telemetry":
         if args.pinned and args.unpinned:
             parser.error("--pinned and --unpinned are mutually exclusive")
@@ -606,6 +730,60 @@ def main(argv: Sequence[str] | None = None) -> int:
             result = {"profile": args.profile, "references": [str(path) for path in collect_profile_audio(library_dir, args.profile)]}
         else:  # pragma: no cover
             parser.error(f"Unknown styled-voice-samples command: {args.sample_command}")
+        print(json.dumps(result, ensure_ascii=False))
+        return 0
+
+    if args.command in {"houroboros", "hooo"}:
+        workflow = HouroborosWorkflow.from_config_path(args.config)
+        try:
+            if args.houroboros_command == "start":
+                result = workflow.start(
+                    goal=args.goal,
+                    origin_platform=args.origin_platform,
+                    origin_channel_id=args.origin_channel_id,
+                    origin_thread_id=args.origin_thread_id,
+                    origin_message_id=args.origin_message_id,
+                    auto_open_thread=args.auto_open_thread,
+                    thread_name=args.thread_name,
+                )
+            elif args.houroboros_command == "turn":
+                result = workflow.turn(args.run_id, args.message)
+            elif args.houroboros_command == "interact":
+                result = workflow.handle_interaction(
+                    args.run_id,
+                    args.action,
+                    card_revision=args.card_revision,
+                    custom_id=args.custom_id,
+                    origin_channel_id=args.origin_channel_id,
+                    origin_thread_id=args.origin_thread_id,
+                    actor_id=args.actor_id,
+                )
+            elif args.houroboros_command == "seed":
+                result = workflow.seed(args.run_id)
+            elif args.houroboros_command == "run":
+                result = workflow.run(args.run_id, executor=args.executor)
+            elif args.houroboros_command == "evaluate":
+                result = workflow.evaluate(args.run_id)
+            elif args.houroboros_command == "evolve":
+                result = workflow.evolve(args.run_id)
+            elif args.houroboros_command == "mark-thread-created":
+                result = workflow.mark_thread_created(
+                    args.run_id,
+                    thread_id=args.thread_id,
+                    thread_name=args.thread_name,
+                    message_id=args.message_id,
+                    jump_url=args.jump_url,
+                    url=args.url,
+                )
+            elif args.houroboros_command == "status":
+                result = workflow.status(args.run_id)
+            elif args.houroboros_command == "export":
+                result = workflow.export(args.run_id)
+            else:  # pragma: no cover
+                parser.error(f"Unknown houroboros command: {args.houroboros_command}")
+        except (FileNotFoundError, KeyError, ValueError, sqlite3.IntegrityError) as exc:
+            print(json.dumps({"ok": False, "error": str(exc)}, ensure_ascii=False))
+            return 1
         print(json.dumps(result, ensure_ascii=False))
         return 0
 
