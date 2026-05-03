@@ -252,6 +252,11 @@ class HouroborosWorkflow:
 
         interview = self._read_interview(run_id)
         interview_state = self._load_interview_state(run_id, run["goal"])
+        unresolved = list(interview_state.get("unresolved") or [])
+        if unresolved:
+            raise ValueError(
+                f"Cannot seed {run_id}: ambiguity {interview_state.get('ambiguity_score', 1.0)} is not seedable at threshold {AMBIGUITY_THRESHOLD}; unresolved interview dimensions remain: {', '.join(unresolved)}; continue the Discord interview first"
+            )
         if float(interview_state.get("ambiguity_score", 1.0)) > AMBIGUITY_THRESHOLD:
             raise ValueError(
                 f"Cannot seed {run_id}: ambiguity {interview_state['ambiguity_score']} is above threshold {AMBIGUITY_THRESHOLD}; continue the Discord interview first"
@@ -649,7 +654,7 @@ class HouroborosWorkflow:
         score = round(len(unresolved) / len(INTERVIEW_DIMENSIONS), 2)
         state.update({
             "ambiguity_score": score,
-            "seed_ready": score <= AMBIGUITY_THRESHOLD,
+            "seed_ready": not unresolved and score <= AMBIGUITY_THRESHOLD,
             "resolved": [key for key in INTERVIEW_DIMENSIONS if key in resolved],
             "unresolved": unresolved,
             "updated_at": _now(),
@@ -732,6 +737,13 @@ class HouroborosWorkflow:
             raw_executor = message.split(":", 1)[1].strip().split(",", 1)[0].strip().lower().replace(" ", "-")
             executor = "claude-code" if "claude-code" in raw_executor else raw_executor
             decisions["executor"] = executor
+        pending_dimension = str(state.get("pending_freeform_dimension") or "")
+        if freeform and pending_dimension in INTERVIEW_DIMENSIONS and message.strip():
+            expected_dimension = self._next_unresolved_dimension(state)
+            if expected_dimension == pending_dimension:
+                resolved.add(pending_dimension)
+                decisions[pending_dimension] = message.strip()
+                freeform = False
         if freeform and message.strip():
             decisions.setdefault("notes", []).append(message.strip())
         state["resolved"] = [key for key in INTERVIEW_DIMENSIONS if key in resolved]

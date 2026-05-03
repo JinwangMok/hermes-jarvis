@@ -561,6 +561,50 @@ def test_houroboros_other_opinion_routes_dimension_without_resolving_all(tmp_pat
     assert after_choice["interview_state"]["unresolved"] == ["acceptance", "constraint", "executor", "permission"]
 
 
+def test_houroboros_other_opinion_plain_reply_resolves_only_pending_dimension(tmp_path: Path):
+    config_file = _write_config(tmp_path)
+    workflow = HouroborosWorkflow.from_config_path(config_file)
+    started = workflow.start(goal="Other plain reply", origin_platform="discord", origin_channel_id="parent")
+    run_id = started["run_id"]
+    card = _latest_card(tmp_path, run_id)
+    other = next(component for component in card["card"]["components"] if component["action"] == "other_opinion")
+    workflow.handle_interaction(run_id, custom_id=other["custom_id"], origin_channel_id="parent")
+
+    status = workflow.turn(run_id, "Only touch Jarvis-owned runtime and tests")
+
+    assert status["interview_state"]["decisions"]["scope"] == "Only touch Jarvis-owned runtime and tests"
+    assert "pending_freeform_dimension" not in status["interview_state"]
+    assert status["interview_state"]["resolved"] == ["scope"]
+    assert status["interview_state"]["unresolved"] == ["acceptance", "constraint", "executor", "permission"]
+    assert status["interview_state"]["ambiguity_score"] == 0.8
+    assert status["interview_state"]["seed_ready"] is False
+
+
+def test_houroboros_seed_requires_all_dimensions_even_at_threshold(tmp_path: Path):
+    config_file = _write_config(tmp_path)
+    workflow = HouroborosWorkflow.from_config_path(config_file)
+    started = workflow.start(goal="Do not seed with one unresolved dimension", origin_platform="discord", origin_channel_id="parent")
+    run_id = started["run_id"]
+    for message in [
+        "Scope: one Jarvis feature",
+        "Acceptance: targeted tests pass",
+        "Constraint: no external side effects",
+        "Executor: opencode",
+    ]:
+        status = workflow.turn(run_id, message)
+
+    assert status["interview_state"]["ambiguity_score"] == 0.2
+    assert status["interview_state"]["seed_ready"] is False
+    assert status["interview_state"]["unresolved"] == ["permission"]
+    try:
+        workflow.seed(run_id)
+    except ValueError as exc:
+        assert "unresolved interview dimensions" in str(exc)
+        assert "permission" in str(exc)
+    else:  # pragma: no cover
+        raise AssertionError("seed must be blocked until every required interview dimension is resolved")
+
+
 
 def test_houroboros_auto_open_from_existing_thread_requests_sibling_thread(tmp_path: Path):
     config_file = _write_config(tmp_path)
