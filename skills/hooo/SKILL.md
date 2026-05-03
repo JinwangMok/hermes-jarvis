@@ -12,7 +12,11 @@ Use this skill when the user invokes `/hooo` or asks for an Ouroboros-style Jarv
 
 Core flow: Discord thread auto-open -> interactive Interview cards -> ambiguity gate -> Seed -> Execute/Claude Code handoff -> Evaluate -> Evolve. Deep Interview-style questioning is only the requirement crystallization front end; the value is the task-specific operating thread, visible ambiguity score, unresolved decision list, spec-first seed, execution evidence, evaluation, drift visibility, and operator-controlled evolution loop.
 
-The seed gate is mandatory: `seed` should fail while `interview_state.json` reports `ambiguity_score > 0.2`. Continue the Discord interview by collecting `Scope:`, `Acceptance:`, `Constraint:`, `Executor:`, and `Permission:` turns or equivalent choices until the card reports `seed_ready: true`. Do not let arbitrary freeform text resolve all interview dimensions; freeform notes should remain notes unless they match a structured dimension or explicit UI choice.
+The seed gate is mandatory: `seed` should fail while `interview_state.json` reports `ambiguity_score > 0.2`.
+
+Required Discord interview UX: the user must not be forced into a blank "continue interview" form where they write every requirement from scratch. For each unresolved dimension (`Scope`, `Acceptance`, `Constraint`, `Executor`, `Permission`), HOOO should generate **three concrete selectable proposals** as Discord button choices plus an **Other / new opinion** path. The interview should proceed through multiple small selection/refinement steps: show options, let Jinwang choose by button or add a new natural-language opinion, update the structured state, then regenerate the next missing dimension/options. Natural-language fallback remains supported, but the default UX should be proposal-driven and button-selectable.
+
+Continue the Discord interview by collecting `Scope:`, `Acceptance:`, `Constraint:`, `Executor:`, and `Permission:` turns or equivalent choices until the card reports `seed_ready: true`. Do not let arbitrary freeform text resolve all interview dimensions; freeform notes should remain notes unless they match a structured dimension or explicit UI choice.
 
 Operate through the Jarvis CLI, not Hermes source. Prefer a dedicated Discord operating thread for every new `/hooo` run.
 
@@ -48,4 +52,4 @@ Implementation pitfalls learned from the Discord-native redesign:
 - Deterministic placeholder execution/evaluation is dry-run evidence; expose warnings so it is not confused with real task completion.
 - Live smoke should validate the real Discord sibling-thread side effect plus Jarvis card/reducer/seed path. If the tooling cannot impersonate a human Discord UI click, say so and treat `hooo interact --custom-id ...` as API-equivalent reducer validation, not as a physical UI click.
 - Verification should include `compileall`, targeted HOOO/CLI regressions, full `pytest -q`, and a CLI smoke that checks `interview_state.json`, `discord_cards.jsonl`, `thread_handoff.json`, `seed.json`, and `claude_code_handoff.json`.
-- Final cleanup should split mixed workstreams into concern-based commits and then re-check gateway/config status without restarting. See `references/live-smoke-and-cleanup.md` for the proven live-smoke, verification, and git-cleanup recipe.
+- Final cleanup should split mixed workstreams into concern-based commits and then re-check gateway/config status without restarting. If a gateway/session reset interrupts closeout, resume from live git/remotes/tests/gateway state rather than the last chat summary; for Jarvis, verify both `origin` and `public` are pushed. See `references/live-smoke-and-cleanup.md` for the proven live-smoke, verification, post-restart continuation, and git-cleanup recipe.

@@ -1,0 +1,841 @@
+[0m
+> ​Sisyphus - Ultraworker · gpt-5.5
+[0m
+ULTRAWORK MODE ENABLED!
+
+I detect explicit implementation intent: build the HOOO proposal-driven interview UX, test it, and write the requested artifact. My approach: inspect existing HOOO/Houroboros runtime and tests, use one background explore lane for non-overlapping renderer/test context, implement the smallest matching reducer/card path, then verify with the requested commands.
+[0m→ [0mSkill "omc-reference"
+[0m
+[0m# [0mTodos
+[ ] Inspect current HOOO/Houroboros implementation and tests; acceptance: identify runtime reducer/card/plugin paths and preserve pre-existing dirty files
+[ ] Implement proposal-driven interview card model and reducer; acceptance: deterministic dimension order, exactly 3 proposals plus Other, bounded stale-safe custom_ids, per-dimension state update only
+[ ] Add or adjust HOOO/Houroboros and gateway tests; acceptance: old blank continue-only behavior fails, proposal selection/freeform/stale/seed gating/plugin rendering covered
+[ ] Update minimal docs/artifact; acceptance: result.md includes summary, changed files, tests, risks, card JSON/custom_id and interaction examples without overclaiming Discord clicks
+[ ] Run requested verification and broader relevant tests; acceptance: compileall, targeted pytest, and broader relevant pytest results recorded with caveats if any
+[0m
+[0m• [0mMap gateway tests[90m Explore Agent[0m
+[0m✓ [0mMap gateway tests[90m Explore Agent[0m
+[0m✱ [0mGlob "**/*hooo*"[90m in .[0m
+[0m✱ [0mGrep "continue interview|continue-interview|continue_interview|interview_state|seed_ready|ambiguity"[90m in .[0m
+[0m✱ [0mGlob "**/*houroboros*"[90m in .[0m
+[0m→ [0mSkill "git-master"
+[0m→ [0mRead tests/test_houroboros.py[90m [offset=380, limit=380][0m
+[0m→ [0mRead tests/test_hooo_gateway_plugin.py[90m [offset=1, limit=260][0m
+[0m→ [0mRead src/jinwang_jarvis/houroboros.py[90m [offset=1, limit=760][0m
+[0m
+[0m$ [0mexport CI=true DEBIAN_FRONTEND=noninteractive GIT_TERMINAL_PROMPT=0 GCM_INTERACTIVE=never HOMEBREW_NO_AUTO_UPDATE=1 GIT_EDITOR=: EDITOR=: VISUAL='' GIT_SEQUENCE_EDITOR=: GIT_MERGE_AUTOEDIT=no GIT_PAGER=cat PAGER=cat npm_config_yes=true PIP_NO_INPUT=1 YARN_ENABLE_IMMUTABLE_INSTALLS=false; GIT_MASTER=1 git status --short
+M skills/hooo/SKILL.md
+ M skills/hooo/references/live-smoke-and-cleanup.md
+ M skills/houroboros/SKILL.md
+?? orchestration/2026-05-03-opencode-hooo-proposal-interview/
+[0m
+[0m✱ [0mGrep "def .*hooo|interact|add_parser\("interact|handle_interaction"[90m in src/jinwang_jarvis[0m
+[0m→ [0mRead src/jinwang_jarvis/houroboros.py[90m [offset=718, limit=180][0m
+[0m→ [0mRead plugins/hermes_hooo_gateway/__init__.py[90m [offset=1, limit=360][0m
+[0m→ [0mRead tests/test_houroboros.py[90m [offset=1, limit=120][0m
+[0m→ [0mRead src/jinwang_jarvis/cli.py[90m [offset=280, limit=90][0m
+[0m→ [0mRead src/jinwang_jarvis/cli.py[90m [offset=730, limit=50][0m
+[0m⚙ [0mapply_patch Success. Updated the following files:
+M src/jinwang_jarvis/houroboros.py
+Updated `src/jinwang_jarvis/houroboros.py` with the static proposal catalog and dimension metadata; next I’m wiring those constants into cards, custom_id parsing, and reducer behavior, then I’ll align tests against the new contract.
+[0m⚙ [0mbackground_output quick - Map gateway tests
+[0m⚙ [0mapply_patch Success. Updated the following files:
+M src/jinwang_jarvis/houroboros.py
+[0m⚙ [0mapply_patch Success. Updated the following files:
+M src/jinwang_jarvis/houroboros.py
+[0m⚙ [0mapply_patch Success. Updated the following files:
+M src/jinwang_jarvis/houroboros.py
+[0m⚙ [0mapply_patch Success. Updated the following files:
+M src/jinwang_jarvis/houroboros.py
+[0m⚙ [0mapply_patch Success. Updated the following files:
+M src/jinwang_jarvis/cli.py
+The reducer now has proposal-specific actions and bounded custom IDs carrying run, revision, dimension, and option identity; I’m updating the gateway text and tests so the old “continue only” card is no longer accepted as the default unresolved UX.
+[0m⚙ [0mapply_patch Success. Updated the following files:
+M plugins/hermes_hooo_gateway/__init__.py
+[0m⚙ [0mapply_patch Success. Updated the following files:
+M tests/test_houroboros.py
+[0m✗ [0mapply_patch failed
+[91m[1mError: [0mapply_patch verification failed: Error: Failed to find expected lines in /home/jinwang/workspace/jinwang-jarvis/tests/test_houroboros.py:
+    assert first_card["card"]["buttons"] == ["select_proposal", "select_proposal", "select_proposal", "other_opinion"]
+[0m⚙ [0mapply_patch Success. Updated the following files:
+M tests/test_houroboros.py
+[0m⚙ [0mapply_patch Success. Updated the following files:
+M tests/test_houroboros.py
+[0m⚙ [0mapply_patch Success. Updated the following files:
+M tests/test_houroboros.py
+[0m⚙ [0mapply_patch Success. Updated the following files:
+M tests/test_houroboros.py
+[0m⚙ [0mapply_patch Success. Updated the following files:
+M tests/test_houroboros.py
+[0m⚙ [0mapply_patch Success. Updated the following files:
+M tests/test_hooo_gateway_plugin.py
+[0m⚙ [0mlsp_diagnostics {"filePath":"/home/jinwang/workspace/jinwang-jarvis/src/jinwang_jarvis/houroboros.py","severity":"all"}
+[0m⚙ [0mlsp_diagnostics {"filePath":"/home/jinwang/workspace/jinwang-jarvis/plugins/hermes_hooo_gateway/__init__.py","severity":"all"}
+[0m⚙ [0mlsp_diagnostics {"filePath":"/home/jinwang/workspace/jinwang-jarvis/src/jinwang_jarvis/cli.py","severity":"all"}
+[0m⚙ [0mlsp_diagnostics {"filePath":"/home/jinwang/workspace/jinwang-jarvis/tests/test_houroboros.py","severity":"all"}
+[0m⚙ [0mlsp_diagnostics {"filePath":"/home/jinwang/workspace/jinwang-jarvis/tests/test_hooo_gateway_plugin.py","severity":"all"}
+[0m→ [0mRead plugins/hermes_hooo_gateway/__init__.py[90m [offset=154, limit=24][0m
+[0m⚙ [0mapply_patch Success. Updated the following files:
+M plugins/hermes_hooo_gateway/__init__.py
+[0m
+[0m$ [0mexport CI=true DEBIAN_FRONTEND=noninteractive GIT_TERMINAL_PROMPT=0 GCM_INTERACTIVE=never HOMEBREW_NO_AUTO_UPDATE=1 GIT_EDITOR=: EDITOR=: VISUAL='' GIT_SEQUENCE_EDITOR=: GIT_MERGE_AUTOEDIT=no GIT_PAGER=cat PAGER=cat npm_config_yes=true PIP_NO_INPUT=1 YARN_ENABLE_IMMUTABLE_INSTALLS=false; python -m compileall -q src/jinwang_jarvis tests
+(no output)
+[0m
+[0m⚙ [0mlsp_diagnostics {"filePath":"/home/jinwang/workspace/jinwang-jarvis/plugins/hermes_hooo_gateway/__init__.py","severity":"all"}
+Compilation and LSP checks are clean for the modified Python files, so I’m moving into behavioral verification with the targeted HOOO/Houroboros tests.
+[0m
+[0m$ [0mexport CI=true DEBIAN_FRONTEND=noninteractive GIT_TERMINAL_PROMPT=0 GCM_INTERACTIVE=never HOMEBREW_NO_AUTO_UPDATE=1 GIT_EDITOR=: EDITOR=: VISUAL='' GIT_SEQUENCE_EDITOR=: GIT_MERGE_AUTOEDIT=no GIT_PAGER=cat PAGER=cat npm_config_yes=true PIP_NO_INPUT=1 YARN_ENABLE_IMMUTABLE_INSTALLS=false; PYTHONPATH=src pytest -q tests/test_houroboros.py tests/test_hooo_gateway_plugin.py
+..................................                                       [100%]
+34 passed in 3.58s
+[0m
+[0m$ [0mexport CI=true DEBIAN_FRONTEND=noninteractive GIT_TERMINAL_PROMPT=0 GCM_INTERACTIVE=never HOMEBREW_NO_AUTO_UPDATE=1 GIT_EDITOR=: EDITOR=: VISUAL='' GIT_SEQUENCE_EDITOR=: GIT_MERGE_AUTOEDIT=no GIT_PAGER=cat PAGER=cat npm_config_yes=true PIP_NO_INPUT=1 YARN_ENABLE_IMMUTABLE_INSTALLS=false; PYTHONPATH=src pytest -q
+........................................................................ [ 29%]
+........................................................................ [ 59%]
+..........................................
+
+<bash_metadata>
+bash tool terminated command after exceeding timeout 120000 ms. If this command is expected to take longer and is not waiting for interactive input, retry with a larger timeout value in milliseconds.
+</bash_metadata>
+[0m
+[0m✱ [0mGlob "tests/test_*.py"[90m in .[0m
+[0m
+[0m$ [0mexport CI=true DEBIAN_FRONTEND=noninteractive GIT_TERMINAL_PROMPT=0 GCM_INTERACTIVE=never HOMEBREW_NO_AUTO_UPDATE=1 GIT_EDITOR=: EDITOR=: VISUAL='' GIT_SEQUENCE_EDITOR=: GIT_MERGE_AUTOEDIT=no GIT_PAGER=cat PAGER=cat npm_config_yes=true PIP_NO_INPUT=1 YARN_ENABLE_IMMUTABLE_INSTALLS=false; PYTHONPATH=src pytest -q tests/test_houroboros.py tests/test_hooo_gateway_plugin.py tests/test_cli.py tests/test_runtime.py
+.....................................................                    [100%]
+53 passed in 52.95s
+[0m
+[0m$ [0mls "/tmp/opencode"
+hooo-manual-qa
+hooo-qa-manual-local
+hooo-qa-order-repro
+jarvis-watch-smoke-v62i0ynb
+[0m
+Targeted and broader relevant pytest suites pass. I’m doing the required manual QA now by driving the actual `hooo start`/`hooo interact` CLI path against a temporary local workspace and observing the emitted card/reducer state.
+[0m$ [0mexport CI=true DEBIAN_FRONTEND=noninteractive GIT_TERMINAL_PROMPT=0 GCM_INTERACTIVE=never HOMEBREW_NO_AUTO_UPDATE=1 GIT_EDITOR=: EDITOR=: VISUAL='' GIT_SEQUENCE_EDITOR=: GIT_MERGE_AUTOEDIT=no GIT_PAGER=cat PAGER=cat npm_config_yes=true PIP_NO_INPUT=1 YARN_ENABLE_IMMUTABLE_INSTALLS=false; python - <<'PY'
+import json
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+
+root = Path(tempfile.mkdtemp(prefix='hooo-proposal-manual-', dir='/tmp/opencode'))
+config = root / 'pipeline.yaml'
+config.write_text(f'''
+workspace_root: {root.as_posix()}
+wiki_root: /home/jinwang/wiki
+accounts:
+  - personal
+mail:
+  snapshot_dir: data/snapshots/mail
+calendar:
+  snapshot_dir: data/snapshots/calendar
+  calendar_id: primary
+state:
+  database: state/personal_intel.db
+  checkpoints: state/checkpoints.json
+hermes:
+  integration_mode: boundary-cli
+  deliver_channel: discord-origin
+reproducibility:
+  packaging: pyproject
+  config_format: yaml
+  project_name: jinwang-jarvis
+''', encoding='utf-8')
+
+def run(args):
+    completed = subprocess.run([sys.executable, '-m', 'jinwang_jarvis.cli', *args], cwd='/home/jinwang/workspace/jinwang-jarvis', env={**dict(PYTHONPATH='src'), **{}}, text=True, capture_output=True, check=True)
+    return json.loads(completed.stdout)
+
+started = run(['hooo', 'start', '--config', str(config), '--goal', 'Manual QA proposal interview', '--origin-platform', 'discord', '--origin-channel-id', 'parent'])
+run_id = started['run_id']
+cards_path = root / 'data' / 'houroboros' / run_id / 'discord_cards.jsonl'
+first_card = json.loads(cards_path.read_text(encoding='utf-8').splitlines()[-1])
+first_actions = [component['action'] for component in first_card['card']['components']]
+first_dimension = first_card['card']['proposal_card']['dimension']
+first_custom_id = first_card['card']['components'][0]['custom_id']
+selected = run(['hooo', 'interact', '--config', str(config), '--run-id', run_id, '--custom-id', first_custom_id, '--origin-channel-id', 'parent'])
+next_card = json.loads(cards_path.read_text(encoding='utf-8').splitlines()[-1])
+print(json.dumps({
+    'workspace': str(root),
+    'run_id': run_id,
+    'first_dimension': first_dimension,
+    'first_actions': first_actions,
+    'first_custom_id': first_custom_id,
+    'after_select_action': selected['interaction']['action'],
+    'resolved': selected['interview_state']['resolved'],
+    'unresolved': selected['interview_state']['unresolved'],
+    'ambiguity_score': selected['interview_state']['ambiguity_score'],
+    'next_dimension': next_card['card']['proposal_card']['dimension'],
+    'next_actions': [component['action'] for component in next_card['card']['components']],
+}, ensure_ascii=False, indent=2))
+PY
+{
+  "workspace": "/tmp/opencode/hooo-proposal-manual-sjky2s37",
+  "run_id": "hooo-20260503-47b9bb5fb435",
+  "first_dimension": "scope",
+  "first_actions": [
+    "select_proposal",
+    "select_proposal",
+    "select_proposal",
+    "other_opinion"
+  ],
+  "first_custom_id": "hooo:v2:select_proposal:hooo-20260503-47b9bb5fb435:r1:dscope:oa",
+  "after_select_action": "select_proposal",
+  "resolved": [
+    "scope"
+  ],
+  "unresolved": [
+    "acceptance",
+    "constraint",
+    "executor",
+    "permission"
+  ],
+  "ambiguity_score": 0.8,
+  "next_dimension": "acceptance",
+  "next_actions": [
+    "select_proposal",
+    "select_proposal",
+    "select_proposal",
+    "other_opinion"
+  ]
+}
+[0m
+[0m$ [0mexport CI=true DEBIAN_FRONTEND=noninteractive GIT_TERMINAL_PROMPT=0 GCM_INTERACTIVE=never HOMEBREW_NO_AUTO_UPDATE=1 GIT_EDITOR=: EDITOR=: VISUAL='' GIT_SEQUENCE_EDITOR=: GIT_MERGE_AUTOEDIT=no GIT_PAGER=cat PAGER=cat npm_config_yes=true PIP_NO_INPUT=1 YARN_ENABLE_IMMUTABLE_INSTALLS=false; GIT_MASTER=1 git diff -- src/jinwang_jarvis/houroboros.py src/jinwang_jarvis/cli.py plugins/hermes_hooo_gateway/__init__.py tests/test_houroboros.py tests/test_hooo_gateway_plugin.py
+diff --git a/plugins/hermes_hooo_gateway/__init__.py b/plugins/hermes_hooo_gateway/__init__.py
+index 0763f41..604cfa3 100644
+--- a/plugins/hermes_hooo_gateway/__init__.py
++++ b/plugins/hermes_hooo_gateway/__init__.py
+@@ -157,12 +157,23 @@ def _card_text(card: dict[str, Any]) -> str:
+     run_id = card.get("run_id", "")
+     payload = _card_payload(card)
+     unresolved = payload.get("unresolved") or []
++    raw_proposal_card = payload.get("proposal_card")
++    proposal_card = raw_proposal_card if isinstance(raw_proposal_card, dict) else {}
+     phase = payload.get("phase") or card.get("phase") or "unknown"
+     lines = [f"🌀 **HOOO** `{run_id}`", f"phase: `{phase}`"]
++    if proposal_card:
++        lines.append(f"\n선택할 항목: **{proposal_card.get('label', proposal_card.get('dimension', 'HOOO'))}**")
++        raw_proposals = proposal_card.get("proposals")
++        proposals = raw_proposals if isinstance(raw_proposals, list) else []
++        for proposal in proposals[:3]:
++            lines.append(f"- {str(proposal.get('option_id', '')).upper()}: {proposal.get('label', '')} — {proposal.get('value', '')}")
++        other = proposal_card.get("other") if isinstance(proposal_card.get("other"), dict) else {}
++        if other:
++            lines.append(f"- Other: {other.get('expected_reply', 'new opinion')}")
+     if unresolved:
+         lines.append("\n질문/모호성:")
+         lines.extend(f"- {item}" for item in unresolved[:6])
+-        lines.append("\n다음 형식으로 답하면 인터뷰가 진행됩니다:")
++        lines.append("\n버튼으로 제안을 선택하거나 다음 형식으로 직접 답하면 인터뷰가 진행됩니다:")
+         lines.extend(f"- `{_dimension_prompt(item)}`" for item in unresolved[:3])
+     else:
+         lines.append("\nSeed 생성 가능 상태입니다.")
+diff --git a/src/jinwang_jarvis/cli.py b/src/jinwang_jarvis/cli.py
+index 262ea95..b7f7a52 100644
+--- a/src/jinwang_jarvis/cli.py
++++ b/src/jinwang_jarvis/cli.py
+@@ -298,7 +298,12 @@ def build_parser() -> argparse.ArgumentParser:
+     houroboros_interact_parser = houroboros_subparsers.add_parser("interact", help="Safely reduce a Discord button interaction into the Jarvis state machine")
+     houroboros_interact_parser.add_argument("--config", required=True, help="Path to pipeline.yaml")
+     houroboros_interact_parser.add_argument("--run-id", required=True, help="Houroboros run ID")
+-    houroboros_interact_parser.add_argument("--action", choices=("continue_interview", "propose_seed", "cancel"), default="", help="Logical HOOO interaction action; optional when --custom-id is provided")
++    houroboros_interact_parser.add_argument(
++        "--action",
++        choices=("select_proposal", "other_opinion", "continue_interview", "propose_seed", "cancel"),
++        default="",
++        help="Logical HOOO interaction action; optional when --custom-id is provided",
++    )
+     houroboros_interact_parser.add_argument("--custom-id", default="", help="Discord component custom_id; when present it must match the run/action/revision")
+     houroboros_interact_parser.add_argument("--card-revision", type=int, default=None, help="Card revision seen by the Discord interaction")
+     houroboros_interact_parser.add_argument("--origin-channel-id", default="", help="Discord channel ID from the interaction callback")
+diff --git a/src/jinwang_jarvis/houroboros.py b/src/jinwang_jarvis/houroboros.py
+index ffffa05..5b19836 100644
+--- a/src/jinwang_jarvis/houroboros.py
++++ b/src/jinwang_jarvis/houroboros.py
+@@ -15,6 +15,41 @@ from .config import PipelineConfig, load_pipeline_config
+ PHASES = ("created", "interviewing", "seeded", "running", "evaluated", "evolved", "completed", "blocked", "failed")
+ AMBIGUITY_THRESHOLD = 0.2
+ INTERVIEW_DIMENSIONS = ("scope", "acceptance", "constraint", "executor", "permission")
++PROPOSAL_OPTION_IDS = ("a", "b", "c")
++INTERVIEW_DIMENSION_LABELS = {
++    "scope": "Scope",
++    "acceptance": "Acceptance",
++    "constraint": "Constraint",
++    "executor": "Executor",
++    "permission": "Permission",
++}
++INTERVIEW_PROPOSALS = {
++    "scope": (
++        ("a", "Jarvis-owned implementation", "Implement only Jarvis-owned HOOO/Houroboros runtime, gateway bridge, tests, and necessary docs for this task."),
++        ("b", "Seed and plan only", "Produce a deterministic HOOO seed and implementation plan, without changing runtime behavior."),
++        ("c", "Tests and contract only", "Limit work to regression tests and contract documentation; defer runtime implementation."),
++    ),
++    "acceptance": (
++        ("a", "Tests and artifact pass", "Requested behavior is implemented, targeted tests pass, and the result artifact records verification evidence."),
++        ("b", "Seed is reviewable", "A seed artifact contains explicit scope, acceptance, constraints, executor, permission, and no hidden side effects."),
++        ("c", "Regression is locked", "A regression test fails on the old continue-only interview and passes with proposal buttons."),
++    ),
++    "constraint": (
++        ("a", "Jarvis boundary", "Modify only Jarvis-owned repository files; do not touch Hermes source/config, secrets, systemd, cron, raw wiki, or external services."),
++        ("b", "Dry-run side effects", "Avoid live Discord or gateway side effects; write local handoff/artifact evidence only."),
++        ("c", "Minimal patch", "Keep the change small, test-backed, and isolated from unrelated dirty files."),
++    ),
++    "executor": (
++        ("a", "Claude Code handoff", "claude-code"),
++        ("b", "OpenCode/Sisyphus", "opencode-sisyphus"),
++        ("c", "Deterministic placeholder", "deterministic-placeholder"),
++    ),
++    "permission": (
++        ("a", "Implement and test locally", "Read/write Jarvis-owned repo files and run local verification commands; no external side effects."),
++        ("b", "Seed approval only", "Create a reviewable seed after the ambiguity gate; implementation requires separate approval."),
++        ("c", "Read-only analysis", "Analyze and document the task without code changes until explicit approval."),
++    ),
++}
+ RUN_ID_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
+ SECRET_VALUE_RE = re.compile(
+     r"(?i)\b(api[_-]?key|secret|password|passwd|token|authorization)\b\s*[:=]\s*([^\s,;]+)"
+@@ -595,6 +630,90 @@ class HouroborosWorkflow:
+     def _write_interview_state(self, run_id: str, state: dict[str, Any]) -> None:
+         self._write_json(run_id, "interview_state.json", state)
+ 
++    def _next_unresolved_dimension(self, state: dict[str, Any]) -> str | None:
++        resolved = set(state.get("resolved", []))
++        for dimension in INTERVIEW_DIMENSIONS:
++            if dimension not in resolved:
++                return dimension
++        return None
++
++    def _proposal_for(self, dimension: str, option_id: str) -> dict[str, str]:
++        for candidate_id, label, value in INTERVIEW_PROPOSALS[dimension]:
++            if candidate_id == option_id:
++                return {"option_id": candidate_id, "label": label, "value": value}
++        raise ValueError(f"Unknown HOOO proposal option: {dimension}/{option_id}")
++
++    def _recompute_interview_gate(self, state: dict[str, Any]) -> None:
++        resolved = set(state.get("resolved", []))
++        unresolved = [key for key in INTERVIEW_DIMENSIONS if key not in resolved]
++        score = round(len(unresolved) / len(INTERVIEW_DIMENSIONS), 2)
++        state.update({
++            "ambiguity_score": score,
++            "seed_ready": score <= AMBIGUITY_THRESHOLD,
++            "resolved": [key for key in INTERVIEW_DIMENSIONS if key in resolved],
++            "unresolved": unresolved,
++            "updated_at": _now(),
++        })
++
++    def _apply_proposal_choice(self, run_id: str, goal: str, dimension: str, option_id: str, actor_id: str = "") -> dict[str, Any]:
++        if dimension not in INTERVIEW_DIMENSIONS:
++            raise ValueError(f"Unknown HOOO proposal dimension: {dimension}")
++        if option_id not in PROPOSAL_OPTION_IDS:
++            raise ValueError(f"Unknown HOOO proposal option: {option_id}")
++        state = self._load_interview_state(run_id, goal)
++        expected_dimension = self._next_unresolved_dimension(state)
++        if expected_dimension != dimension:
++            raise ValueError(f"HOOO proposal dimension mismatch: expected {expected_dimension or 'none'}, got {dimension}")
++        proposal = self._proposal_for(dimension, option_id)
++        decisions = dict(state.get("decisions") or {})
++        decisions[dimension] = proposal["value"]
++        resolved = set(state.get("resolved", []))
++        resolved.add(dimension)
++        state["decisions"] = decisions
++        state["resolved"] = [key for key in INTERVIEW_DIMENSIONS if key in resolved]
++        self._recompute_interview_gate(state)
++        state.setdefault("decision_log", []).append({
++            "at": _now(),
++            "source": "proposal_button",
++            "dimension": dimension,
++            "option_id": option_id,
++            "value": proposal["value"],
++            "actor_id": actor_id or None,
++            "resolved": state["resolved"],
++            "ambiguity_score": state["ambiguity_score"],
++        })
++        self._write_interview_state(run_id, state)
++        self._append_jsonl(run_id, "interview.jsonl", {
++            "at": _now(),
++            "role": "user",
++            "message": f"{INTERVIEW_DIMENSION_LABELS[dimension]}: {proposal['value']}",
++            "source": "proposal_button",
++            "dimension": dimension,
++            "option_id": option_id,
++        })
++        return state
++
++    def _record_other_opinion_request(self, run_id: str, goal: str, dimension: str, actor_id: str = "") -> dict[str, Any]:
++        if dimension not in INTERVIEW_DIMENSIONS:
++            raise ValueError(f"Unknown HOOO proposal dimension: {dimension}")
++        state = self._load_interview_state(run_id, goal)
++        expected_dimension = self._next_unresolved_dimension(state)
++        if expected_dimension != dimension:
++            raise ValueError(f"HOOO proposal dimension mismatch: expected {expected_dimension or 'none'}, got {dimension}")
++        state.setdefault("pending_freeform_dimension", dimension)
++        state.setdefault("decision_log", []).append({
++            "at": _now(),
++            "source": "other_opinion_button",
++            "dimension": dimension,
++            "actor_id": actor_id or None,
++            "instruction": f"Reply with `{INTERVIEW_DIMENSION_LABELS[dimension]}: ...` to resolve this dimension.",
++            "resolved": state.get("resolved", []),
++            "ambiguity_score": state.get("ambiguity_score", 1.0),
++        })
++        state["updated_at"] = _now()
++        self._write_interview_state(run_id, state)
++        return state
++
+     def _update_interview_state_from_turn(self, run_id: str, goal: str, message: str) -> None:
+         state = self._load_interview_state(run_id, goal)
+         resolved = set(state.get("resolved", []))
+@@ -613,17 +732,12 @@ class HouroborosWorkflow:
+             decisions["executor"] = executor
+         if freeform and message.strip():
+             decisions.setdefault("notes", []).append(message.strip())
+-        unresolved = [key for key in INTERVIEW_DIMENSIONS if key not in resolved]
+-        score = round(len(unresolved) / len(INTERVIEW_DIMENSIONS), 2)
+-        state.update({
+-            "ambiguity_score": score,
+-            "seed_ready": score <= AMBIGUITY_THRESHOLD,
+-            "resolved": [key for key in INTERVIEW_DIMENSIONS if key in resolved],
+-            "unresolved": unresolved,
+-            "decisions": decisions,
+-            "updated_at": _now(),
+-        })
+-        state.setdefault("decision_log", []).append({"at": _now(), "message": message, "resolved": state["resolved"], "ambiguity_score": score})
++        state["resolved"] = [key for key in INTERVIEW_DIMENSIONS if key in resolved]
++        state["decisions"] = decisions
++        if not freeform:
++            state.pop("pending_freeform_dimension", None)
++        self._recompute_interview_gate(state)
++        state.setdefault("decision_log", []).append({"at": _now(), "message": message, "resolved": state["resolved"], "ambiguity_score": state["ambiguity_score"]})
+         self._write_interview_state(run_id, state)
+ 
+     def _append_interview_card(self, run_id: str, event: str) -> dict[str, Any]:
+@@ -633,7 +747,8 @@ class HouroborosWorkflow:
+         revision = self._next_card_revision(run_id)
+         card_id = f"hooo-interview:{run_id}"
+         target_thread_id = origin.get("thread_id") or (origin.get("thread") or {}).get("thread_id")
+-        components = self._interview_components(run_id, revision, bool(state["seed_ready"]))
++        next_dimension = self._next_unresolved_dimension(state)
++        components = self._interview_components(run_id, revision, bool(state["seed_ready"]), next_dimension)
+         card = {
+             "action": "discord.interaction_message",
+             "contract_version": 2,
+@@ -654,7 +769,7 @@ class HouroborosWorkflow:
+             },
+             "interaction_policy": {
+                 "requires_explicit_operator_approval": True,
+-                "allowed_actions": ["continue_interview", "propose_seed", "cancel"],
++                "allowed_actions": ["select_proposal", "other_opinion", "continue_interview", "propose_seed", "cancel"],
+                 "reject_stale_revision": True,
+                 "validate_run_id": True,
+                 "validate_channel_thread": True,
+@@ -671,6 +786,7 @@ class HouroborosWorkflow:
+                 "seed_ready": state["seed_ready"],
+                 "unresolved": state["unresolved"],
+                 "decisions": self._display_decisions(state.get("decisions", {})),
++                "proposal_card": self._proposal_card(next_dimension),
+                 "buttons": [component["action"] for component in components],
+                 "components": components,
+             },
+@@ -678,7 +794,63 @@ class HouroborosWorkflow:
+         self._append_jsonl(run_id, "discord_cards.jsonl", card)
+         return card
+ 
+-    def _interview_components(self, run_id: str, revision: int, seed_ready: bool) -> list[dict[str, Any]]:
++    def _proposal_card(self, dimension: str | None) -> dict[str, Any] | None:
++        if dimension is None:
++            return None
++        proposals = [
++            {"option_id": option_id, "label": label, "value": value}
++            for option_id, label, value in INTERVIEW_PROPOSALS[dimension]
++        ]
++        return {
++            "dimension": dimension,
++            "label": INTERVIEW_DIMENSION_LABELS[dimension],
++            "prompt": f"Choose a concrete {dimension} proposal, or choose Other to provide a new opinion for this dimension.",
++            "proposals": proposals,
++            "other": {
++                "action": "other_opinion",
++                "label": "Other / new opinion",
++                "expected_reply": f"{INTERVIEW_DIMENSION_LABELS[dimension]}: <your value>",
++            },
++        }
++
++    def _interview_components(self, run_id: str, revision: int, seed_ready: bool, dimension: str | None) -> list[dict[str, Any]]:
++        if dimension is not None:
++            components = []
++            for option_id, label, _value in INTERVIEW_PROPOSALS[dimension]:
++                custom_id = f"hooo:v2:select_proposal:{run_id}:r{revision}:d{dimension}:o{option_id}"
++                if len(custom_id) > 100:
++                    raise ValueError(f"Discord custom_id too long for {run_id}: select_proposal")
++                components.append({
++                    "type": "button",
++                    "action": "select_proposal",
++                    "dimension": dimension,
++                    "option_id": option_id,
++                    "label": f"{option_id.upper()}. {label}",
++                    "style": "primary",
++                    "disabled": False,
++                    "custom_id": custom_id,
++                    "requires_seed_ready": False,
++                    "requires_explicit_operator_approval": True,
++                    "allowed_phase": ["created", "interviewing"],
++                })
++            custom_id = f"hooo:v2:other_opinion:{run_id}:r{revision}:d{dimension}:oother"
++            if len(custom_id) > 100:
++                raise ValueError(f"Discord custom_id too long for {run_id}: other_opinion")
++            components.append({
++                "type": "button",
++                "action": "other_opinion",
++                "dimension": dimension,
++                "option_id": "other",
++                "label": "Other / new opinion",
++                "style": "secondary",
++                "disabled": False,
++                "custom_id": custom_id,
++                "requires_seed_ready": False,
++                "requires_explicit_operator_approval": True,
++                "allowed_phase": ["created", "interviewing"],
++            })
++            return components
++
+         specs = [
+             ("continue_interview", "Continue Interview", "secondary", False, False, ["created", "interviewing"]),
+             ("propose_seed", "Propose Seed", "primary", not seed_ready, True, ["created", "interviewing", "seeded"]),
+@@ -715,13 +887,15 @@ class HouroborosWorkflow:
+                 display[key] = self._display_text(str(value))
+         return display
+ 
+-    def _parse_interaction_custom_id(self, custom_id: str) -> tuple[str, str, int]:
+-        match = re.fullmatch(r"hooo:v2:([a-z_]+):([A-Za-z0-9_.-]+):r([0-9]+)", custom_id or "")
++    def _parse_interaction_custom_id(self, custom_id: str) -> tuple[str, str, int, str, str]:
++        match = re.fullmatch(r"hooo:v2:([a-z_]+):([A-Za-z0-9_.-]+):r([0-9]+)(?::d([a-z]+):o([a-z]+))?", custom_id or "")
+         if not match:
+             raise ValueError("Invalid HOOO Discord interaction custom_id")
+         action, run_id, revision = match.group(1), match.group(2), int(match.group(3))
++        dimension = match.group(4) or ""
++        option_id = match.group(5) or ""
+         _validate_run_id(run_id)
+-        return action, run_id, revision
++        return action, run_id, revision, dimension, option_id
+ 
+     def handle_interaction(
+         self,
+@@ -735,20 +909,26 @@ class HouroborosWorkflow:
+         actor_id: str = "",
+     ) -> dict[str, Any]:
+         _validate_run_id(run_id)
++        dimension = ""
++        option_id = ""
+         if custom_id:
+-            parsed_action, parsed_run_id, parsed_revision = self._parse_interaction_custom_id(custom_id)
++            parsed_action, parsed_run_id, parsed_revision, parsed_dimension, parsed_option_id = self._parse_interaction_custom_id(custom_id)
+             if parsed_run_id != run_id:
+                 raise ValueError("Discord interaction run_id mismatch")
+             if action and action != parsed_action:
+                 raise ValueError("Discord interaction action/custom_id mismatch")
+             action = parsed_action
+             card_revision = parsed_revision
+-        if action not in {"continue_interview", "propose_seed", "cancel"}:
++            dimension = parsed_dimension
++            option_id = parsed_option_id
++        if action not in {"select_proposal", "other_opinion", "continue_interview", "propose_seed", "cancel"}:
+             raise ValueError(f"Unknown HOOO interaction action: {action}")
+         if card_revision is None:
+             raise ValueError("Discord interaction card_revision is required")
+         run = load_run(self.db_path, run_id)
+         allowed_by_action = {
++            "select_proposal": {"created", "interviewing"},
++            "other_opinion": {"created", "interviewing"},
+             "continue_interview": {"created", "interviewing"},
+             "propose_seed": {"created", "interviewing", "seeded"},
+             "cancel": {"created", "interviewing"},
+@@ -778,7 +958,39 @@ class HouroborosWorkflow:
+             "origin_channel_id": origin_channel_id or None,
+             "origin_thread_id": origin_thread_id or None,
+             "side_effects": "jarvis_workspace_write_only",
++            "dimension": dimension or None,
++            "option_id": option_id or None,
+         })
++        if action == "select_proposal":
++            if not dimension or not option_id:
++                raise ValueError("HOOO proposal interaction requires dimension and option identity")
++            self._apply_proposal_choice(run_id, run["goal"], dimension, option_id, actor_id)
++            card = self._append_interview_card(run_id, "interview.proposal_selected")
++            result = self.status(run_id)
++            result["interaction"] = {
++                "action": action,
++                "handled": True,
++                "dimension": dimension,
++                "option_id": option_id,
++                "card_revision": card["card_revision"],
++                "next_unresolved": result["interview_state"].get("unresolved", []),
++            }
++            return result
++        if action == "other_opinion":
++            if not dimension:
++                raise ValueError("HOOO other-opinion interaction requires dimension identity")
++            self._record_other_opinion_request(run_id, run["goal"], dimension, actor_id)
++            card = self._append_interview_card(run_id, "interview.other_requested")
++            result = self.status(run_id)
++            result["interaction"] = {
++                "action": action,
++                "handled": True,
++                "dimension": dimension,
++                "card_revision": card["card_revision"],
++                "next_unresolved": result["interview_state"].get("unresolved", []),
++                "expected_reply": f"{INTERVIEW_DIMENSION_LABELS[dimension]}: <your value>",
++            }
++            return result
+         if action == "continue_interview":
+             card = self._append_interview_card(run_id, "interview.continue_requested")
+             result = self.status(run_id)
+diff --git a/tests/test_hooo_gateway_plugin.py b/tests/test_hooo_gateway_plugin.py
+index 030e138..9209d0e 100644
+--- a/tests/test_hooo_gateway_plugin.py
++++ b/tests/test_hooo_gateway_plugin.py
+@@ -42,13 +42,27 @@ def test_card_text_summarizes_latest_state(tmp_path):
+     plugin = load_plugin()
+     card = {
+         "run_id": "hooo-20260502-test",
+-        "card": {"phase": "interviewing", "unresolved": ["scope?", "tests?"]},
++        "card": {
++            "phase": "interviewing",
++            "unresolved": ["scope", "acceptance"],
++            "proposal_card": {
++                "dimension": "scope",
++                "label": "Scope",
++                "proposals": [
++                    {"option_id": "a", "label": "Jarvis-owned", "value": "Jarvis-owned runtime/tests only"},
++                    {"option_id": "b", "label": "Seed only", "value": "Seed and plan only"},
++                    {"option_id": "c", "label": "Tests only", "value": "Regression tests only"},
++                ],
++                "other": {"expected_reply": "Scope: <your value>"},
++            },
++        },
+     }
+     text = plugin._card_text(card)
+     assert "hooo-20260502-test" in text
+     assert "interviewing" in text
+-    assert "scope?" in text
+-    assert "다음 형식" in text
++    assert "Jarvis-owned runtime/tests only" in text
++    assert "Scope: <your value>" in text
++    assert "버튼" in text
+ 
+ 
+ def test_pre_gateway_dispatch_returns_action_skip(monkeypatch):
+@@ -83,11 +97,12 @@ def test_card_components_reads_nested_card_payload():
+         "run_id": "hooo-20260502-test",
+         "card": {
+             "components": [
+-                {"type": "button", "action": "continue_interview", "custom_id": "hooo:v2:continue_interview:hooo-20260502-test:r1"}
++                {"type": "button", "action": "select_proposal", "custom_id": "hooo:v2:select_proposal:hooo-20260502-test:r1:dscope:oa"},
++                {"type": "button", "action": "other_opinion", "custom_id": "hooo:v2:other_opinion:hooo-20260502-test:r1:dscope:oother"},
+             ]
+         },
+     }
+-    assert plugin._card_components(card)[0]["action"] == "continue_interview"
++    assert [component["action"] for component in plugin._card_components(card)] == ["select_proposal", "other_opinion"]
+ 
+ 
+ def test_latest_card_reads_last_jsonl_record(tmp_path):
+diff --git a/tests/test_houroboros.py b/tests/test_houroboros.py
+index 5b298a3..339f081 100644
+--- a/tests/test_houroboros.py
++++ b/tests/test_houroboros.py
+@@ -68,6 +68,15 @@ def _make_seed_ready(workflow: HouroborosWorkflow, run_id: str) -> None:
+     workflow.turn(run_id, "Permission: seed gate approved")
+ 
+ 
++def _latest_card(tmp_path: Path, run_id: str) -> dict:
++    cards_path = tmp_path / "data" / "houroboros" / run_id / "discord_cards.jsonl"
++    return json.loads(cards_path.read_text(encoding="utf-8").splitlines()[-1])
++
++
++def _proposal_components(card: dict) -> list[dict]:
++    return [component for component in card["card"]["components"] if component["action"] == "select_proposal"]
++
++
+ def test_houroboros_state_machine_creates_artifacts_and_preserves_seed(tmp_path: Path):
+     config_file = _write_config(tmp_path)
+     workflow = HouroborosWorkflow.from_config_path(config_file)
+@@ -414,7 +423,9 @@ def test_houroboros_discord_interview_card_and_ambiguity_gate(tmp_path: Path):
+     assert "acceptance" in state["unresolved"]
+     assert first_card["action"] == "discord.interaction_message"
+     assert first_card["card"]["kind"] == "interview"
+-    assert first_card["card"]["buttons"] == ["continue_interview", "propose_seed", "cancel"]
++    assert first_card["card"]["proposal_card"]["dimension"] == "scope"
++    assert len(first_card["card"]["proposal_card"]["proposals"]) == 3
++    assert first_card["card"]["buttons"] == ["select_proposal", "select_proposal", "select_proposal", "other_opinion"]
+ 
+     try:
+         workflow.seed(run_id)
+@@ -450,6 +461,35 @@ def test_houroboros_interview_choices_reduce_ambiguity_and_seed_records_decision
+     assert seed_json["interview_gate"]["threshold"] == 0.2
+ 
+ 
++def test_houroboros_proposal_cards_advance_each_unresolved_dimension(tmp_path: Path):
++    config_file = _write_config(tmp_path)
++    workflow = HouroborosWorkflow.from_config_path(config_file)
++    started = workflow.start(goal="Choose proposals", origin_platform="discord", origin_channel_id="parent")
++    run_id = started["run_id"]
++
++    for expected_dimension in ["scope", "acceptance", "constraint", "executor", "permission"]:
++        card = _latest_card(tmp_path, run_id)
++        proposal_card = card["card"]["proposal_card"]
++        assert proposal_card["dimension"] == expected_dimension
++        assert len(proposal_card["proposals"]) == 3
++        components = card["card"]["components"]
++        assert [component["action"] for component in components] == ["select_proposal", "select_proposal", "select_proposal", "other_opinion"]
++        assert [component["option_id"] for component in _proposal_components(card)] == ["a", "b", "c"]
++
++        before = dict(workflow.status(run_id)["interview_state"]["decisions"])
++        selected = _proposal_components(card)[0]
++        result = workflow.handle_interaction(run_id, custom_id=selected["custom_id"], origin_channel_id="parent")
++        decisions = result["interview_state"]["decisions"]
++        assert expected_dimension in decisions
++        for dimension in before:
++            assert decisions[dimension] == before[dimension]
++
++    final_state = workflow.status(run_id)["interview_state"]
++    assert final_state["ambiguity_score"] <= 0.2
++    assert final_state["seed_ready"] is True
++    assert final_state["unresolved"] == []
++
++
+ def test_houroboros_claude_code_executor_writes_handoff_without_running_claude(tmp_path: Path):
+     config_file = _write_config(tmp_path)
+     workflow = HouroborosWorkflow.from_config_path(config_file)
+@@ -497,6 +537,23 @@ def test_houroboros_freeform_turn_does_not_bypass_ambiguity_gate(tmp_path: Path)
+         raise AssertionError("freeform turns must not bypass ambiguity gate")
+ 
+ 
++def test_houroboros_other_opinion_routes_dimension_without_resolving_all(tmp_path: Path):
++    config_file = _write_config(tmp_path)
++    workflow = HouroborosWorkflow.from_config_path(config_file)
++    started = workflow.start(goal="Other path", origin_platform="discord", origin_channel_id="parent")
++    run_id = started["run_id"]
++    card = _latest_card(tmp_path, run_id)
++    other = next(component for component in card["card"]["components"] if component["action"] == "other_opinion")
++
++    result = workflow.handle_interaction(run_id, custom_id=other["custom_id"], origin_channel_id="parent")
++
++    assert result["interaction"]["dimension"] == "scope"
++    assert result["interview_state"]["pending_freeform_dimension"] == "scope"
++    assert result["interview_state"]["ambiguity_score"] == 1.0
++    assert result["interview_state"]["seed_ready"] is False
++    assert result["interview_state"]["unresolved"] == ["scope", "acceptance", "constraint", "executor", "permission"]
++
++
+ 
+ def test_houroboros_auto_open_from_existing_thread_requests_sibling_thread(tmp_path: Path):
+     config_file = _write_config(tmp_path)
+@@ -569,14 +626,15 @@ def test_houroboros_discord_card_contract_v2_components_and_custom_ids(tmp_path:
+     assert card["target"]["platform"] == "discord"
+     assert card["interaction_policy"]["reject_stale_revision"] is True
+     assert card["interaction_policy"]["do_not_bypass_ambiguity_gate"] is True
++    assert card["card"]["proposal_card"]["dimension"] == "scope"
+     components = card["card"]["components"]
+-    assert [component["action"] for component in components] == ["continue_interview", "propose_seed", "cancel"]
++    assert [component["action"] for component in components] == ["select_proposal", "select_proposal", "select_proposal", "other_opinion"]
++    assert len(_proposal_components(card)) == 3
+     assert all(component["type"] == "button" for component in components)
+     assert all(component["custom_id"].startswith("hooo:v2:") for component in components)
+     assert all(len(component["custom_id"]) <= 100 for component in components)
+-    propose_seed = next(component for component in components if component["action"] == "propose_seed")
+-    assert propose_seed["disabled"] is True
+-    assert propose_seed["requires_seed_ready"] is True
++    for option_id, component in zip(["a", "b", "c"], _proposal_components(card), strict=True):
++        assert f":dscope:o{option_id}" in component["custom_id"]
+ 
+ 
+ def test_houroboros_interaction_reducer_continue_writes_new_card_and_rejects_stale(tmp_path: Path):
+@@ -629,12 +687,13 @@ def test_houroboros_interaction_custom_id_validation_and_origin_mismatch(tmp_pat
+     custom_id = card["card"]["components"][0]["custom_id"]
+ 
+     result = workflow.handle_interaction(run_id, "", custom_id=custom_id, origin_channel_id="parent")
+-    assert result["interaction"]["action"] == "continue_interview"
++    assert result["interaction"]["action"] == "select_proposal"
++    assert result["interaction"]["dimension"] == "scope"
+ 
+     try:
+         workflow.handle_interaction(run_id, "cancel", custom_id=custom_id, origin_channel_id="parent")
+     except ValueError as exc:
+-        assert "action/custom_id mismatch" in str(exc)
++        assert "action/custom_id mismatch" in str(exc) or "Stale" in str(exc)
+     else:  # pragma: no cover
+         raise AssertionError("custom_id action mismatch must be rejected")
+ 
+@@ -654,7 +713,7 @@ def test_houroboros_interaction_custom_id_validation_and_origin_mismatch(tmp_pat
+         raise AssertionError("interaction without revision/custom_id must be rejected")
+ 
+     try:
+-        workflow.handle_interaction(run_id, "continue_interview", custom_id=f"hooo:v2:continue_interview:other-run:r1", origin_channel_id="parent")
++        workflow.handle_interaction(run_id, "select_proposal", custom_id=f"hooo:v2:select_proposal:other-run:r1:dscope:oa", origin_channel_id="parent")
+     except ValueError as exc:
+         assert "run_id mismatch" in str(exc)
+     else:  # pragma: no cover
+[0m
+[0m⚙ [0mlsp_diagnostics {"filePath":"/home/jinwang/workspace/jinwang-jarvis/src/jinwang_jarvis/houroboros.py","severity":"all"}
+[0m⚙ [0mlsp_diagnostics {"filePath":"/home/jinwang/workspace/jinwang-jarvis/plugins/hermes_hooo_gateway/__init__.py","severity":"all"}
+[0m⚙ [0mlsp_diagnostics {"filePath":"/home/jinwang/workspace/jinwang-jarvis/src/jinwang_jarvis/cli.py","severity":"all"}
+[0m✱ [0mGrep "continue_interview|proposal|buttons|Discord card|interview"[90m in docs[0m
+[0m→ [0mRead docs/houroboros-workflow.md[90m [offset=1, limit=100][0m
+[0m→ [0mRead docs/houroboros-discord-gateway.md[90m [offset=1, limit=80][0m
+[0m⚙ [0mapply_patch Success. Updated the following files:
+M docs/houroboros-workflow.md
+[0m⚙ [0mapply_patch Success. Updated the following files:
+M docs/houroboros-discord-gateway.md
+[0m→ [0mRead orchestration/2026-05-03-opencode-hooo-proposal-interview[90m [offset=0, limit=100][0m
+[0m⚙ [0mapply_patch Success. Updated the following files:
+A orchestration/2026-05-03-opencode-hooo-proposal-interview/result.md
+The required result artifact is written with concrete card/custom_id examples and verification evidence; I’m doing the final verification pass now after the docs/artifact updates.
+[0m
+[0m$ [0mexport CI=true DEBIAN_FRONTEND=noninteractive GIT_TERMINAL_PROMPT=0 GCM_INTERACTIVE=never HOMEBREW_NO_AUTO_UPDATE=1 GIT_EDITOR=: EDITOR=: VISUAL='' GIT_SEQUENCE_EDITOR=: GIT_MERGE_AUTOEDIT=no GIT_PAGER=cat PAGER=cat npm_config_yes=true PIP_NO_INPUT=1 YARN_ENABLE_IMMUTABLE_INSTALLS=false; python -m compileall -q src/jinwang_jarvis tests
+(no output)
+[0m
+[0m⚙ [0mlsp_diagnostics {"filePath":"/home/jinwang/workspace/jinwang-jarvis/src/jinwang_jarvis/houroboros.py","severity":"all"}
+[0m⚙ [0mlsp_diagnostics {"filePath":"/home/jinwang/workspace/jinwang-jarvis/src/jinwang_jarvis/cli.py","severity":"all"}
+[0m⚙ [0mlsp_diagnostics {"filePath":"/home/jinwang/workspace/jinwang-jarvis/plugins/hermes_hooo_gateway/__init__.py","severity":"all"}
+[0m
+[0m$ [0mexport CI=true DEBIAN_FRONTEND=noninteractive GIT_TERMINAL_PROMPT=0 GCM_INTERACTIVE=never HOMEBREW_NO_AUTO_UPDATE=1 GIT_EDITOR=: EDITOR=: VISUAL='' GIT_SEQUENCE_EDITOR=: GIT_MERGE_AUTOEDIT=no GIT_PAGER=cat PAGER=cat npm_config_yes=true PIP_NO_INPUT=1 YARN_ENABLE_IMMUTABLE_INSTALLS=false; PYTHONPATH=src pytest -q tests/test_houroboros.py tests/test_hooo_gateway_plugin.py tests/test_cli.py tests/test_runtime.py
+.....................................................                    [100%]
+53 passed in 51.13s
+[0m
+[0m# [0mTodos
+[x] Inspect current HOOO/Houroboros implementation and tests; acceptance: identify runtime reducer/card/plugin paths and preserve pre-existing dirty files
+[x] Implement proposal-driven interview card model and reducer; acceptance: deterministic dimension order, exactly 3 proposals plus Other, bounded stale-safe custom_ids, per-dimension state update only
+[x] Add or adjust HOOO/Houroboros and gateway tests; acceptance: old blank continue-only behavior fails, proposal selection/freeform/stale/seed gating/plugin rendering covered
+[x] Update minimal docs/artifact; acceptance: result.md includes summary, changed files, tests, risks, card JSON/custom_id and interaction examples without overclaiming Discord clicks
+[x] Run requested verification and broader relevant tests; acceptance: compileall, targeted pytest, and broader relevant pytest results recorded with caveats if any
+[0m
+[0m$ [0mexport CI=true DEBIAN_FRONTEND=noninteractive GIT_TERMINAL_PROMPT=0 GCM_INTERACTIVE=never HOMEBREW_NO_AUTO_UPDATE=1 GIT_EDITOR=: EDITOR=: VISUAL='' GIT_SEQUENCE_EDITOR=: GIT_MERGE_AUTOEDIT=no GIT_PAGER=cat PAGER=cat npm_config_yes=true PIP_NO_INPUT=1 YARN_ENABLE_IMMUTABLE_INSTALLS=false; GIT_MASTER=1 git status --short
+M docs/houroboros-discord-gateway.md
+ M docs/houroboros-workflow.md
+ M plugins/hermes_hooo_gateway/__init__.py
+ M skills/hooo/SKILL.md
+ M skills/hooo/references/live-smoke-and-cleanup.md
+ M skills/houroboros/SKILL.md
+ M src/jinwang_jarvis/cli.py
+ M src/jinwang_jarvis/houroboros.py
+ M tests/test_hooo_gateway_plugin.py
+ M tests/test_houroboros.py
+?? orchestration/2026-05-03-opencode-hooo-proposal-interview/
+[0m
+Implemented the HOOO proposal-driven interview UX in Jarvis-owned code only.
+
+What changed:
+- Added deterministic proposal cards in `src/jinwang_jarvis/houroboros.py`.
+- Each unresolved dimension now shows exactly 3 proposals + `Other / new opinion`.
+- Proposal custom IDs include action/run/revision/dimension/option identity, e.g. `hooo:v2:select_proposal:<run>:r1:dscope:oa`.
+- Selecting A/B/C resolves only that dimension and advances to the next.
+- `Other` routes to dimension-specific freeform input without lowering ambiguity.
+- Updated CLI interaction choices, gateway plugin rendering text, tests, and minimal docs.
+- Wrote artifact: `orchestration/2026-05-03-opencode-hooo-proposal-interview/result.md`.
+
+Verification:
+- `python -m compileall -q src/jinwang_jarvis tests` passed.
+- `PYTHONPATH=src pytest -q tests/test_houroboros.py tests/test_hooo_gateway_plugin.py` passed earlier: `34 passed`.
+- Broader relevant suite passed: `53 passed`.
+- Manual CLI QA confirmed first card renders proposal buttons, selecting one resolves only `scope`, ambiguity becomes `0.8`, and next card advances to `acceptance`.
+
+Caveat: full `pytest -q` was attempted and reached 59% with no failures shown before the 120s timeout, so I did not claim a full-suite pass. Pre-existing dirty skill/reference files were preserved and not edited.

@@ -68,6 +68,15 @@ def _make_seed_ready(workflow: HouroborosWorkflow, run_id: str) -> None:
     workflow.turn(run_id, "Permission: seed gate approved")
 
 
+def _latest_card(tmp_path: Path, run_id: str) -> dict:
+    cards_path = tmp_path / "data" / "houroboros" / run_id / "discord_cards.jsonl"
+    return json.loads(cards_path.read_text(encoding="utf-8").splitlines()[-1])
+
+
+def _proposal_components(card: dict) -> list[dict]:
+    return [component for component in card["card"]["components"] if component["action"] == "select_proposal"]
+
+
 def test_houroboros_state_machine_creates_artifacts_and_preserves_seed(tmp_path: Path):
     config_file = _write_config(tmp_path)
     workflow = HouroborosWorkflow.from_config_path(config_file)
@@ -414,7 +423,9 @@ def test_houroboros_discord_interview_card_and_ambiguity_gate(tmp_path: Path):
     assert "acceptance" in state["unresolved"]
     assert first_card["action"] == "discord.interaction_message"
     assert first_card["card"]["kind"] == "interview"
-    assert first_card["card"]["buttons"] == ["continue_interview", "propose_seed", "cancel"]
+    assert first_card["card"]["proposal_card"]["dimension"] == "scope"
+    assert len(first_card["card"]["proposal_card"]["proposals"]) == 3
+    assert first_card["card"]["buttons"] == ["select_proposal", "select_proposal", "select_proposal", "other_opinion"]
 
     try:
         workflow.seed(run_id)
@@ -448,6 +459,35 @@ def test_houroboros_interview_choices_reduce_ambiguity_and_seed_records_decision
     assert seed_json["ambiguity_score"] <= 0.2
     assert seed_json["decisions"]["executor"] == "claude-code"
     assert seed_json["interview_gate"]["threshold"] == 0.2
+
+
+def test_houroboros_proposal_cards_advance_each_unresolved_dimension(tmp_path: Path):
+    config_file = _write_config(tmp_path)
+    workflow = HouroborosWorkflow.from_config_path(config_file)
+    started = workflow.start(goal="Choose proposals", origin_platform="discord", origin_channel_id="parent")
+    run_id = started["run_id"]
+
+    for expected_dimension in ["scope", "acceptance", "constraint", "executor", "permission"]:
+        card = _latest_card(tmp_path, run_id)
+        proposal_card = card["card"]["proposal_card"]
+        assert proposal_card["dimension"] == expected_dimension
+        assert len(proposal_card["proposals"]) == 3
+        components = card["card"]["components"]
+        assert [component["action"] for component in components] == ["select_proposal", "select_proposal", "select_proposal", "other_opinion"]
+        assert [component["option_id"] for component in _proposal_components(card)] == ["a", "b", "c"]
+
+        before = dict(workflow.status(run_id)["interview_state"]["decisions"])
+        selected = _proposal_components(card)[0]
+        result = workflow.handle_interaction(run_id, custom_id=selected["custom_id"], origin_channel_id="parent")
+        decisions = result["interview_state"]["decisions"]
+        assert expected_dimension in decisions
+        for dimension in before:
+            assert decisions[dimension] == before[dimension]
+
+    final_state = workflow.status(run_id)["interview_state"]
+    assert final_state["ambiguity_score"] <= 0.2
+    assert final_state["seed_ready"] is True
+    assert final_state["unresolved"] == []
 
 
 def test_houroboros_claude_code_executor_writes_handoff_without_running_claude(tmp_path: Path):
@@ -495,6 +535,30 @@ def test_houroboros_freeform_turn_does_not_bypass_ambiguity_gate(tmp_path: Path)
         assert "ambiguity" in str(exc)
     else:  # pragma: no cover
         raise AssertionError("freeform turns must not bypass ambiguity gate")
+
+
+def test_houroboros_other_opinion_routes_dimension_without_resolving_all(tmp_path: Path):
+    config_file = _write_config(tmp_path)
+    workflow = HouroborosWorkflow.from_config_path(config_file)
+    started = workflow.start(goal="Other path", origin_platform="discord", origin_channel_id="parent")
+    run_id = started["run_id"]
+    card = _latest_card(tmp_path, run_id)
+    other = next(component for component in card["card"]["components"] if component["action"] == "other_opinion")
+
+    result = workflow.handle_interaction(run_id, custom_id=other["custom_id"], origin_channel_id="parent")
+
+    assert result["interaction"]["dimension"] == "scope"
+    assert result["interview_state"]["pending_freeform_dimension"] == "scope"
+    assert result["interview_state"]["ambiguity_score"] == 1.0
+    assert result["interview_state"]["seed_ready"] is False
+    assert result["interview_state"]["unresolved"] == ["scope", "acceptance", "constraint", "executor", "permission"]
+
+    followup_card = _latest_card(tmp_path, run_id)
+    selected = _proposal_components(followup_card)[0]
+    after_choice = workflow.handle_interaction(run_id, custom_id=selected["custom_id"], origin_channel_id="parent")
+    assert after_choice["interview_state"]["decisions"]["scope"]
+    assert "pending_freeform_dimension" not in after_choice["interview_state"]
+    assert after_choice["interview_state"]["unresolved"] == ["acceptance", "constraint", "executor", "permission"]
 
 
 
@@ -569,14 +633,15 @@ def test_houroboros_discord_card_contract_v2_components_and_custom_ids(tmp_path:
     assert card["target"]["platform"] == "discord"
     assert card["interaction_policy"]["reject_stale_revision"] is True
     assert card["interaction_policy"]["do_not_bypass_ambiguity_gate"] is True
+    assert card["card"]["proposal_card"]["dimension"] == "scope"
     components = card["card"]["components"]
-    assert [component["action"] for component in components] == ["continue_interview", "propose_seed", "cancel"]
+    assert [component["action"] for component in components] == ["select_proposal", "select_proposal", "select_proposal", "other_opinion"]
+    assert len(_proposal_components(card)) == 3
     assert all(component["type"] == "button" for component in components)
     assert all(component["custom_id"].startswith("hooo:v2:") for component in components)
     assert all(len(component["custom_id"]) <= 100 for component in components)
-    propose_seed = next(component for component in components if component["action"] == "propose_seed")
-    assert propose_seed["disabled"] is True
-    assert propose_seed["requires_seed_ready"] is True
+    for option_id, component in zip(["a", "b", "c"], _proposal_components(card), strict=True):
+        assert f":dscope:o{option_id}" in component["custom_id"]
 
 
 def test_houroboros_interaction_reducer_continue_writes_new_card_and_rejects_stale(tmp_path: Path):
@@ -629,12 +694,13 @@ def test_houroboros_interaction_custom_id_validation_and_origin_mismatch(tmp_pat
     custom_id = card["card"]["components"][0]["custom_id"]
 
     result = workflow.handle_interaction(run_id, "", custom_id=custom_id, origin_channel_id="parent")
-    assert result["interaction"]["action"] == "continue_interview"
+    assert result["interaction"]["action"] == "select_proposal"
+    assert result["interaction"]["dimension"] == "scope"
 
     try:
         workflow.handle_interaction(run_id, "cancel", custom_id=custom_id, origin_channel_id="parent")
     except ValueError as exc:
-        assert "action/custom_id mismatch" in str(exc)
+        assert "action/custom_id mismatch" in str(exc) or "Stale" in str(exc)
     else:  # pragma: no cover
         raise AssertionError("custom_id action mismatch must be rejected")
 
@@ -654,7 +720,7 @@ def test_houroboros_interaction_custom_id_validation_and_origin_mismatch(tmp_pat
         raise AssertionError("interaction without revision/custom_id must be rejected")
 
     try:
-        workflow.handle_interaction(run_id, "continue_interview", custom_id=f"hooo:v2:continue_interview:other-run:r1", origin_channel_id="parent")
+        workflow.handle_interaction(run_id, "select_proposal", custom_id=f"hooo:v2:select_proposal:other-run:r1:dscope:oa", origin_channel_id="parent")
     except ValueError as exc:
         assert "run_id mismatch" in str(exc)
     else:  # pragma: no cover

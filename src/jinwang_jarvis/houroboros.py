@@ -15,6 +15,41 @@ from .config import PipelineConfig, load_pipeline_config
 PHASES = ("created", "interviewing", "seeded", "running", "evaluated", "evolved", "completed", "blocked", "failed")
 AMBIGUITY_THRESHOLD = 0.2
 INTERVIEW_DIMENSIONS = ("scope", "acceptance", "constraint", "executor", "permission")
+PROPOSAL_OPTION_IDS = ("a", "b", "c")
+INTERVIEW_DIMENSION_LABELS = {
+    "scope": "Scope",
+    "acceptance": "Acceptance",
+    "constraint": "Constraint",
+    "executor": "Executor",
+    "permission": "Permission",
+}
+INTERVIEW_PROPOSALS = {
+    "scope": (
+        ("a", "Jarvis-owned implementation", "Implement only Jarvis-owned HOOO/Houroboros runtime, gateway bridge, tests, and necessary docs for this task."),
+        ("b", "Seed and plan only", "Produce a deterministic HOOO seed and implementation plan, without changing runtime behavior."),
+        ("c", "Tests and contract only", "Limit work to regression tests and contract documentation; defer runtime implementation."),
+    ),
+    "acceptance": (
+        ("a", "Tests and artifact pass", "Requested behavior is implemented, targeted tests pass, and the result artifact records verification evidence."),
+        ("b", "Seed is reviewable", "A seed artifact contains explicit scope, acceptance, constraints, executor, permission, and no hidden side effects."),
+        ("c", "Regression is locked", "A regression test fails on the old continue-only interview and passes with proposal buttons."),
+    ),
+    "constraint": (
+        ("a", "Jarvis boundary", "Modify only Jarvis-owned repository files; do not touch Hermes source/config, secrets, systemd, cron, raw wiki, or external services."),
+        ("b", "Dry-run side effects", "Avoid live Discord or gateway side effects; write local handoff/artifact evidence only."),
+        ("c", "Minimal patch", "Keep the change small, test-backed, and isolated from unrelated dirty files."),
+    ),
+    "executor": (
+        ("a", "Claude Code handoff", "claude-code"),
+        ("b", "OpenCode/Sisyphus", "opencode-sisyphus"),
+        ("c", "Deterministic placeholder", "deterministic-placeholder"),
+    ),
+    "permission": (
+        ("a", "Implement and test locally", "Read/write Jarvis-owned repo files and run local verification commands; no external side effects."),
+        ("b", "Seed approval only", "Create a reviewable seed after the ambiguity gate; implementation requires separate approval."),
+        ("c", "Read-only analysis", "Analyze and document the task without code changes until explicit approval."),
+    ),
+}
 RUN_ID_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
 SECRET_VALUE_RE = re.compile(
     r"(?i)\b(api[_-]?key|secret|password|passwd|token|authorization)\b\s*[:=]\s*([^\s,;]+)"
@@ -595,6 +630,92 @@ class HouroborosWorkflow:
     def _write_interview_state(self, run_id: str, state: dict[str, Any]) -> None:
         self._write_json(run_id, "interview_state.json", state)
 
+    def _next_unresolved_dimension(self, state: dict[str, Any]) -> str | None:
+        resolved = set(state.get("resolved", []))
+        for dimension in INTERVIEW_DIMENSIONS:
+            if dimension not in resolved:
+                return dimension
+        return None
+
+    def _proposal_for(self, dimension: str, option_id: str) -> dict[str, str]:
+        for candidate_id, label, value in INTERVIEW_PROPOSALS[dimension]:
+            if candidate_id == option_id:
+                return {"option_id": candidate_id, "label": label, "value": value}
+        raise ValueError(f"Unknown HOOO proposal option: {dimension}/{option_id}")
+
+    def _recompute_interview_gate(self, state: dict[str, Any]) -> None:
+        resolved = set(state.get("resolved", []))
+        unresolved = [key for key in INTERVIEW_DIMENSIONS if key not in resolved]
+        score = round(len(unresolved) / len(INTERVIEW_DIMENSIONS), 2)
+        state.update({
+            "ambiguity_score": score,
+            "seed_ready": score <= AMBIGUITY_THRESHOLD,
+            "resolved": [key for key in INTERVIEW_DIMENSIONS if key in resolved],
+            "unresolved": unresolved,
+            "updated_at": _now(),
+        })
+
+    def _apply_proposal_choice(self, run_id: str, goal: str, dimension: str, option_id: str, actor_id: str = "") -> dict[str, Any]:
+        if dimension not in INTERVIEW_DIMENSIONS:
+            raise ValueError(f"Unknown HOOO proposal dimension: {dimension}")
+        if option_id not in PROPOSAL_OPTION_IDS:
+            raise ValueError(f"Unknown HOOO proposal option: {option_id}")
+        state = self._load_interview_state(run_id, goal)
+        expected_dimension = self._next_unresolved_dimension(state)
+        if expected_dimension != dimension:
+            raise ValueError(f"HOOO proposal dimension mismatch: expected {expected_dimension or 'none'}, got {dimension}")
+        proposal = self._proposal_for(dimension, option_id)
+        decisions = dict(state.get("decisions") or {})
+        decisions[dimension] = proposal["value"]
+        resolved = set(state.get("resolved", []))
+        resolved.add(dimension)
+        state["decisions"] = decisions
+        state["resolved"] = [key for key in INTERVIEW_DIMENSIONS if key in resolved]
+        if state.get("pending_freeform_dimension") == dimension:
+            state.pop("pending_freeform_dimension", None)
+        self._recompute_interview_gate(state)
+        state.setdefault("decision_log", []).append({
+            "at": _now(),
+            "source": "proposal_button",
+            "dimension": dimension,
+            "option_id": option_id,
+            "value": proposal["value"],
+            "actor_id": actor_id or None,
+            "resolved": state["resolved"],
+            "ambiguity_score": state["ambiguity_score"],
+        })
+        self._write_interview_state(run_id, state)
+        self._append_jsonl(run_id, "interview.jsonl", {
+            "at": _now(),
+            "role": "user",
+            "message": f"{INTERVIEW_DIMENSION_LABELS[dimension]}: {proposal['value']}",
+            "source": "proposal_button",
+            "dimension": dimension,
+            "option_id": option_id,
+        })
+        return state
+
+    def _record_other_opinion_request(self, run_id: str, goal: str, dimension: str, actor_id: str = "") -> dict[str, Any]:
+        if dimension not in INTERVIEW_DIMENSIONS:
+            raise ValueError(f"Unknown HOOO proposal dimension: {dimension}")
+        state = self._load_interview_state(run_id, goal)
+        expected_dimension = self._next_unresolved_dimension(state)
+        if expected_dimension != dimension:
+            raise ValueError(f"HOOO proposal dimension mismatch: expected {expected_dimension or 'none'}, got {dimension}")
+        state.setdefault("pending_freeform_dimension", dimension)
+        state.setdefault("decision_log", []).append({
+            "at": _now(),
+            "source": "other_opinion_button",
+            "dimension": dimension,
+            "actor_id": actor_id or None,
+            "instruction": f"Reply with `{INTERVIEW_DIMENSION_LABELS[dimension]}: ...` to resolve this dimension.",
+            "resolved": state.get("resolved", []),
+            "ambiguity_score": state.get("ambiguity_score", 1.0),
+        })
+        state["updated_at"] = _now()
+        self._write_interview_state(run_id, state)
+        return state
+
     def _update_interview_state_from_turn(self, run_id: str, goal: str, message: str) -> None:
         state = self._load_interview_state(run_id, goal)
         resolved = set(state.get("resolved", []))
@@ -613,17 +734,12 @@ class HouroborosWorkflow:
             decisions["executor"] = executor
         if freeform and message.strip():
             decisions.setdefault("notes", []).append(message.strip())
-        unresolved = [key for key in INTERVIEW_DIMENSIONS if key not in resolved]
-        score = round(len(unresolved) / len(INTERVIEW_DIMENSIONS), 2)
-        state.update({
-            "ambiguity_score": score,
-            "seed_ready": score <= AMBIGUITY_THRESHOLD,
-            "resolved": [key for key in INTERVIEW_DIMENSIONS if key in resolved],
-            "unresolved": unresolved,
-            "decisions": decisions,
-            "updated_at": _now(),
-        })
-        state.setdefault("decision_log", []).append({"at": _now(), "message": message, "resolved": state["resolved"], "ambiguity_score": score})
+        state["resolved"] = [key for key in INTERVIEW_DIMENSIONS if key in resolved]
+        state["decisions"] = decisions
+        if not freeform:
+            state.pop("pending_freeform_dimension", None)
+        self._recompute_interview_gate(state)
+        state.setdefault("decision_log", []).append({"at": _now(), "message": message, "resolved": state["resolved"], "ambiguity_score": state["ambiguity_score"]})
         self._write_interview_state(run_id, state)
 
     def _append_interview_card(self, run_id: str, event: str) -> dict[str, Any]:
@@ -633,7 +749,8 @@ class HouroborosWorkflow:
         revision = self._next_card_revision(run_id)
         card_id = f"hooo-interview:{run_id}"
         target_thread_id = origin.get("thread_id") or (origin.get("thread") or {}).get("thread_id")
-        components = self._interview_components(run_id, revision, bool(state["seed_ready"]))
+        next_dimension = self._next_unresolved_dimension(state)
+        components = self._interview_components(run_id, revision, bool(state["seed_ready"]), next_dimension)
         card = {
             "action": "discord.interaction_message",
             "contract_version": 2,
@@ -654,7 +771,7 @@ class HouroborosWorkflow:
             },
             "interaction_policy": {
                 "requires_explicit_operator_approval": True,
-                "allowed_actions": ["continue_interview", "propose_seed", "cancel"],
+                "allowed_actions": ["select_proposal", "other_opinion", "continue_interview", "propose_seed", "cancel"],
                 "reject_stale_revision": True,
                 "validate_run_id": True,
                 "validate_channel_thread": True,
@@ -671,6 +788,7 @@ class HouroborosWorkflow:
                 "seed_ready": state["seed_ready"],
                 "unresolved": state["unresolved"],
                 "decisions": self._display_decisions(state.get("decisions", {})),
+                "proposal_card": self._proposal_card(next_dimension),
                 "buttons": [component["action"] for component in components],
                 "components": components,
             },
@@ -678,7 +796,63 @@ class HouroborosWorkflow:
         self._append_jsonl(run_id, "discord_cards.jsonl", card)
         return card
 
-    def _interview_components(self, run_id: str, revision: int, seed_ready: bool) -> list[dict[str, Any]]:
+    def _proposal_card(self, dimension: str | None) -> dict[str, Any] | None:
+        if dimension is None:
+            return None
+        proposals = [
+            {"option_id": option_id, "label": label, "value": value}
+            for option_id, label, value in INTERVIEW_PROPOSALS[dimension]
+        ]
+        return {
+            "dimension": dimension,
+            "label": INTERVIEW_DIMENSION_LABELS[dimension],
+            "prompt": f"Choose a concrete {dimension} proposal, or choose Other to provide a new opinion for this dimension.",
+            "proposals": proposals,
+            "other": {
+                "action": "other_opinion",
+                "label": "Other / new opinion",
+                "expected_reply": f"{INTERVIEW_DIMENSION_LABELS[dimension]}: <your value>",
+            },
+        }
+
+    def _interview_components(self, run_id: str, revision: int, seed_ready: bool, dimension: str | None) -> list[dict[str, Any]]:
+        if dimension is not None:
+            components = []
+            for option_id, label, _value in INTERVIEW_PROPOSALS[dimension]:
+                custom_id = f"hooo:v2:select_proposal:{run_id}:r{revision}:d{dimension}:o{option_id}"
+                if len(custom_id) > 100:
+                    raise ValueError(f"Discord custom_id too long for {run_id}: select_proposal")
+                components.append({
+                    "type": "button",
+                    "action": "select_proposal",
+                    "dimension": dimension,
+                    "option_id": option_id,
+                    "label": f"{option_id.upper()}. {label}",
+                    "style": "primary",
+                    "disabled": False,
+                    "custom_id": custom_id,
+                    "requires_seed_ready": False,
+                    "requires_explicit_operator_approval": True,
+                    "allowed_phase": ["created", "interviewing"],
+                })
+            custom_id = f"hooo:v2:other_opinion:{run_id}:r{revision}:d{dimension}:oother"
+            if len(custom_id) > 100:
+                raise ValueError(f"Discord custom_id too long for {run_id}: other_opinion")
+            components.append({
+                "type": "button",
+                "action": "other_opinion",
+                "dimension": dimension,
+                "option_id": "other",
+                "label": "Other / new opinion",
+                "style": "secondary",
+                "disabled": False,
+                "custom_id": custom_id,
+                "requires_seed_ready": False,
+                "requires_explicit_operator_approval": True,
+                "allowed_phase": ["created", "interviewing"],
+            })
+            return components
+
         specs = [
             ("continue_interview", "Continue Interview", "secondary", False, False, ["created", "interviewing"]),
             ("propose_seed", "Propose Seed", "primary", not seed_ready, True, ["created", "interviewing", "seeded"]),
@@ -715,13 +889,15 @@ class HouroborosWorkflow:
                 display[key] = self._display_text(str(value))
         return display
 
-    def _parse_interaction_custom_id(self, custom_id: str) -> tuple[str, str, int]:
-        match = re.fullmatch(r"hooo:v2:([a-z_]+):([A-Za-z0-9_.-]+):r([0-9]+)", custom_id or "")
+    def _parse_interaction_custom_id(self, custom_id: str) -> tuple[str, str, int, str, str]:
+        match = re.fullmatch(r"hooo:v2:([a-z_]+):([A-Za-z0-9_.-]+):r([0-9]+)(?::d([a-z]+):o([a-z]+))?", custom_id or "")
         if not match:
             raise ValueError("Invalid HOOO Discord interaction custom_id")
         action, run_id, revision = match.group(1), match.group(2), int(match.group(3))
+        dimension = match.group(4) or ""
+        option_id = match.group(5) or ""
         _validate_run_id(run_id)
-        return action, run_id, revision
+        return action, run_id, revision, dimension, option_id
 
     def handle_interaction(
         self,
@@ -735,20 +911,26 @@ class HouroborosWorkflow:
         actor_id: str = "",
     ) -> dict[str, Any]:
         _validate_run_id(run_id)
+        dimension = ""
+        option_id = ""
         if custom_id:
-            parsed_action, parsed_run_id, parsed_revision = self._parse_interaction_custom_id(custom_id)
+            parsed_action, parsed_run_id, parsed_revision, parsed_dimension, parsed_option_id = self._parse_interaction_custom_id(custom_id)
             if parsed_run_id != run_id:
                 raise ValueError("Discord interaction run_id mismatch")
             if action and action != parsed_action:
                 raise ValueError("Discord interaction action/custom_id mismatch")
             action = parsed_action
             card_revision = parsed_revision
-        if action not in {"continue_interview", "propose_seed", "cancel"}:
+            dimension = parsed_dimension
+            option_id = parsed_option_id
+        if action not in {"select_proposal", "other_opinion", "continue_interview", "propose_seed", "cancel"}:
             raise ValueError(f"Unknown HOOO interaction action: {action}")
         if card_revision is None:
             raise ValueError("Discord interaction card_revision is required")
         run = load_run(self.db_path, run_id)
         allowed_by_action = {
+            "select_proposal": {"created", "interviewing"},
+            "other_opinion": {"created", "interviewing"},
             "continue_interview": {"created", "interviewing"},
             "propose_seed": {"created", "interviewing", "seeded"},
             "cancel": {"created", "interviewing"},
@@ -778,7 +960,39 @@ class HouroborosWorkflow:
             "origin_channel_id": origin_channel_id or None,
             "origin_thread_id": origin_thread_id or None,
             "side_effects": "jarvis_workspace_write_only",
+            "dimension": dimension or None,
+            "option_id": option_id or None,
         })
+        if action == "select_proposal":
+            if not dimension or not option_id:
+                raise ValueError("HOOO proposal interaction requires dimension and option identity")
+            self._apply_proposal_choice(run_id, run["goal"], dimension, option_id, actor_id)
+            card = self._append_interview_card(run_id, "interview.proposal_selected")
+            result = self.status(run_id)
+            result["interaction"] = {
+                "action": action,
+                "handled": True,
+                "dimension": dimension,
+                "option_id": option_id,
+                "card_revision": card["card_revision"],
+                "next_unresolved": result["interview_state"].get("unresolved", []),
+            }
+            return result
+        if action == "other_opinion":
+            if not dimension:
+                raise ValueError("HOOO other-opinion interaction requires dimension identity")
+            self._record_other_opinion_request(run_id, run["goal"], dimension, actor_id)
+            card = self._append_interview_card(run_id, "interview.other_requested")
+            result = self.status(run_id)
+            result["interaction"] = {
+                "action": action,
+                "handled": True,
+                "dimension": dimension,
+                "card_revision": card["card_revision"],
+                "next_unresolved": result["interview_state"].get("unresolved", []),
+                "expected_reply": f"{INTERVIEW_DIMENSION_LABELS[dimension]}: <your value>",
+            }
+            return result
         if action == "continue_interview":
             card = self._append_interview_card(run_id, "interview.continue_requested")
             result = self.status(run_id)

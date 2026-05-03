@@ -157,12 +157,23 @@ def _card_text(card: dict[str, Any]) -> str:
     run_id = card.get("run_id", "")
     payload = _card_payload(card)
     unresolved = payload.get("unresolved") or []
+    raw_proposal_card = payload.get("proposal_card")
+    proposal_card = raw_proposal_card if isinstance(raw_proposal_card, dict) else {}
     phase = payload.get("phase") or card.get("phase") or "unknown"
     lines = [f"🌀 **HOOO** `{run_id}`", f"phase: `{phase}`"]
+    if proposal_card:
+        lines.append(f"\n선택할 항목: **{proposal_card.get('label', proposal_card.get('dimension', 'HOOO'))}**")
+        raw_proposals = proposal_card.get("proposals")
+        proposals = raw_proposals if isinstance(raw_proposals, list) else []
+        for proposal in proposals[:3]:
+            lines.append(f"- {str(proposal.get('option_id', '')).upper()}: {proposal.get('label', '')} — {proposal.get('value', '')}")
+        other = proposal_card.get("other") if isinstance(proposal_card.get("other"), dict) else {}
+        if other:
+            lines.append(f"- Other: {other.get('expected_reply', 'new opinion')}")
     if unresolved:
         lines.append("\n질문/모호성:")
         lines.extend(f"- {item}" for item in unresolved[:6])
-        lines.append("\n다음 형식으로 답하면 인터뷰가 진행됩니다:")
+        lines.append("\n버튼으로 제안을 선택하거나 다음 형식으로 직접 답하면 인터뷰가 진행됩니다:")
         lines.extend(f"- `{_dimension_prompt(item)}`" for item in unresolved[:3])
     else:
         lines.append("\nSeed 생성 가능 상태입니다.")

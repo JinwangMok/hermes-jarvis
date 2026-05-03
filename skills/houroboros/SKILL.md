@@ -10,7 +10,9 @@ metadata:
 
 Use this skill when the user invokes `/houroboros`, asks to continue a Houroboros run, or asks for status/drift on a Jarvis workflow run.
 
-The required workflow is Discord thread auto-open -> interactive Interview cards -> ambiguity gate -> Seed -> Execute/Claude Code handoff -> Evaluate -> Evolve with Status/Drift visibility. The interview can look like Deep Interview, but it is only the front-end requirement crystallization phase after the task-specific Discord operating thread exists or has a pending handoff. Always continue toward a locked seed, deterministic execution record or explicit Claude Code handoff, evaluation against acceptance criteria, and an evolution proposal when requested. `seed` is intentionally blocked until the interview ambiguity score is `<= 0.2`. Freeform turns must not automatically reduce ambiguity; only structured labels or explicit UI choices should resolve required dimensions.
+The required workflow is Discord thread auto-open -> interactive Interview cards -> ambiguity gate -> Seed -> Execute/Claude Code handoff -> Evaluate -> Evolve with Status/Drift visibility. The interview can look like Deep Interview, but it is only the front-end requirement crystallization phase after the task-specific Discord operating thread exists or has a pending handoff. Always continue toward a locked seed, deterministic execution record or explicit Claude Code handoff, evaluation against acceptance criteria, and an evolution proposal when requested. `seed` is intentionally blocked until the interview ambiguity score is `<= 0.2`.
+
+Required Discord interview UX: do not stop at a single "continue interview" button plus blank text instructions. For each unresolved dimension, generate **three concrete candidate answers** as button-selectable options plus an **Other / new opinion** path. After each selection or new opinion, update the structured interview state and present the next unresolved dimension/options. Freeform turns must not automatically reduce ambiguity; only structured labels, explicit UI choices, or clearly mapped "Other" input should resolve required dimensions.
 
 Use the Jarvis CLI namespace:
 

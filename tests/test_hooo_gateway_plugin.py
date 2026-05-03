@@ -42,13 +42,27 @@ def test_card_text_summarizes_latest_state(tmp_path):
     plugin = load_plugin()
     card = {
         "run_id": "hooo-20260502-test",
-        "card": {"phase": "interviewing", "unresolved": ["scope?", "tests?"]},
+        "card": {
+            "phase": "interviewing",
+            "unresolved": ["scope", "acceptance"],
+            "proposal_card": {
+                "dimension": "scope",
+                "label": "Scope",
+                "proposals": [
+                    {"option_id": "a", "label": "Jarvis-owned", "value": "Jarvis-owned runtime/tests only"},
+                    {"option_id": "b", "label": "Seed only", "value": "Seed and plan only"},
+                    {"option_id": "c", "label": "Tests only", "value": "Regression tests only"},
+                ],
+                "other": {"expected_reply": "Scope: <your value>"},
+            },
+        },
     }
     text = plugin._card_text(card)
     assert "hooo-20260502-test" in text
     assert "interviewing" in text
-    assert "scope?" in text
-    assert "다음 형식" in text
+    assert "Jarvis-owned runtime/tests only" in text
+    assert "Scope: <your value>" in text
+    assert "버튼" in text
 
 
 def test_pre_gateway_dispatch_returns_action_skip(monkeypatch):
@@ -83,11 +97,12 @@ def test_card_components_reads_nested_card_payload():
         "run_id": "hooo-20260502-test",
         "card": {
             "components": [
-                {"type": "button", "action": "continue_interview", "custom_id": "hooo:v2:continue_interview:hooo-20260502-test:r1"}
+                {"type": "button", "action": "select_proposal", "custom_id": "hooo:v2:select_proposal:hooo-20260502-test:r1:dscope:oa"},
+                {"type": "button", "action": "other_opinion", "custom_id": "hooo:v2:other_opinion:hooo-20260502-test:r1:dscope:oother"},
             ]
         },
     }
-    assert plugin._card_components(card)[0]["action"] == "continue_interview"
+    assert [component["action"] for component in plugin._card_components(card)] == ["select_proposal", "other_opinion"]
 
 
 def test_latest_card_reads_last_jsonl_record(tmp_path):

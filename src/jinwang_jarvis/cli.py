@@ -298,7 +298,12 @@ def build_parser() -> argparse.ArgumentParser:
     houroboros_interact_parser = houroboros_subparsers.add_parser("interact", help="Safely reduce a Discord button interaction into the Jarvis state machine")
     houroboros_interact_parser.add_argument("--config", required=True, help="Path to pipeline.yaml")
     houroboros_interact_parser.add_argument("--run-id", required=True, help="Houroboros run ID")
-    houroboros_interact_parser.add_argument("--action", choices=("continue_interview", "propose_seed", "cancel"), default="", help="Logical HOOO interaction action; optional when --custom-id is provided")
+    houroboros_interact_parser.add_argument(
+        "--action",
+        choices=("select_proposal", "other_opinion", "continue_interview", "propose_seed", "cancel"),
+        default="",
+        help="Logical HOOO interaction action; optional when --custom-id is provided",
+    )
     houroboros_interact_parser.add_argument("--custom-id", default="", help="Discord component custom_id; when present it must match the run/action/revision")
     houroboros_interact_parser.add_argument("--card-revision", type=int, default=None, help="Card revision seen by the Discord interaction")
     houroboros_interact_parser.add_argument("--origin-channel-id", default="", help="Discord channel ID from the interaction callback")

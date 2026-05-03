@@ -20,7 +20,7 @@ The intended UX is now Discord-native, not CLI-only:
 
 ## Interview state and cards
 
-`start` writes `interview_state.json` and appends a `discord_cards.jsonl` card contract. This is a Jarvis-owned handoff format that a Hermes/Boramae gateway hook can render as a Discord interaction message with buttons such as `continue_interview`, `propose_seed`, and `cancel`.
+`start` writes `interview_state.json` and appends a `discord_cards.jsonl` card contract. When required dimensions remain unresolved, the default card is proposal-driven: it deterministically chooses the next dimension in `scope`, `acceptance`, `constraint`, `executor`, `permission` order and renders exactly three `select_proposal` options plus `other_opinion`. Compatibility actions such as `continue_interview`, `propose_seed`, and `cancel` remain reducer-supported, but unresolved cards should not default to a blank continue-only prompt.
 
 The current deterministic ambiguity model tracks five required dimensions:
 
@@ -30,7 +30,7 @@ The current deterministic ambiguity model tracks five required dimensions:
 - `executor`
 - `permission`
 
-Each `turn` updates `interview_state.json`, appends the raw message to `interview.jsonl`, and appends a new Discord card snapshot. Structured turns are recognized by prefixes such as `Scope:`, `Acceptance:`, `Constraint:`, `Executor:`, and `Permission:`. `seed` is blocked while `ambiguity_score > 0.2`.
+Each `turn` updates `interview_state.json`, appends the raw message to `interview.jsonl`, and appends a new Discord card snapshot. Structured turns are recognized by prefixes such as `Scope:`, `Acceptance:`, `Constraint:`, `Executor:`, and `Permission:`. Freeform text is retained as notes unless it clearly maps to one of those prefixes, so it does not bypass the ambiguity gate. `seed` is blocked while `ambiguity_score > 0.2`.
 
 ## State and artifacts
 
@@ -60,7 +60,7 @@ Default `run` remains side-effect-free and writes deterministic dry-run evidence
 
 ## Discord card contract
 
-`discord_cards.jsonl` stores the render payload under `card.components`. Gateway renderers must read nested `card.components` and preserve `disabled` flags when constructing Discord buttons. Top-level `components` is a legacy fallback only; new renderers should not rely on it.
+`discord_cards.jsonl` stores the render payload under `card.components`. Gateway renderers must read nested `card.components`, render proposal option buttons, and preserve `disabled` flags when constructing Discord buttons. Top-level `components` is a legacy fallback only; new renderers should not rely on it. Proposal `custom_id` values include action, run id, card revision, dimension, and option id so stale or mismatched interactions can be rejected before mutating interview state.
 
 ## Discord operating-thread rule
 
