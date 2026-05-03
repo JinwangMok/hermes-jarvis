@@ -43,6 +43,9 @@ Safety contract: do not modify Hermes source, `~/.hermes`, Hermes skills, wiki r
 
 Implementation pitfalls learned from the Discord-native redesign:
 - Starting from an existing Discord thread with `--auto-open-thread` must create a sibling-thread handoff under the parent channel; keep the original thread only as `source_origin_thread_id` and set `reuse_current_thread: false`.
+- Hermes `pre_gateway_dispatch` must return `{"action": "skip", "reason": ...}` after the plugin handles `/hooo`; returning legacy `{"skip": true}` does **not** stop normal parent-channel agent dispatch and causes duplicate threads plus real work running in the parent session.
 - Claude Code/OpenCode executor integration should first write a deferred handoff artifact, not run the worker inline from `/hooo`.
 - Deterministic placeholder execution/evaluation is dry-run evidence; expose warnings so it is not confused with real task completion.
+- Live smoke should validate the real Discord sibling-thread side effect plus Jarvis card/reducer/seed path. If the tooling cannot impersonate a human Discord UI click, say so and treat `hooo interact --custom-id ...` as API-equivalent reducer validation, not as a physical UI click.
 - Verification should include `compileall`, targeted HOOO/CLI regressions, full `pytest -q`, and a CLI smoke that checks `interview_state.json`, `discord_cards.jsonl`, `thread_handoff.json`, `seed.json`, and `claude_code_handoff.json`.
+- Final cleanup should split mixed workstreams into concern-based commits and then re-check gateway/config status without restarting. See `references/live-smoke-and-cleanup.md` for the proven live-smoke, verification, and git-cleanup recipe.

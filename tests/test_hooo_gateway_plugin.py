@@ -48,6 +48,33 @@ def test_card_text_summarizes_latest_state(tmp_path):
     assert "hooo-20260502-test" in text
     assert "interviewing" in text
     assert "scope?" in text
+    assert "다음 형식" in text
+
+
+def test_pre_gateway_dispatch_returns_action_skip(monkeypatch):
+    plugin = load_plugin()
+
+    async def fake_handle(event, gateway, command):
+        return None
+
+    monkeypatch.setattr(plugin, "_handle_hooo_command", fake_handle)
+    source = type("Source", (), {"platform": "discord"})()
+    event = type("Event", (), {"text": "/hooo audit", "source": source})()
+
+    result = plugin._pre_gateway_dispatch(event, None)
+
+    assert result == {"action": "skip", "reason": "hooo_gateway_bridge"}
+
+
+def test_interview_reply_lists_actionable_remaining_prompts():
+    plugin = load_plugin()
+    text = plugin._interview_reply({
+        "phase": "interviewing",
+        "interaction": {"next_unresolved": ["scope", "acceptance"]},
+    })
+    assert "HOOO 인터뷰 계속" in text
+    assert "Scope:" in text
+    assert "Acceptance:" in text
 
 
 def test_card_components_reads_nested_card_payload():

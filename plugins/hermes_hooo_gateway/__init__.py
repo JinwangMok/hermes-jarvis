@@ -72,12 +72,12 @@ def _pre_gateway_dispatch(event: Any = None, gateway: Any = None, **_: Any) -> d
     if str(getattr(getattr(source, "platform", None), "value", getattr(source, "platform", ""))) != "discord":
         return None
     if gateway is not None and hasattr(gateway, "_is_user_authorized") and not gateway._is_user_authorized(source):
-        return {"skip": True, "reason": "unauthorized_hooo_command"}
+        return {"action": "skip", "reason": "unauthorized_hooo_command"}
     try:
         asyncio.get_running_loop().create_task(_handle_hooo_command(event, gateway, command))
     except RuntimeError:
         asyncio.run(_handle_hooo_command(event, gateway, command))
-    return {"skip": True, "reason": "hooo_gateway_bridge"}
+    return {"action": "skip", "reason": "hooo_gateway_bridge"}
 
 
 async def _handle_hooo_command(event: Any, gateway: Any, command: HoooCommand) -> None:
@@ -162,9 +162,30 @@ def _card_text(card: dict[str, Any]) -> str:
     if unresolved:
         lines.append("\n질문/모호성:")
         lines.extend(f"- {item}" for item in unresolved[:6])
+        lines.append("\n다음 형식으로 답하면 인터뷰가 진행됩니다:")
+        lines.extend(f"- `{_dimension_prompt(item)}`" for item in unresolved[:3])
     else:
         lines.append("\nSeed 생성 가능 상태입니다.")
     return "\n".join(lines)
+
+
+def _dimension_prompt(dimension: str) -> str:
+    return {
+        "scope": "Scope: 이번 HOOO가 다룰 범위와 제외 범위",
+        "acceptance": "Acceptance: 완료로 인정할 산출물/검증 기준",
+        "constraint": "Constraint: 건드리면 안 되는 파일·서비스·권한",
+        "executor": "Executor: boramae / claude-code / opencode 등 실행 주체",
+        "permission": "Permission: read-only, seed 승인, 구현 승인 여부",
+    }.get(dimension, f"{dimension}: ...")
+
+
+def _interview_reply(result: dict[str, Any]) -> str:
+    interaction = result.get("interaction") or {}
+    unresolved = interaction.get("next_unresolved") or result.get("interview_state", {}).get("unresolved") or []
+    if not unresolved:
+        return f"HOOO 처리됨: `{result['phase']}` — Seed 생성 가능 상태입니다."
+    prompts = "\n".join(f"- `{_dimension_prompt(item)}`" for item in unresolved[:5])
+    return f"HOOO 인터뷰 계속: `{result['phase']}`\n남은 항목:\n{prompts}"
 
 
 async def _render_latest_card(thread: Any, service: Any, run_id: str) -> None:
@@ -205,7 +226,7 @@ def _build_view(service: Any, card: dict[str, Any]) -> Any:
                         origin_channel_id=str(getattr(actual_parent, "id", "") or target.get("channel_id") or ""),
                         origin_thread_id=str(getattr(actual_channel, "id", "") or ""),
                     )
-                    await interaction.response.send_message(f"HOOO 처리됨: `{result['phase']}`", ephemeral=True)
+                    await interaction.response.send_message(_interview_reply(result), ephemeral=True)
                     await _render_latest_card(interaction.channel, service, run_id)
                 except Exception as exc:
                     await interaction.response.send_message(f"HOOO interaction rejected: {exc}", ephemeral=True)
