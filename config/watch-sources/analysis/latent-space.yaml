@@ -14,6 +14,7 @@ validation_status: verified
 validation_notes:
 - RSS/XML feed reachable over HTTP 200
 - high-signal practitioner analysis layer for AI engineering
+- high-value analysis source uses source-specific new-since-last-seen freshness
 browser_required: false
 anti_bot_risk: low
 priority_weight: 0.55
@@ -24,3 +25,5 @@ topic_tags:
 - ai-engineering
 - agents
 - developer-tools
+freshness_policy: new_since_last_seen
+recency_hours_override: 504

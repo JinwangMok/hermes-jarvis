@@ -37,8 +37,13 @@ TRACKING_QUERY_KEYS = {
     "mc_eid",
 }
 HN_PREFIX_RE = re.compile(r"^(show|ask|tell)\s+hn\s*:\s*", re.I)
-HTML_PATH_HINT_RE = re.compile(r"/(news|blog|post|posts|article|articles|press|announcements?|research|stories?)/", re.I)
+HTML_PATH_HINT_RE = re.compile(r"/(news|blog|post|posts|article|articles|press|announcements?|research|stories?|20\d{2}/\d{1,2}/)", re.I)
 HTML_BLOCKLIST_RE = re.compile(r"/(tag|category|author|page|privacy|terms|login|signup|contact|about|careers)/", re.I)
+HTML_DATE_RE = re.compile(
+    r"\b(?:20\d{2}[-/]\d{1,2}[-/]\d{1,2}|(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)[a-z]*\s+\d{1,2},\s+20\d{2}|\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)[a-z]*\s+20\d{2})\b",
+    re.I,
+)
+HTML_DATETIME_ATTR_RE = re.compile(r"datetime=[\"']([^\"']+)[\"']", re.I)
 X_STATUS_ID_RE = re.compile(r"(?:^|/)status(?:es)?/(\d+)(?:$|[/?#])", re.I)
 NITTER_STATUS_URL_RE = re.compile(r"https?://(?:www\.)?nitter\.net/([^/?#]+)/status/(\d+)", re.I)
 X_STATUS_URL_RE = re.compile(r"https?://(?:www\.)?(?:x|twitter)\.com/([^/?#]+)/status/(\d+)", re.I)
@@ -48,6 +53,47 @@ X_METRIC_PATTERNS = {
     "retweet_count": re.compile(r'"retweet_count"\s*:\s*"?([0-9][0-9,]*(?:\.[0-9]+)?[KMB]?)"?', re.I),
     "quote_count": re.compile(r'"quote_count"\s*:\s*"?([0-9][0-9,]*(?:\.[0-9]+)?[KMB]?)"?', re.I),
     "favorite_count": re.compile(r'"favorite_count"\s*:\s*"?([0-9][0-9,]*(?:\.[0-9]+)?[KMB]?)"?', re.I),
+}
+SOURCE_DEFAULTS: dict[str, dict[str, object]] = {
+    "semianalysis": {
+        "rss_stale_after_hours": 72,
+        "html_fallback_urls": ("https://semianalysis.com/", "https://semianalysis.com/archive/"),
+        "freshness_policy": "new_since_last_seen",
+        "recency_hours_override": 24 * 45,
+    },
+    "venturebeat-ai": {
+        "rss_stale_after_hours": 72,
+        "feed_candidates": (
+            "https://venturebeat.com/category/ai/feed/",
+            "https://venturebeat.com/ai/feed/",
+        ),
+        "html_fallback_urls": ("https://venturebeat.com/category/ai/",),
+        "html_path_hints": ("/ai/",),
+    },
+    "hpcwire": {
+        "feed_candidates": (
+            "https://www.hpcwire.com/feed/",
+            "https://www.hpcwire.com/category/artificial-intelligence/feed/",
+        ),
+        "html_fallback_urls": ("https://www.hpcwire.com/news/",),
+        "max_fallback_requests": 1,
+    },
+    "import-ai": {
+        "freshness_policy": "new_since_last_seen",
+        "recency_hours_override": 24 * 45,
+    },
+    "latent-space": {
+        "freshness_policy": "new_since_last_seen",
+        "recency_hours_override": 24 * 21,
+    },
+    "interconnects": {
+        "freshness_policy": "new_since_last_seen",
+        "recency_hours_override": 24 * 45,
+    },
+    "chips-and-cheese": {
+        "freshness_policy": "new_since_last_seen",
+        "recency_hours_override": 24 * 60,
+    },
 }
 
 
@@ -73,6 +119,10 @@ class WatchSource:
     reaction_weight: float
     cooldown_minutes: int
     topic_tags: tuple[str, ...]
+    freshness_policy: str | None
+    recency_hours_override: int | None
+    rss_stale_after_hours: int | None
+    html_fallback_urls: tuple[str, ...]
     file_path: Path
 
 
@@ -593,6 +643,127 @@ def _fetch_hackernews(source: WatchSource, fetch_json=_fetch_json, fetch_text=_f
     return items
 
 
+def _source_default(source: WatchSource, key: str, default=None):
+    return SOURCE_DEFAULTS.get(source.source_id, {}).get(key, default)
+
+
+def _source_tuple_default(source: WatchSource, key: str) -> tuple[str, ...]:
+    value = _source_default(source, key, ())
+    if isinstance(value, str):
+        return (value,)
+    return tuple(str(item) for item in value or ())
+
+
+def _source_int_default(source: WatchSource, key: str) -> int | None:
+    value = _source_default(source, key)
+    if value is None:
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _source_rss_stale_after_hours(source: WatchSource) -> int | None:
+    return source.rss_stale_after_hours if source.rss_stale_after_hours is not None else _source_int_default(source, "rss_stale_after_hours")
+
+
+def _source_recency_hours_override(source: WatchSource) -> int | None:
+    return source.recency_hours_override if source.recency_hours_override is not None else _source_int_default(source, "recency_hours_override")
+
+
+def _source_freshness_policy(source: WatchSource) -> str | None:
+    value = source.freshness_policy or _source_default(source, "freshness_policy")
+    return str(value) if value else None
+
+
+def _source_feed_candidates(source: WatchSource) -> tuple[str, ...]:
+    candidates = [source.feed_url or source.base_url]
+    candidates.extend(_source_tuple_default(source, "feed_candidates"))
+    unique: list[str] = []
+    for candidate in candidates:
+        canonical = _canonicalize_url(candidate, base_url=source.base_url)
+        if canonical and canonical not in unique:
+            unique.append(canonical)
+    return tuple(unique)
+
+
+def _source_html_fallback_urls(source: WatchSource) -> tuple[str, ...]:
+    urls = list(source.html_fallback_urls or ())
+    urls.extend(_source_tuple_default(source, "html_fallback_urls"))
+    if source.html_list_url:
+        urls.insert(0, source.html_list_url)
+    if not urls and source.base_url:
+        urls.append(source.base_url)
+    unique: list[str] = []
+    for url in urls:
+        canonical = _canonicalize_url(url, base_url=source.base_url)
+        if canonical and canonical not in unique:
+            unique.append(canonical)
+    return tuple(unique)
+
+
+def _html_path_allowed_for_source(source: WatchSource, path: str) -> bool:
+    if HTML_PATH_HINT_RE.search(path):
+        return True
+    path_lower = path.lower()
+    for hint in _source_tuple_default(source, "html_path_hints"):
+        normalized = f"/{hint.strip('/').lower()}/"
+        if normalized != "//" and path_lower.startswith(normalized):
+            return True
+    return False
+
+
+def _item_published_dt(item: dict) -> datetime | None:
+    parsed = _parse_dt(str(item.get("published_at") or ""))
+    if not parsed:
+        return None
+    try:
+        dt = datetime.fromisoformat(parsed)
+    except ValueError:
+        return None
+    return dt if dt.tzinfo else dt.replace(tzinfo=UTC)
+
+
+def _newest_published_dt(items: list[dict]) -> datetime | None:
+    dates = [dt for dt in (_item_published_dt(item) for item in items) if dt is not None]
+    return max(dates) if dates else None
+
+
+def _newest_published_at(items: list[dict]) -> str | None:
+    newest = _newest_published_dt(items)
+    return newest.astimezone(UTC).isoformat() if newest else None
+
+
+def _items_are_stale_for_source(source: WatchSource, items: list[dict]) -> bool:
+    stale_after_hours = _source_rss_stale_after_hours(source)
+    if not stale_after_hours or not items:
+        return False
+    newest = _newest_published_dt(items)
+    if newest is None:
+        return False
+    return newest < (_utc_now() - timedelta(hours=stale_after_hours))
+
+
+def _extract_html_link_date(html: str, raw_href: str | None, absolute_href: str) -> str | None:
+    candidates = [value for value in (raw_href, absolute_href, urlparse(absolute_href).path) if value]
+    positions = [html.find(candidate) for candidate in candidates]
+    positions = [position for position in positions if position >= 0]
+    if not positions:
+        return None
+    position = min(positions)
+    window = html[max(0, position - 900): position + 900]
+    for match in HTML_DATETIME_ATTR_RE.finditer(window):
+        parsed = _parse_dt(match.group(1))
+        if parsed:
+            return parsed
+    for match in HTML_DATE_RE.finditer(window):
+        parsed = _parse_dt(match.group(0).replace("/", "-"))
+        if parsed:
+            return parsed
+    return None
+
+
 def _parse_html_listing(text: str, source: WatchSource) -> list[dict]:
     parser = _LinkCollector()
     parser.feed(text)
@@ -609,22 +780,91 @@ def _parse_html_listing(text: str, source: WatchSource) -> list[dict]:
             continue
         if HTML_BLOCKLIST_RE.search(parsed.path):
             continue
-        if not HTML_PATH_HINT_RE.search(parsed.path):
+        if not _html_path_allowed_for_source(source, parsed.path):
             continue
         if href in seen_urls:
             continue
         seen_urls.add(href)
+        published_at = _extract_html_link_date(text, link.get("href"), href) or _utc_now().isoformat()
         items.append(
             {
                 "title": title,
                 "url": href,
                 "summary_text": f"HTML listing candidate from {source.display_name}",
-                "published_at": _utc_now().isoformat(),
+                "published_at": published_at,
             }
         )
         if len(items) >= 20:
             break
     return items
+
+
+def _mark_items(items: list[dict], **metadata: str) -> list[dict]:
+    marked: list[dict] = []
+    for item in items:
+        updated = dict(item)
+        updated.update(metadata)
+        marked.append(updated)
+    return marked
+
+
+def _fetch_feed_items_with_candidates(source: WatchSource, fetch_text) -> list[dict]:
+    best_items: list[dict] = []
+    last_error: Exception | None = None
+    for feed_url in _source_feed_candidates(source)[:3]:
+        try:
+            items = _parse_rss_or_atom(fetch_text(feed_url), source)
+        except Exception as exc:
+            last_error = exc
+            continue
+        if not items:
+            continue
+        if not _items_are_stale_for_source(source, items):
+            return _mark_items(items, _jarvis_fetch_status="ok", _jarvis_fetch_path=feed_url)
+        if not best_items:
+            best_items = _mark_items(items, _jarvis_fetch_status="stale_rss", _jarvis_fetch_path=feed_url)
+    if best_items:
+        return best_items
+    if last_error is not None:
+        raise last_error
+    return []
+
+
+def _fetch_html_fallback_items(source: WatchSource, fetch_text, *, reason: str, max_requests: int | None = None) -> list[dict]:
+    limit = max_requests or _source_int_default(source, "max_fallback_requests") or 3
+    for url in _source_html_fallback_urls(source)[:limit]:
+        try:
+            items = _parse_html_listing(fetch_text(url), source)
+        except Exception:
+            continue
+        if items:
+            return _mark_items(items, _jarvis_fetch_status=reason, _jarvis_fetch_path=url)
+    return []
+
+
+def _fetch_rss_with_source_fallbacks(source: WatchSource, fetch_text) -> list[dict]:
+    feed_error: Exception | None = None
+    try:
+        items = _fetch_feed_items_with_candidates(source, fetch_text)
+    except Exception as exc:
+        items = []
+        feed_error = exc
+    stale = bool(items) and _items_are_stale_for_source(source, items)
+    needs_fallback = source.source_id in {"semianalysis", "venturebeat-ai"} and (not items or stale)
+    if needs_fallback:
+        fallback_reason = "rss_stale_html_fallback" if stale else "rss_error_html_fallback"
+        fallback_items = _fetch_html_fallback_items(source, fetch_text, reason=fallback_reason)
+        if fallback_items:
+            return fallback_items[:20]
+    if source.source_id == "hpcwire" and (feed_error is not None or not items):
+        fallback_items = _fetch_html_fallback_items(source, fetch_text, reason="conservative_html_fallback", max_requests=1)
+        if fallback_items:
+            return fallback_items[:10]
+    if items:
+        return items
+    if feed_error is not None:
+        raise feed_error
+    return []
 
 
 def _heuristic_judgment(config: PipelineConfig, *, title: str, primary_company_tag: str | None, signal_count: int, unique_source_count: int, engagement_score: float, reaction_score: float) -> dict:
@@ -721,9 +961,13 @@ def _codex_judgment(config: PipelineConfig, *, title: str, primary_company_tag: 
 
 def fetch_source_items(source: WatchSource, fetch_text=_fetch_text, fetch_json=_fetch_json) -> list[dict]:
     if source.ingest_strategy in {"rss", "atom"}:
-        items = _parse_rss_or_atom(fetch_text(source.feed_url or source.base_url), source)
+        items = _fetch_rss_with_source_fallbacks(source, fetch_text)
         if _looks_like_x_source(source):
             return [_enrich_x_item(source, item, fetch_text) for item in items[:1]]
+        if any(str(item.get("_jarvis_fetch_status") or "").endswith("html_fallback") or item.get("_jarvis_fetch_status") == "conservative_html_fallback" for item in items):
+            # Listing fallbacks are intentionally metadata-only.  Do not fan out
+            # into article fetches/searches for gated or anti-bot-sensitive sites.
+            return items[:10]
         return _enrich_items_with_bounded_search_fallback(items[:10], fetch_text)
     if source.ingest_strategy == "api" and source.source_id == "hackernews-topstories":
         return _fetch_hackernews(source, fetch_json=fetch_json, fetch_text=fetch_text)
@@ -764,6 +1008,10 @@ def load_watch_sources(config: PipelineConfig) -> list[WatchSource]:
                 reaction_weight=float(raw.get("reaction_weight", 0.0)),
                 cooldown_minutes=int(raw.get("cooldown_minutes", 60)),
                 topic_tags=tuple(str(item) for item in raw.get("topic_tags", [])),
+                freshness_policy=(str(raw["freshness_policy"]) if raw.get("freshness_policy") else None),
+                recency_hours_override=(int(raw["recency_hours_override"]) if raw.get("recency_hours_override") else None),
+                rss_stale_after_hours=(int(raw["rss_stale_after_hours"]) if raw.get("rss_stale_after_hours") else None),
+                html_fallback_urls=tuple(str(item) for item in raw.get("html_fallback_urls", [])),
                 file_path=path,
             )
         )
@@ -821,20 +1069,155 @@ def _make_signal_id(source_id: str, item_url: str, title: str) -> str:
     return f"{source_id}:{digest}"
 
 
+def _ensure_watch_source_health_table(conn: sqlite3.Connection) -> None:
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS watch_source_health (
+            source_id TEXT PRIMARY KEY,
+            last_attempt_at TEXT NOT NULL,
+            fetch_status TEXT NOT NULL,
+            exception_class TEXT,
+            exception_message TEXT,
+            items_seen INTEGER NOT NULL DEFAULT 0,
+            newest_published_at TEXT,
+            items_after_recency INTEGER NOT NULL DEFAULT 0,
+            stored_count INTEGER NOT NULL DEFAULT 0,
+            health_json TEXT,
+            updated_at TEXT NOT NULL
+        )
+        """
+    )
+
+
+def _sanitize_exception_message(exc: Exception) -> str:
+    text = re.sub(r"\s+", " ", str(exc)).strip()
+    secret_keys = r"api[_-]?key|access[_-]?token|refresh[_-]?token|id[_-]?token|token|secret|password|client[_-]?secret"
+    query_secret_keys = rf"{secret_keys}|auth(?:orization)?"
+    text = re.sub(rf"(?i)([?&](?:{query_secret_keys})=)([^&#\s]+)", r"\1<redacted>", text)
+    text = re.sub(r"(?i)\b(authorization)\s*:\s*(bearer|basic)\s+([^\s,;]+)", r"\1: \2 <redacted>", text)
+    text = re.sub(r"(?i)\b(bearer)\s+([A-Za-z0-9._~+/=-]{8,})", r"\1 <redacted>", text)
+    text = re.sub(rf"(?i)\b({secret_keys})\s*=\s*([^\s&]+)", r"\1=<redacted>", text)
+    text = re.sub(rf"(?i)\b({secret_keys})\s*:\s*([^\s,;]+)", r"\1: <redacted>", text)
+    text = re.sub(r"(?<![\w.-])(?:sk-[A-Za-z0-9][A-Za-z0-9._-]{12,}|[A-Za-z0-9_-]{32,})(?![\w.-])", "<redacted>", text)
+    return text[:500]
+
+
+def _source_health_fetch_status(*, items_seen: int, items_after_recency: int, stored_count: int, newest_published_at: str | None, recency_start: datetime, source: WatchSource, accepted_reasons: list[str], items: list[dict]) -> str:
+    item_statuses = {str(item.get("_jarvis_fetch_status") or "") for item in items if item.get("_jarvis_fetch_status")}
+    if stored_count > 0:
+        if any(status in {"rss_stale_html_fallback", "rss_error_html_fallback", "conservative_html_fallback"} for status in item_statuses):
+            return "ok_html_fallback"
+        if "new_since_last_seen" in accepted_reasons:
+            return "ok_new_since_last_seen"
+        return "ok"
+    if items_seen == 0:
+        return "empty_feed"
+    newest_dt = None
+    if newest_published_at:
+        try:
+            newest_dt = datetime.fromisoformat(newest_published_at)
+        except ValueError:
+            newest_dt = None
+    if newest_dt is not None and newest_dt < recency_start and _source_freshness_policy(source) == "new_since_last_seen":
+        return "already_seen_or_outside_source_window"
+    if newest_dt is not None and newest_dt < recency_start:
+        return "stale_feed"
+    if items_after_recency == 0:
+        return "recency_filtered"
+    return "not_stored"
+
+
+def _write_watch_source_health(conn: sqlite3.Connection, record: dict) -> None:
+    conn.execute(
+        """
+        INSERT OR REPLACE INTO watch_source_health (
+            source_id, last_attempt_at, fetch_status, exception_class, exception_message,
+            items_seen, newest_published_at, items_after_recency, stored_count, health_json, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            record["source_id"],
+            record["last_attempt_at"],
+            record["fetch_status"],
+            record.get("exception_class"),
+            record.get("exception_message"),
+            int(record.get("items_seen") or 0),
+            record.get("newest_published_at"),
+            int(record.get("items_after_recency") or 0),
+            int(record.get("stored_count") or 0),
+            json.dumps(record, ensure_ascii=False, sort_keys=True),
+            record["last_attempt_at"],
+        ),
+    )
+
+
+def _write_watch_source_health_artifact(config: PipelineConfig, records: list[dict], *, generated_at: str) -> Path:
+    health_dir = config.watch.snapshot_dir / "source-health"
+    health_dir.mkdir(parents=True, exist_ok=True)
+    artifact = {
+        "generated_at": generated_at,
+        "source_count": len(records),
+        "error_count": sum(1 for record in records if record.get("fetch_status") == "error"),
+        "records": sorted(records, key=lambda record: str(record.get("source_id") or "")),
+    }
+    latest_path = health_dir / "latest.json"
+    latest_path.write_text(json.dumps(artifact, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    timestamp_path = health_dir / f"source-health-{generated_at.replace(':', '').replace('-', '')}.json"
+    timestamp_path.write_text(json.dumps(artifact, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    return latest_path
+
+
+def _should_store_watch_item(conn: sqlite3.Connection, *, signal_id: str, published_dt: datetime, recency_start: datetime, source: WatchSource) -> tuple[bool, str]:
+    if published_dt >= recency_start:
+        return True, "within_recency"
+    if _source_freshness_policy(source) != "new_since_last_seen":
+        return False, "outside_recency"
+    recency_override = _source_recency_hours_override(source)
+    if recency_override is not None and published_dt < (_utc_now() - timedelta(hours=recency_override)):
+        return False, "outside_source_window"
+    exists = conn.execute("SELECT 1 FROM watch_signals WHERE signal_id = ?", (signal_id,)).fetchone()
+    if exists:
+        return False, "already_seen"
+    return True, "new_since_last_seen"
+
+
 def collect_watch_signals(config: PipelineConfig, fetcher=None) -> dict:
     bootstrap_workspace(config)
     sync_watch_sources(config)
     now = _utc_now().isoformat()
+    now_dt = datetime.fromisoformat(now)
     fetcher = fetcher or fetch_source_items
     enabled_sources = [s for s in load_watch_sources(config) if s.enabled]
     collected = []
-    recency_start = _utc_now() - timedelta(hours=config.watch.recency_hours)
+    source_health: list[dict] = []
+    recency_start = now_dt - timedelta(hours=config.watch.recency_hours)
     with sqlite3.connect(config.database_path) as conn:
+        _ensure_watch_source_health_table(conn)
         for source in enabled_sources:
+            attempt_at = _utc_now().isoformat()
+            items: list[dict] = []
+            accepted_reasons: list[str] = []
+            stored_count = 0
             try:
                 items = fetcher(source)
-            except Exception:
+            except Exception as exc:
+                health_record = {
+                    "source_id": source.source_id,
+                    "display_name": source.display_name,
+                    "last_attempt_at": attempt_at,
+                    "fetch_status": "error",
+                    "exception_class": exc.__class__.__name__,
+                    "exception_message": _sanitize_exception_message(exc),
+                    "items_seen": 0,
+                    "newest_published_at": None,
+                    "items_after_recency": 0,
+                    "stored_count": 0,
+                }
+                _write_watch_source_health(conn, health_record)
+                source_health.append(health_record)
                 continue
+            newest_published_at = _newest_published_at(items)
+            items_after_recency = 0
             for item in items:
                 published_at = _parse_dt(item.get("published_at")) or now
                 try:
@@ -843,12 +1226,23 @@ def collect_watch_signals(config: PipelineConfig, fetcher=None) -> dict:
                     published_dt = _utc_now()
                 if published_dt.tzinfo is None:
                     published_dt = published_dt.replace(tzinfo=UTC)
-                if published_dt < recency_start:
-                    continue
                 title = str(item.get("title") or source.display_name)
                 url = _canonicalize_url(str(item.get("url") or source.feed_url or source.base_url), base_url=source.base_url)
                 signal_id = _make_signal_id(source.source_id, url, title)
+                should_store, accept_reason = _should_store_watch_item(
+                    conn,
+                    signal_id=signal_id,
+                    published_dt=published_dt,
+                    recency_start=recency_start,
+                    source=source,
+                )
+                if not should_store:
+                    continue
+                items_after_recency += 1
+                accepted_reasons.append(accept_reason)
                 signal_kind = "official-post" if source.source_role == "official-origin" else ("reaction-thread" if source.source_role == "reaction" else "media-post")
+                raw_payload = dict(item)
+                raw_payload["_jarvis_freshness_status"] = accept_reason
                 conn.execute(
                     """
                     INSERT OR REPLACE INTO watch_signals (
@@ -876,12 +1270,44 @@ def collect_watch_signals(config: PipelineConfig, fetcher=None) -> dict:
                         item.get("language"),
                         _normalize_title(title),
                         hashlib.sha256(f"{title}|{url}".encode()).hexdigest(),
-                        json.dumps(item, ensure_ascii=False),
+                        json.dumps(raw_payload, ensure_ascii=False),
                     ),
                 )
                 collected.append(signal_id)
+                stored_count += 1
+            health_record = {
+                "source_id": source.source_id,
+                "display_name": source.display_name,
+                "last_attempt_at": attempt_at,
+                "fetch_status": _source_health_fetch_status(
+                    items_seen=len(items),
+                    items_after_recency=items_after_recency,
+                    stored_count=stored_count,
+                    newest_published_at=newest_published_at,
+                    recency_start=recency_start,
+                    source=source,
+                    accepted_reasons=accepted_reasons,
+                    items=items,
+                ),
+                "exception_class": None,
+                "exception_message": None,
+                "items_seen": len(items),
+                "newest_published_at": newest_published_at,
+                "items_after_recency": items_after_recency,
+                "stored_count": stored_count,
+            }
+            _write_watch_source_health(conn, health_record)
+            source_health.append(health_record)
         conn.commit()
-    return {"signal_count": len(collected), "source_count": len(enabled_sources), "signal_ids": collected}
+    health_artifact = _write_watch_source_health_artifact(config, source_health, generated_at=now)
+    return {
+        "signal_count": len(collected),
+        "source_count": len(enabled_sources),
+        "signal_ids": collected,
+        "source_health": source_health,
+        "source_health_artifact": str(health_artifact),
+        "source_error_count": sum(1 for record in source_health if record.get("fetch_status") == "error"),
+    }
 
 
 def _find_matching_issue(seen: dict[str, tuple[str, str | None]], title: str, company_tag: str | None, similarity_threshold: float, *, story_key: str | None = None) -> str | None:
@@ -909,10 +1335,16 @@ def build_watch_stories(config: PipelineConfig) -> dict:
             """
             SELECT *
             FROM watch_signals
-            WHERE datetime(COALESCE(published_at, collected_at)) >= datetime(?)
+            WHERE (
+                datetime(COALESCE(published_at, collected_at)) >= datetime(?)
+                OR (
+                    datetime(collected_at) >= datetime(?)
+                    AND json_extract(raw_payload_json, '$._jarvis_freshness_status') = 'new_since_last_seen'
+                )
+            )
             ORDER BY collected_at ASC
             """,
-            (recency_start,),
+            (recency_start, recency_start),
         ).fetchall()
         seen: dict[str, tuple[str, str | None]] = {}
         for row in signals:
@@ -991,9 +1423,15 @@ def build_watch_stories(config: PipelineConfig) -> dict:
                 FROM watch_issue_signals wis
                 JOIN watch_signals ws ON ws.signal_id = wis.signal_id
                 WHERE wis.issue_id = ?
-                  AND datetime(COALESCE(ws.published_at, ws.collected_at)) >= datetime(?)
+                  AND (
+                    datetime(COALESCE(ws.published_at, ws.collected_at)) >= datetime(?)
+                    OR (
+                        datetime(ws.collected_at) >= datetime(?)
+                        AND json_extract(ws.raw_payload_json, '$._jarvis_freshness_status') = 'new_since_last_seen'
+                    )
+                  )
                 """,
-                (issue_id, recency_start),
+                (issue_id, recency_start, recency_start),
             ).fetchone()
             signal_count = int(agg["signal_count"] or 0)
             official_count = int(agg["official_count"] or 0)
@@ -1050,6 +1488,8 @@ def _calculate_snapshot_momentum(current: sqlite3.Row, previous: sqlite3.Row | N
 
 
 def _normalize_score(value: object) -> float:
+    if not isinstance(value, (int, float, str)):
+        return 0.0
     try:
         score = float(value)
     except (TypeError, ValueError):
@@ -1547,9 +1987,13 @@ def generate_external_hot_issue_alert(report_path: Path, state_path: Path, now: 
 
     seen = set(str(key) for key in state.get("seen_issue_keys", []))
     new_issues = [issue for issue in issues if issue["key"] not in seen]
+    day_issue_records = state.setdefault("day_issue_records", [])
+    if not isinstance(day_issue_records, list):
+        day_issue_records = []
+        state["day_issue_records"] = day_issue_records
     for issue in new_issues:
         seen.add(issue["key"])
-        state.setdefault("day_issue_records", []).append(
+        day_issue_records.append(
             {
                 "key": issue["key"],
                 "title": issue.get("title"),

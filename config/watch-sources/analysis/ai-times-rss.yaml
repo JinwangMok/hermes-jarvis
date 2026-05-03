@@ -1,0 +1,23 @@
+source_id: ai-times-rss
+display_name: AI Times RSS
+company_tag: null
+source_class: media
+source_role: media
+source_type: rss
+ingest_strategy: rss
+base_url: https://www.aitimes.com/
+feed_url: https://www.aitimes.com/rss/allArticle.xml
+html_list_url: null
+poll_minutes: 180
+enabled: false
+validation_status: partial
+validation_notes:
+  - public Korean AI media RSS surface for domestic builders, AI infrastructure, and semiconductor coverage
+  - low-risk RSS-only configuration; no login, search scraping, or anti-bot bypass
+  - staged disabled until deterministic feed validation is recorded
+browser_required: false
+anti_bot_risk: low
+priority_weight: 0.35
+reaction_weight: 0.35
+cooldown_minutes: 180
+topic_tags: [korea, ai-builders, media, semiconductor, ai-infra]

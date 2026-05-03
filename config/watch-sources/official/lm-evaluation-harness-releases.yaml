@@ -1,0 +1,22 @@
+source_id: lm-evaluation-harness-releases
+display_name: EleutherAI lm-evaluation-harness Releases Atom
+company_tag: null
+source_class: project
+source_role: official-origin
+source_type: atom
+ingest_strategy: atom
+base_url: https://github.com/EleutherAI/lm-evaluation-harness
+feed_url: https://github.com/EleutherAI/lm-evaluation-harness/releases.atom
+html_list_url: null
+poll_minutes: 360
+enabled: true
+validation_status: verified
+validation_notes:
+  - public GitHub releases Atom feed
+  - tracks open-weight evaluation harness changes without scraping GitHub HTML
+browser_required: false
+anti_bot_risk: low
+priority_weight: 0.6
+reaction_weight: 0.3
+cooldown_minutes: 360
+topic_tags: [evaluations, harness, open-weight, developer-tools]

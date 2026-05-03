@@ -1,0 +1,25 @@
+source_id: interconnects
+display_name: Interconnects Substack RSS
+company_tag: null
+source_class: analysis
+source_role: analysis
+source_type: rss
+ingest_strategy: rss
+base_url: https://www.interconnects.ai/
+feed_url: https://www.interconnects.ai/feed
+html_list_url: null
+poll_minutes: 360
+enabled: false
+validation_status: partial
+validation_notes:
+  - public Substack feed for open-weight models, evaluations, policy, and AI practice
+  - weekly analysis source uses new-since-last-seen freshness
+  - staged disabled until deterministic feed validation is recorded
+browser_required: false
+anti_bot_risk: low
+priority_weight: 0.55
+reaction_weight: 0.55
+cooldown_minutes: 360
+topic_tags: [analysis, open-weight, evaluations, ai-policy, ai-models]
+freshness_policy: new_since_last_seen
+recency_hours_override: 1080

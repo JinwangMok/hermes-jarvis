@@ -289,6 +289,21 @@ SCHEMA_STATEMENTS = [
         delivered_channel TEXT
     )
     """,
+    """
+    CREATE TABLE IF NOT EXISTS watch_source_health (
+        source_id TEXT PRIMARY KEY,
+        last_attempt_at TEXT NOT NULL,
+        fetch_status TEXT NOT NULL,
+        exception_class TEXT,
+        exception_message TEXT,
+        items_seen INTEGER NOT NULL DEFAULT 0,
+        newest_published_at TEXT,
+        items_after_recency INTEGER NOT NULL DEFAULT 0,
+        stored_count INTEGER NOT NULL DEFAULT 0,
+        health_json TEXT,
+        updated_at TEXT NOT NULL
+    )
+    """,
 ]
 
 

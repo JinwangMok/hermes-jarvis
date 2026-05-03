@@ -3,11 +3,14 @@ import sqlite3
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+import yaml
+
 from jinwang_jarvis.bootstrap import bootstrap_workspace
 from jinwang_jarvis.config import load_pipeline_config
 from jinwang_jarvis.watch import (
     WatchSource,
     _apply_editorial_interest_floor,
+    _sanitize_exception_message,
     build_watch_stories,
     collect_watch_signals,
     extract_x_status_id,
@@ -443,6 +446,10 @@ def test_json_feed_sources_are_parsed_and_enriched_with_article_content(tmp_path
         reaction_weight=0.0,
         cooldown_minutes=60,
         topic_tags=("cloud",),
+        freshness_policy=None,
+        recency_hours_override=None,
+        rss_stale_after_hours=None,
+        html_fallback_urls=(),
         file_path=tmp_path / "cisco-cloud.yaml",
     )
 
@@ -455,6 +462,314 @@ def test_json_feed_sources_are_parsed_and_enriched_with_article_content(tmp_path
     assert items[0]["url"] == "https://newsroom.cisco.com/news/cloud-security"
     assert "cloud networking security updates" in items[0]["summary_text"]
     assert "large organizations" in items[0]["content_excerpt"]
+
+
+def test_semianalysis_stale_rss_uses_archive_html_fallback(tmp_path: Path):
+    source = WatchSource(
+        source_id="semianalysis",
+        display_name="SemiAnalysis RSS",
+        company_tag=None,
+        source_class="analysis",
+        source_role="analysis",
+        source_type="rss",
+        ingest_strategy="rss",
+        base_url="https://semianalysis.com/",
+        feed_url="https://semianalysis.com/feed/",
+        html_list_url="https://semianalysis.com/archive/",
+        poll_minutes=60,
+        enabled=True,
+        validation_status="verified",
+        validation_notes=("ok",),
+        browser_required=False,
+        anti_bot_risk="low",
+        priority_weight=0.65,
+        reaction_weight=0.65,
+        cooldown_minutes=60,
+        topic_tags=("analysis", "semiconductor"),
+        freshness_policy="new_since_last_seen",
+        recency_hours_override=1080,
+        rss_stale_after_hours=72,
+        html_fallback_urls=("https://semianalysis.com/archive/",),
+        file_path=tmp_path / "semianalysis.yaml",
+    )
+    stale_rss = """<?xml version='1.0'?><rss version='2.0'><channel><item>
+      <title>Old accelerator economics note</title>
+      <link>https://semianalysis.com/2025/09/16/old-note/</link>
+      <pubDate>Tue, 16 Sep 2025 17:38:01 GMT</pubDate>
+    </item></channel></rss>"""
+    archive_html = """
+    <html><body>
+      <article>
+        <time datetime="2026-05-01T12:00:00Z">May 1, 2026</time>
+        <a href="/2026/05/frontier-gpu-cluster-costs/">Frontier GPU cluster costs reshape AI datacenter planning</a>
+      </article>
+    </body></html>
+    """
+
+    def fake_fetch_text(url: str) -> str:
+        if url == "https://semianalysis.com/feed/":
+            return stale_rss
+        if url == "https://semianalysis.com/archive/":
+            return archive_html
+        raise AssertionError(url)
+
+    items = fetch_source_items(source, fetch_text=fake_fetch_text)
+
+    assert items[0]["title"] == "Frontier GPU cluster costs reshape AI datacenter planning"
+    assert items[0]["url"] == "https://semianalysis.com/2026/05/frontier-gpu-cluster-costs/"
+    assert items[0]["published_at"] == "2026-05-01T12:00:00+00:00"
+    assert items[0]["_jarvis_fetch_status"] == "rss_stale_html_fallback"
+
+
+def test_venturebeat_stale_rss_allows_source_specific_ai_path_fallback(tmp_path: Path):
+    source = WatchSource(
+        source_id="venturebeat-ai",
+        display_name="VentureBeat AI RSS",
+        company_tag=None,
+        source_class="media",
+        source_role="media",
+        source_type="rss",
+        ingest_strategy="rss",
+        base_url="https://venturebeat.com/category/ai/",
+        feed_url="https://venturebeat.com/category/ai/feed/",
+        html_list_url="https://venturebeat.com/category/ai/",
+        poll_minutes=60,
+        enabled=True,
+        validation_status="verified",
+        validation_notes=("ok",),
+        browser_required=False,
+        anti_bot_risk="low",
+        priority_weight=0.35,
+        reaction_weight=0.35,
+        cooldown_minutes=60,
+        topic_tags=("ai-models", "media"),
+        freshness_policy=None,
+        recency_hours_override=None,
+        rss_stale_after_hours=72,
+        html_fallback_urls=("https://venturebeat.com/category/ai/",),
+        file_path=tmp_path / "venturebeat-ai.yaml",
+    )
+    stale_rss = """<?xml version='1.0'?><rss version='2.0'><channel><item>
+      <title>Old VentureBeat AI feed item</title>
+      <link>https://venturebeat.com/ai/old-enterprise-ai-item/</link>
+      <pubDate>Tue, 16 Sep 2025 17:38:01 GMT</pubDate>
+    </item></channel></rss>"""
+    category_html = """
+    <html><body>
+      <article>
+        <time datetime="2026-05-02T09:30:00Z">May 2, 2026</time>
+        <a href="/ai/frontier-model-enterprise-agents/">Frontier model enterprise agents reshape AI deployment</a>
+      </article>
+      <a href="/category/ai/">All AI posts should remain a blocked category link</a>
+    </body></html>
+    """
+
+    def fake_fetch_text(url: str) -> str:
+        if url == "https://venturebeat.com/category/ai/feed/":
+            return stale_rss
+        if url == "https://venturebeat.com/category/ai/":
+            return category_html
+        raise AssertionError(url)
+
+    items = fetch_source_items(source, fetch_text=fake_fetch_text)
+
+    assert len(items) == 1
+    assert items[0]["title"] == "Frontier model enterprise agents reshape AI deployment"
+    assert items[0]["url"] == "https://venturebeat.com/ai/frontier-model-enterprise-agents/"
+    assert items[0]["published_at"] == "2026-05-02T09:30:00+00:00"
+    assert items[0]["_jarvis_fetch_status"] == "rss_stale_html_fallback"
+
+
+def test_hpcwire_feed_error_uses_single_conservative_html_fallback(tmp_path: Path):
+    source = WatchSource(
+        source_id="hpcwire",
+        display_name="HPCwire RSS",
+        company_tag=None,
+        source_class="analysis",
+        source_role="analysis",
+        source_type="rss",
+        ingest_strategy="rss",
+        base_url="https://www.hpcwire.com/",
+        feed_url="https://www.hpcwire.com/feed/",
+        html_list_url="https://www.hpcwire.com/news/",
+        poll_minutes=360,
+        enabled=False,
+        validation_status="blocked",
+        validation_notes=("staged",),
+        browser_required=False,
+        anti_bot_risk="medium",
+        priority_weight=0.45,
+        reaction_weight=0.45,
+        cooldown_minutes=360,
+        topic_tags=("hpc", "ai-infra"),
+        freshness_policy=None,
+        recency_hours_override=None,
+        rss_stale_after_hours=None,
+        html_fallback_urls=("https://www.hpcwire.com/news/",),
+        file_path=tmp_path / "hpcwire.yaml",
+    )
+    listing_html = """
+    <html><body>
+      <article>
+        <time datetime="2026-05-02T11:00:00Z">May 2, 2026</time>
+        <a href="/2026/05/02/ai-supercomputing-centers-expand/">AI supercomputing centers expand for frontier model training</a>
+      </article>
+    </body></html>
+    """
+    fetched_urls: list[str] = []
+
+    def fake_fetch_text(url: str) -> str:
+        fetched_urls.append(url)
+        if url == "https://www.hpcwire.com/news/":
+            return listing_html
+        raise RuntimeError("feed failed")
+
+    items = fetch_source_items(source, fetch_text=fake_fetch_text)
+
+    assert items[0]["title"] == "AI supercomputing centers expand for frontier model training"
+    assert items[0]["url"] == "https://www.hpcwire.com/2026/05/02/ai-supercomputing-centers-expand/"
+    assert items[0]["_jarvis_fetch_status"] == "conservative_html_fallback"
+    assert items[0]["_jarvis_fetch_path"] == "https://www.hpcwire.com/news/"
+    assert fetched_urls.count("https://www.hpcwire.com/news/") == 1
+
+
+def test_sanitize_exception_message_redacts_colon_headers_query_and_long_tokens():
+    raw_secret = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdef0123456789"
+    redacted = _sanitize_exception_message(
+        RuntimeError(
+            "feed failed token: super-secret api-key: key-secret Authorization: Bearer sk-secret-token "
+            "password=hunter2 callback=https://example.com/cb?token=query-secret&safe=ok&api_key=query-key "
+            f"opaque {raw_secret}"
+        )
+    )
+
+    for secret in ["super-secret", "key-secret", "sk-secret-token", "hunter2", "query-secret", "query-key", raw_secret]:
+        assert secret not in redacted
+    assert "token: <redacted>" in redacted
+    assert "api-key: <redacted>" in redacted
+    assert "Authorization: Bearer <redacted>" in redacted
+    assert "password=<redacted>" in redacted
+    assert "token=<redacted>" in redacted
+    assert "api_key=<redacted>" in redacted
+    assert "safe=ok" in redacted
+
+
+def test_collect_watch_signals_records_health_and_source_errors(tmp_path: Path):
+    config = load_pipeline_config(_write_config(tmp_path))
+    _write_sources(tmp_path)
+
+    def fake_fetcher(source):
+        if source.source_id == "geeknews":
+            raise RuntimeError("feed failed token=super-secret")
+        if source.source_id == "openai-news":
+            return [{
+                "title": "OpenAI launches new enterprise API tier",
+                "url": "https://openai.com/news/enterprise-api-tier",
+                "summary_text": "official launch",
+                "published_at": _recent_iso(minutes_ago=10),
+            }]
+        return []
+
+    result = collect_watch_signals(config, fetcher=fake_fetcher)
+
+    assert result["signal_count"] == 1
+    assert result["source_error_count"] == 1
+    assert Path(result["source_health_artifact"]).exists()
+    artifact = json.loads(Path(result["source_health_artifact"]).read_text(encoding="utf-8"))
+    geeknews = next(record for record in artifact["records"] if record["source_id"] == "geeknews")
+    assert geeknews["fetch_status"] == "error"
+    assert geeknews["exception_class"] == "RuntimeError"
+    assert "super-secret" not in geeknews["exception_message"]
+    assert "token=<redacted>" in geeknews["exception_message"]
+    openai = next(record for record in artifact["records"] if record["source_id"] == "openai-news")
+    assert openai["items_seen"] == 1
+    assert openai["items_after_recency"] == 1
+    assert openai["stored_count"] == 1
+
+    with sqlite3.connect(config.database_path) as conn:
+        row = conn.execute(
+            "SELECT fetch_status, exception_class, items_seen, stored_count FROM watch_source_health WHERE source_id = ?",
+            ("geeknews",),
+        ).fetchone()
+    assert row == ("error", "RuntimeError", 0, 0)
+
+
+def test_weekly_analysis_source_accepts_unseen_item_outside_global_recency(tmp_path: Path):
+    config = load_pipeline_config(_write_config(tmp_path))
+    base = tmp_path / "config/watch-sources/analysis"
+    base.mkdir(parents=True, exist_ok=True)
+    (base / "import-ai.yaml").write_text(
+        """source_id: import-ai
+display_name: Import AI Substack RSS
+company_tag: null
+source_class: analysis
+source_role: analysis
+source_type: rss
+ingest_strategy: rss
+base_url: https://importai.substack.com/
+feed_url: https://importai.substack.com/feed
+html_list_url: null
+poll_minutes: 360
+enabled: true
+validation_status: verified
+validation_notes: [weekly]
+browser_required: false
+anti_bot_risk: low
+priority_weight: 0.5
+reaction_weight: 0.55
+cooldown_minutes: 360
+topic_tags: [analysis, research]
+freshness_policy: new_since_last_seen
+recency_hours_override: 1080
+""",
+        encoding="utf-8",
+    )
+    old_but_in_source_window = (datetime.now(UTC) - timedelta(days=10)).replace(microsecond=0).isoformat()
+
+    def fake_fetcher(source):
+        return [{
+            "title": "Import AI 454: Weekly roundup of frontier model governance",
+            "url": "https://importai.substack.com/p/import-ai-454",
+            "summary_text": "weekly analysis",
+            "published_at": old_but_in_source_window,
+        }]
+
+    first = collect_watch_signals(config, fetcher=fake_fetcher)
+    build_result = build_watch_stories(config)
+    second = collect_watch_signals(config, fetcher=fake_fetcher)
+
+    assert first["signal_count"] == 1
+    assert first["source_health"][0]["fetch_status"] == "ok_new_since_last_seen"
+    assert build_result["issue_count"] == 1
+    assert second["signal_count"] == 0
+    assert second["source_health"][0]["fetch_status"] == "already_seen_or_outside_source_window"
+
+    with sqlite3.connect(config.database_path) as conn:
+        payload = conn.execute("SELECT raw_payload_json FROM watch_signals WHERE source_id = ?", ("import-ai",)).fetchone()[0]
+    assert json.loads(payload)["_jarvis_freshness_status"] == "new_since_last_seen"
+
+
+def test_added_watch_source_discovery_configs_are_safe_rss_or_atom():
+    repo_root = Path(__file__).resolve().parents[1]
+    source_paths = [
+        repo_root / "config/watch-sources/analysis/chips-and-cheese.yaml",
+        repo_root / "config/watch-sources/analysis/interconnects.yaml",
+        repo_root / "config/watch-sources/official/lm-evaluation-harness-releases.yaml",
+        repo_root / "config/watch-sources/analysis/ai-times-rss.yaml",
+    ]
+
+    for path in source_paths:
+        raw = yaml.safe_load(path.read_text(encoding="utf-8"))
+        if raw["validation_status"] == "verified":
+            assert raw["enabled"] is True
+        else:
+            assert raw["validation_status"] == "partial"
+            assert raw["enabled"] is False
+        assert raw["ingest_strategy"] in {"rss", "atom"}
+        assert str(raw["feed_url"]).startswith("https://")
+        assert raw["browser_required"] is False
+        assert raw["anti_bot_risk"] == "low"
+        assert "secret" not in " ".join(raw.get("validation_notes", [])).lower()
 
 
 

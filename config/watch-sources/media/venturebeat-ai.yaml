@@ -7,13 +7,14 @@ source_type: rss
 ingest_strategy: rss
 base_url: https://venturebeat.com/category/ai/
 feed_url: https://venturebeat.com/category/ai/feed/
-html_list_url: null
+html_list_url: https://venturebeat.com/category/ai/
 poll_minutes: 60
 enabled: true
 validation_status: verified
 validation_notes:
 - RSS/XML feed reachable over HTTP 200
 - broad enterprise AI media signal; keep lower weight due to higher noise
+- stale RSS falls back to public AI category listing metadata
 browser_required: false
 anti_bot_risk: low
 priority_weight: 0.35
@@ -23,3 +24,6 @@ topic_tags:
 - media
 - enterprise-ai
 - industry
+rss_stale_after_hours: 72
+html_fallback_urls:
+- https://venturebeat.com/category/ai/
