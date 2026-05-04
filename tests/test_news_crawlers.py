@@ -81,6 +81,26 @@ def test_generic_html_extractor_is_conservative_and_ignores_navigation() -> None
     assert "login menu" not in extracted.body_text
 
 
+def test_generic_html_extractor_handles_naver_article_body_with_br_separators() -> None:
+    html = """
+    <html><head><title>선거사무소 개소식</title></head><body>
+      <div id="contents" class="newsct_body">
+        <article id="dic_area" class="go_trans _article_content">
+          추경호 국민의힘 대구시장 후보 선거사무소 개소식에 국민의힘 지도부와 대구 지역 국회의원들이 대거 모여 세를 과시했습니다.<br><br>
+          장동혁 국민의힘 대표와 송언석 원내대표 등 지도부는 5월 3일 대구시 수성구 범어네거리에 있는 추경호 후보의 선거사무소 개소식에 참석했습니다.<br><br>
+          장 대표는 인사말을 통해 대구시장 후보 공천 과정에서의 혼란에 대해 먼저 사과했습니다.
+        </article>
+      </div>
+    </body></html>
+    """
+
+    extracted = extract_article_body(html, url="https://n.news.naver.com/mnews/article/657/0000051072")
+
+    assert extracted is not None
+    assert "대구 지역 국회의원들이 대거 모여" in extracted.body_text
+    assert "5월 3일 대구시 수성구" in extracted.body_text
+
+
 def test_generic_html_extractor_rejects_boilerplate_only_pages() -> None:
     assert extract_article_body("<html><body><nav>menu</nav><p>short</p></body></html>", url="https://example.com") is None
 

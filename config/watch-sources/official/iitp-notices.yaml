@@ -1,0 +1,25 @@
+source_id: iitp-notices
+display_name: IITP 공지/사업공고
+company_tag: null
+source_class: government
+source_role: rnd-agency-origin
+source_type: html
+ingest_strategy: html
+base_url: https://www.iitp.kr/
+feed_url: null
+html_list_url: https://www.iitp.kr/kr/1/business/notify.it
+poll_minutes: 720
+enabled: true
+validation_status: partial
+validation_notes:
+  - Board/list parsing with detail-page content enrichment; attachment eligibility must be checked from official documents.
+browser_required: false
+anti_bot_risk: medium
+priority_weight: 0.9
+reaction_weight: 0.0
+cooldown_minutes: 720
+topic_tags: [policy, ict, ai, cloud, rnd, government, korea]
+freshness_policy: new_since_last_seen
+recency_hours_override: 1080
+rss_stale_after_hours: null
+html_fallback_urls: []

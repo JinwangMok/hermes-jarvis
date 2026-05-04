@@ -30,7 +30,7 @@ PYTHONPATH=src python3 -m jinwang_jarvis.cli generate-unified-daily-report \
   --date YYYY-MM-DD
 ```
 
-The command writes `/home/jinwang/wiki/reports/hot-issues/daily/YYYY-MM-DD.md` and returns the render target `data/reports/daily-hot-issues-YYYY-MM-DD.pdf`. Personal Opportunity Radar should not be scheduled as a separate user-facing daily report; keep its source-audit/coverage artifacts as evidence inputs only. Live Hermes cron/controller changes are handled outside this repo after code verification.
+The command writes `/home/jinwang/wiki/reports/hot-issues/daily/YYYY-MM-DD.md`, renders/validates the representative PDF target `data/reports/daily-hot-issues-YYYY-MM-DD.pdf`, and hard-fails unless the Daily Hot Issues delivery gate passes. Use `--skip-delivery-gate` only for local debugging artifacts that will not be delivered. Personal Opportunity Radar should not be scheduled as a separate user-facing daily report; keep its source-audit/coverage artifacts as evidence inputs only. Live Hermes cron/controller changes are handled outside this repo after code verification.
 
 Legacy append flow, kept for compatibility with older operators:
 

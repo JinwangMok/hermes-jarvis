@@ -1,0 +1,26 @@
+source_id: x-realtime-ai-research-search
+display_name: X realtime AI/research/community burst search
+company_tag: null
+source_class: community
+source_role: reaction
+source_type: x
+ingest_strategy: x-search
+base_url: https://x.com/search
+feed_url: xurl://search?q=(ICML OR ICLR OR NeurIPS OR arXiv OR "AI agent" OR "coding agent" OR vLLM OR KServe OR Kubernetes)
+html_list_url: null
+poll_minutes: 1440
+enabled: false
+validation_status: ready-when-xurl-authenticated
+validation_notes:
+  - Requires xurl CLI and user-owned X API/search access; no inline credential flags.
+  - Report-time burst lane only; disabled by default until authentication is verified.
+browser_required: false
+anti_bot_risk: api-plan-dependent
+priority_weight: 0.6
+reaction_weight: 1.0
+cooldown_minutes: 1440
+topic_tags: [ai, research, conference, agent, cloud-native, social, realtime]
+freshness_policy: new_since_last_seen
+recency_hours_override: 24
+rss_stale_after_hours: null
+html_fallback_urls: []

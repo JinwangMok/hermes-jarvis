@@ -20,6 +20,7 @@ from jinwang_jarvis.watch import (
     judge_watch_issues,
     load_watch_sources,
     parse_x_status_metrics,
+    fetch_x_realtime_search_items,
     sync_watch_sources,
 )
 
@@ -1130,6 +1131,46 @@ def test_editorial_interest_floor_boosts_research_evaluation_items():
     assert boosted["importance_score_adjusted"] == 0.36
 
 
+def test_editorial_interest_floor_rejects_thin_personal_social_reactions():
+    judgment = {
+        "is_true_hot_issue": False,
+        "importance_score_adjusted": 0.260,
+        "momentum_score_adjusted": 0.0,
+        "heat_level": "low",
+        "judgment_reason": "heuristic fallback",
+    }
+
+    unchanged = _apply_editorial_interest_floor(
+        judgment,
+        title="wow i’ve seen Ouroboros podcast mentioned everywhere",
+        company_tag=None,
+        official_count=0,
+        content_context="short personal reaction without a launch, finding, incident, or substantive change",
+    )
+
+    assert unchanged == judgment
+
+
+def test_editorial_interest_floor_rejects_internal_ops_or_build_status():
+    judgment = {
+        "is_true_hot_issue": False,
+        "importance_score_adjusted": 0.260,
+        "momentum_score_adjusted": 0.0,
+        "heat_level": "low",
+        "judgment_reason": "heuristic fallback",
+    }
+
+    unchanged = _apply_editorial_interest_floor(
+        judgment,
+        title="green dev build for OmOCon dashboard",
+        company_tag=None,
+        official_count=0,
+        content_context="CI passed, staging deploy is green, no external reader-facing change announced.",
+    )
+
+    assert unchanged == judgment
+
+
 def test_generate_watch_report_uses_news_center_when_hot_issue_threshold_is_quiet(tmp_path: Path, monkeypatch):
     config_path = _write_config(tmp_path)
     taxonomy = tmp_path / "config/personal-radar/naver-news-taxonomy.yaml"
@@ -1274,3 +1315,113 @@ generated_at: 2026-04-24T10:33:16+00:00
     state = json.loads(state_path.read_text(encoding="utf-8"))
     assert state["window_end_day_kst"] == "2026-04-25"
     assert state["seen_issue_keys"] == ["https://openai.com/index/introducing-gpt-5-5"]
+
+
+def test_x_realtime_search_items_parse_xurl_json_without_secret_flags():
+    commands = []
+
+    def runner(argv):
+        commands.append(argv)
+        assert argv[:3] == ["xurl", "tweets", "search"]
+        forbidden = {
+            "--bearer-token",
+            "--consumer-key",
+            "--consumer-secret",
+            "--access-token",
+            "--token-secret",
+            "--client-id",
+            "--client-secret",
+        }
+        assert not (set(argv) & forbidden)
+        return json.dumps(
+            {
+                "data": [
+                    {
+                        "id": "1911111111111111111",
+                        "text": "ICML 2026 paper list highlights new agent evaluation benchmarks for SWE-bench style coding agents.",
+                        "author_id": "42",
+                        "created_at": "2026-05-03T01:02:03Z",
+                        "public_metrics": {"like_count": 1200, "retweet_count": 180, "quote_count": 45, "reply_count": 33},
+                    }
+                ],
+                "includes": {"users": [{"id": "42", "username": "researcher"}]},
+            }
+        )
+
+    items = fetch_x_realtime_search_items("ICML 2026 agent evaluation", runner=runner, max_results=10)
+
+    assert commands
+    assert items[0]["title"].startswith("ICML 2026 paper list")
+    assert items[0]["url"] == "https://x.com/researcher/status/1911111111111111111"
+    assert items[0]["author"] == "researcher"
+    assert items[0]["engagement"]["score"] == 1425
+    assert items[0]["raw_payload"]["query"] == "ICML 2026 agent evaluation"
+
+
+def test_top_tier_conference_and_paper_items_get_editorial_floor():
+    judgment = {"is_true_hot_issue": False, "importance_score_adjusted": 0.05, "heat_level": "low"}
+    updated = _apply_editorial_interest_floor(
+        judgment,
+        title="ICML 2026 accepts a new benchmark for autonomous coding agents",
+        company_tag=None,
+        official_count=1,
+        content_context="The conference published accepted papers on evaluation harnesses, SWE-bench contamination, and agent workflows.",
+    )
+    assert updated["is_true_hot_issue"] is True
+    assert updated["importance_score_adjusted"] >= 0.36
+
+
+def test_government_board_html_detail_links_are_fetched_for_real_content():
+    source = WatchSource(
+        source_id="msit-home",
+        display_name="과학기술정보통신부",
+        company_tag=None,
+        source_class="government",
+        source_role="ministry-origin",
+        source_type="html",
+        ingest_strategy="html",
+        base_url="https://www.msit.go.kr/",
+        feed_url=None,
+        html_list_url="https://www.msit.go.kr/bbs/list.do?sCode=user&mId=113&mPid=112",
+        poll_minutes=720,
+        enabled=True,
+        validation_status="verified",
+        validation_notes=(),
+        browser_required=False,
+        anti_bot_risk="medium",
+        priority_weight=1.0,
+        reaction_weight=0.0,
+        cooldown_minutes=60,
+        topic_tags=("policy", "ai", "rnd"),
+        freshness_policy="new_since_last_seen",
+        recency_hours_override=1080,
+        rss_stale_after_hours=None,
+        html_fallback_urls=(),
+        file_path=Path("msit-home.yaml"),
+    )
+    listing = """
+    <html><body>
+      <a href="/bbs/view.do?sCode=user&mId=113&mPid=112&pageIndex=1&bbsSeqNo=94&nttSeqNo=3189999">AI 기반 대학 과학기술 혁신사업 신규 공고</a>
+    </body></html>
+    """
+    detail = """
+    <html><body><main>
+      <h1>AI 기반 대학 과학기술 혁신사업 신규 공고</h1>
+      <p>과학기술정보통신부는 대학의 AI 활용 과학기술 혁신 역량 강화를 위해 중앙거점과 권역 거점을 선정하고 연구개발·교육 인프라 구축을 지원한다고 밝혔다.</p>
+      <p>신청 기간, 지원 대상, 제출 서류는 공고문과 첨부파일을 기준으로 확인해야 한다.</p>
+    </main></body></html>
+    """
+
+    def fetch_text(url):
+        if "list.do" in url:
+            return listing
+        if "view.do" in url:
+            return detail
+        raise AssertionError(url)
+
+    items = fetch_source_items(source, fetch_text=fetch_text)
+
+    assert items
+    assert items[0]["content_excerpt"]
+    assert "중앙거점과 권역 거점" in items[0]["content_excerpt"]
+    assert not items[0]["summary_text"].startswith("HTML listing candidate")

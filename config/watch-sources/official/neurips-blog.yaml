@@ -1,0 +1,24 @@
+source_id: neurips-blog
+display_name: NeurIPS Blog RSS
+company_tag: null
+source_class: conference
+source_role: official-origin
+source_type: rss
+ingest_strategy: rss
+base_url: https://blog.neurips.cc/
+feed_url: https://blog.neurips.cc/feed/
+html_list_url: null
+poll_minutes: 360
+enabled: true
+validation_status: verified
+validation_notes:
+  - RSS reachable over HTTP 200 on 2026-05-03
+  - official NeurIPS blog for conference announcements and community updates
+browser_required: false
+anti_bot_risk: low
+priority_weight: 0.82
+reaction_weight: 0.25
+cooldown_minutes: 360
+topic_tags: [research, ai-conference, neurips, machine-learning]
+freshness_policy: new_since_last_seen
+recency_hours_override: 1080

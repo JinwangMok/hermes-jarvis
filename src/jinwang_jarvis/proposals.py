@@ -15,6 +15,7 @@ from .config import PipelineConfig
 
 ACTION_SIGNAL_REPLY_DETECTED = "reply_detected"
 ACTION_SIGNAL_HISTORICALLY_ACTIONED = "historically_actioned"
+ACTION_SIGNAL_ADVISOR_INSTRUCTION_FACT = "advisor_instruction_fact"
 PROPOSAL_STATUS_PROPOSED = "proposed"
 DEFAULT_TIMEZONE = "+09:00"
 
@@ -152,6 +153,8 @@ class MessageContext:
     role: str
     priority_base: int
     labels: tuple[dict, ...]
+    to_addrs: str | None = None
+    cc_addrs: str | None = None
 
 
 @dataclass(frozen=True)
@@ -199,6 +202,8 @@ def _load_messages(database_path: Path) -> list[MessageContext]:
                 m.folder_kind,
                 m.subject,
                 m.from_addr,
+                m.to_addrs,
+                m.cc_addrs,
                 m.sent_at,
                 COALESCE(si.role, 'external') AS role,
                 COALESCE(si.priority_base, 0) AS priority_base
@@ -230,6 +235,8 @@ def _load_messages(database_path: Path) -> list[MessageContext]:
             role=row["role"],
             priority_base=int(row["priority_base"]),
             labels=tuple(labels_by_message.get(row["message_id"], [])),
+            to_addrs=row["to_addrs"],
+            cc_addrs=row["cc_addrs"],
         )
         for row in rows
     ]
@@ -287,6 +294,45 @@ def _load_existing_proposals(database_path: Path) -> list[dict]:
             """
         ).fetchall()
     return [dict(row) for row in rows]
+
+
+def _load_advisor_emails(database_path: Path) -> set[str]:
+    with sqlite3.connect(database_path) as conn:
+        rows = conn.execute(
+            """
+            SELECT email
+            FROM sender_identities
+            WHERE role = 'advisor'
+            """
+        ).fetchall()
+    return {str(row[0]).strip().casefold() for row in rows if row[0]}
+
+
+def _split_email_list(value: str | None) -> set[str]:
+    if not value:
+        return set()
+    try:
+        parsed = json.loads(value)
+        raw_items = [str(item) for item in parsed] if isinstance(parsed, list) else [str(parsed)]
+    except json.JSONDecodeError:
+        raw_items = re.split(r"[,;\s]+", value)
+    emails: set[str] = set()
+    for item in raw_items:
+        for match in re.findall(r"[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}", item, flags=re.IGNORECASE):
+            emails.add(match.casefold())
+    return emails
+
+
+def _advisor_participation(message: MessageContext, advisor_emails: set[str]) -> str | None:
+    if message.role == "advisor":
+        return "from"
+    if not advisor_emails:
+        return None
+    if _split_email_list(message.cc_addrs) & advisor_emails:
+        return "cc"
+    if _split_email_list(message.to_addrs) & advisor_emails:
+        return "to"
+    return None
 
 
 def _role_bonus(role: str) -> float:
@@ -442,6 +488,31 @@ def _build_reply_signals(messages: list[MessageContext]) -> list[dict]:
     return signals
 
 
+def _build_advisor_instruction_fact_signals(
+    messages: list[MessageContext],
+    scores_by_message: dict[str, dict],
+    advisor_emails: set[str],
+) -> list[dict]:
+    signals: list[dict] = []
+    for message in messages:
+        advisor_source = _advisor_participation(message, advisor_emails)
+        if message.folder_kind != "inbox" or advisor_source is None:
+            continue
+        candidate = extract_candidate_event(message, scores_by_message[message.message_id])
+        if candidate is None or candidate.start_ts is None:
+            continue
+        signals.append(
+            {
+                "source_message_id": message.message_id,
+                "signal_type": ACTION_SIGNAL_ADVISOR_INSTRUCTION_FACT,
+                "evidence_message_id": message.message_id,
+                "score": 0.98,
+                "advisor_source": advisor_source,
+            }
+        )
+    return signals
+
+
 def _reference_moment(sent_at: str | None) -> datetime:
     if sent_at:
         parsed = datetime.fromisoformat(sent_at)
@@ -591,6 +662,7 @@ def _build_proposal_record(
     candidate: CandidateEvent,
     suppression: dict | None,
     signal_confidence: float,
+    signal_types: set[str] | None = None,
     watch_row: dict | None = None,
     as_of: datetime | None = None,
 ) -> tuple[dict | None, dict]:
@@ -614,6 +686,12 @@ def _build_proposal_record(
     )
     if message.role == "external" and any(hint in subject_lower for hint in EXTERNAL_SEMINAR_HINTS) and "advisor-request" not in label_names:
         confidence -= 0.12
+    signal_types = signal_types or set()
+    advisor_calendar_fact = candidate.start_ts is not None and (
+        message.role == "advisor" or ACTION_SIGNAL_ADVISOR_INSTRUCTION_FACT in signal_types
+    )
+    if advisor_calendar_fact:
+        confidence += 0.25
     if candidate.start_ts is None and signal_confidence >= 0.9 and any(hint in subject_lower for hint in REPORT_THREAD_HINTS):
         confidence -= 0.22
     if subject_lower.startswith(("fw:", "fwd:")) and any(hint in subject_lower for hint in FORWARDED_ADMIN_HINTS):
@@ -635,7 +713,7 @@ def _build_proposal_record(
                 watch_boost += 0.10
         if watch_row.get("watch_kind") == "advisor-fyi-revival" and "advisor-fyi" in label_names:
             watch_boost += 0.06
-        if promotional_subject and signal_confidence < 0.9:
+        if promotional_subject and signal_confidence < 0.9 and not advisor_calendar_fact:
             watch_boost = 0.0
         confidence += watch_boost
         watch_info = {
@@ -660,6 +738,7 @@ def _build_proposal_record(
         policy_suppression = {"kind": "policy-promotional-dateless"}
     elif (
         any(hint in subject_lower for hint in PROMO_SUPPRESSION_HINTS)
+        and not advisor_calendar_fact
         and signal_confidence < 0.9
         and confidence < 0.88
         and (
@@ -676,7 +755,7 @@ def _build_proposal_record(
         and confidence < 0.55
     ):
         policy_suppression = {"kind": "policy-external-seminar-low-confidence"}
-    elif "advisor-fyi" in label_names:
+    elif "advisor-fyi" in label_names and not advisor_calendar_fact:
         if candidate.start_ts is None:
             policy_suppression = {"kind": "policy-advisor-fyi-dateless"}
         elif confidence < 0.72:
@@ -698,10 +777,15 @@ def _build_proposal_record(
             "folder_kind": message.folder_kind,
             "role": message.role,
             "from_addr": message.from_addr,
+            "to_addrs": message.to_addrs,
+            "cc_addrs": message.cc_addrs,
         },
         "labels": [label["label"] for label in message.labels],
+        "signal_types": sorted(signal_types),
         "subject_hints": scores["reasons"]["subject_hints"],
         "parse": candidate.parse_reason,
+        "advisor_instruction_fact": advisor_calendar_fact,
+        "calendar_policy": "report-first-then-approve-before-write" if advisor_calendar_fact else None,
         "watchlist": watch_info,
         "suppression": suppression or policy_suppression,
     }
@@ -892,13 +976,18 @@ def generate_proposals(config: PipelineConfig, *, as_of: datetime | None = None)
     generated_at = (as_of or datetime.now(UTC)).isoformat().replace("+00:00", "Z")
 
     scores_by_message = {message.message_id: derive_message_scores(message) for message in messages}
+    advisor_emails = _load_advisor_emails(config.database_path)
     action_signals = _build_reply_signals(messages)
+    action_signals.extend(_build_advisor_instruction_fact_signals(messages, scores_by_message, advisor_emails))
     signal_score_by_message: dict[str, float] = {}
+    signal_types_by_message: dict[str, set[str]] = {}
     for signal in action_signals:
-        signal_score_by_message[signal["source_message_id"]] = max(
-            signal_score_by_message.get(signal["source_message_id"], 0.0),
+        source_message_id = signal["source_message_id"]
+        signal_score_by_message[source_message_id] = max(
+            signal_score_by_message.get(source_message_id, 0.0),
             float(signal["score"]),
         )
+        signal_types_by_message.setdefault(source_message_id, set()).add(str(signal["signal_type"]))
 
     raw_proposals: list[dict] = []
     suppressed: list[dict] = []
@@ -914,6 +1003,7 @@ def generate_proposals(config: PipelineConfig, *, as_of: datetime | None = None)
             candidate,
             suppression,
             signal_score_by_message.get(message.message_id, 0.0),
+            signal_types_by_message.get(message.message_id, set()),
             watchlist_rows.get(message.message_id),
             as_of=as_of,
         )

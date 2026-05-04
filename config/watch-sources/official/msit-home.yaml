@@ -1,0 +1,26 @@
+source_id: msit-home
+display_name: 과학기술정보통신부 공지/보도
+company_tag: null
+source_class: government
+source_role: ministry-origin
+source_type: html
+ingest_strategy: html
+base_url: https://www.msit.go.kr/
+feed_url: null
+html_list_url: https://www.msit.go.kr/bbs/list.do?sCode=user&mId=113&mPid=112
+poll_minutes: 720
+enabled: true
+validation_status: partial
+validation_notes:
+  - Korean government board detail links are parsed and detail pages are fetched for body content.
+  - Use conservative polling; exact eligibility still requires official attachment review.
+browser_required: false
+anti_bot_risk: medium
+priority_weight: 0.85
+reaction_weight: 0.0
+cooldown_minutes: 720
+topic_tags: [policy, ai, rnd, government, korea]
+freshness_policy: new_since_last_seen
+recency_hours_override: 1080
+rss_stale_after_hours: null
+html_fallback_urls: []

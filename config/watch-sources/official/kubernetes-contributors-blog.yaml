@@ -1,0 +1,24 @@
+source_id: kubernetes-contributors-blog
+display_name: Kubernetes Contributors Blog RSS
+company_tag: null
+source_class: project
+source_role: official-origin
+source_type: rss
+ingest_strategy: rss
+base_url: https://www.kubernetes.dev/blog/
+feed_url: https://www.kubernetes.dev/blog/index.xml
+html_list_url: null
+poll_minutes: 360
+enabled: true
+validation_status: verified
+validation_notes:
+  - RSS reachable over HTTP 200 on 2026-05-03
+  - contributor/community activity signal for Kubernetes ecosystem
+browser_required: false
+anti_bot_risk: low
+priority_weight: 0.68
+reaction_weight: 0.3
+cooldown_minutes: 360
+topic_tags: [cloud-native, kubernetes, cncf, open-source, dev-infra]
+freshness_policy: new_since_last_seen
+recency_hours_override: 1080

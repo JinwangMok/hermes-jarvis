@@ -154,6 +154,7 @@ class _ArticleBodyParser(HTMLParser):
         self._content_depth = 0
         self._paragraph_depth = 0
         self._paragraph_chunks: list[str] = []
+        self._content_chunks: list[str] = []
         self.paragraphs: list[str] = []
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
@@ -169,6 +170,8 @@ class _ArticleBodyParser(HTMLParser):
             self._title_chunks = []
         if tag in {"article", "main"} or attr_map.get("itemprop") == "articleBody":
             self._content_depth += 1
+        if tag == "br" and self._content_depth and not self._skip_depth:
+            self._content_chunks.append("\n")
         if tag in {"p", "h1", "h2"} and self._skip_depth == 0:
             self._paragraph_depth += 1
             self._paragraph_chunks = []
@@ -178,6 +181,8 @@ class _ArticleBodyParser(HTMLParser):
             return
         if self._capture_title:
             self._title_chunks.append(data)
+        if self._content_depth:
+            self._content_chunks.append(data)
         if self._paragraph_depth and (self._content_depth or len(data.strip()) >= 40):
             self._paragraph_chunks.append(data)
 
@@ -214,8 +219,17 @@ def extract_article_body(html_text: str, *, url: str) -> ExtractedArticleBody | 
         seen.add(key)
         paragraphs.append(paragraph)
     body = clean_text("\n\n".join(paragraphs))
-    if len(body) < 140 or len(paragraphs) < 2:
-        return None
+    content_raw = "".join(parser._content_chunks)
+    content_parts = [clean_text(part) for part in re.split(r"\s*\n+\s*", content_raw)]
+    content_parts = [part for part in content_parts if len(part) >= 25]
+    content_body = clean_text("\n\n".join(content_parts)) if len(content_parts) >= 2 else ""
+    if content_body and len(content_body) > len(body):
+        body = content_body
+    if len(paragraphs) < 2 or len(body) < 80:
+        if content_body:
+            body = content_body
+        else:
+            return None
     return ExtractedArticleBody(canonical_url=canonicalize_url(parser.canonical_url or url, base_url=url), title=parser.title, body_text=body[:6000])
 
 

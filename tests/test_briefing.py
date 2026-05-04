@@ -109,7 +109,7 @@ def test_generate_briefing_writes_natural_language_sections_and_target(tmp_path:
                 0.92,
                 "proposed",
                 "new-meeting-request",
-                json.dumps({"source": "test"}),
+                json.dumps({"source": "test", "advisor_instruction_fact": True, "calendar_policy": "report-first-then-approve-before-write"}),
                 "2026-04-20T00:00:00+00:00",
                 None,
             ),
@@ -129,12 +129,16 @@ def test_generate_briefing_writes_natural_language_sections_and_target(tmp_path:
     assert "## 계속 중요한 일" in text
     assert "## 새로 중요해진 일" in text
     assert "## 추천 일정" in text
+    assert "## 교수님 지시 기반 캘린더 선보고" in text
     assert "캘린더에 등록할까요?" in text
     assert "discord:1493529569926578276" in text
     assert "[p-new]" not in text
     assert "허용 후보: New meeting request" in text
     assert artifact["pending_approval_count"] == 1
     assert artifact["sections"]["schedule_recommendations"][0]["proposal_id"] == "p-new"
+    assert artifact["sections"]["advisor_calendar_triggers"][0]["proposal_id"] == "p-new"
+    assert "교수님 지시사항은 Fact로 처리했습니다" in text
+    assert "보고 후 승인받기 전에는 캘린더에 쓰지 않습니다" in text
 
 
 def test_generate_briefing_uses_today_to_hide_past_deadlines_and_old_recent_items(tmp_path: Path):

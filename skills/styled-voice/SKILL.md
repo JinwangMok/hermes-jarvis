@@ -13,6 +13,8 @@ metadata:
 
 Use this skill when the user invokes `/styled-voice` and wants speech generated from a stored voice/style sample profile.
 
+Jinwang-specific Jarvis UX: natural-language Discord requests like `교수님 목소리로 아래 문장 음성 생성해줘` are handled by the Jarvis-owned `hermes-jarvis-styled-voice-gateway` plugin, which maps them to the stored `jongwon/default` profile without modifying Hermes core. The plugin lives in `/home/jinwang/workspace/jinwang-jarvis/plugins/hermes_jarvis_styled_voice_gateway` and is symlinked into `~/.hermes/plugins` when enabled.
+
 ## Goal
 
 Generate new audio in a selected voice/style by sending stored local audio samples to the **direct VoxCPM backend**:
@@ -255,6 +257,8 @@ ffmpeg -y -i /tmp/styled-voice-output.wav -c:a libopus -b:a 96k /tmp/styled-voic
 ```text
 MEDIA:/absolute/path/to/output.ogg
 ```
+
+4. For Jinwang's ad-hoc TTS/voice generations, do not leave temp outputs around after delivery. Schedule delayed cleanup of the generated temp directory/output files after enough time for gateway upload, instead of deleting before the MEDIA attachment is delivered.
 
 ## Failure handling
 

@@ -1,0 +1,22 @@
+source_id: arxiv-cs-lg
+display_name: arXiv cs.LG RSS
+company_tag: null
+source_class: research
+source_role: research-signal
+source_type: rss
+ingest_strategy: rss
+base_url: https://arxiv.org/list/cs.LG/recent
+feed_url: https://arxiv.org/rss/cs.LG
+html_list_url: null
+poll_minutes: 360
+enabled: true
+validation_status: verified
+validation_notes:
+  - RSS reachable over HTTP 200 on 2026-05-03
+  - machine learning preprint signal; use topic/impact filters before reader-facing inclusion
+browser_required: false
+anti_bot_risk: low
+priority_weight: 0.72
+reaction_weight: 0.35
+cooldown_minutes: 360
+topic_tags: [research, arxiv, machine-learning, papers]

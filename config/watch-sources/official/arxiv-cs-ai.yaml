@@ -1,0 +1,22 @@
+source_id: arxiv-cs-ai
+display_name: arXiv cs.AI RSS
+company_tag: null
+source_class: research
+source_role: research-signal
+source_type: rss
+ingest_strategy: rss
+base_url: https://arxiv.org/list/cs.AI/recent
+feed_url: https://arxiv.org/rss/cs.AI
+html_list_url: null
+poll_minutes: 360
+enabled: true
+validation_status: verified
+validation_notes:
+  - RSS reachable over HTTP 200 on 2026-05-03
+  - broad AI research preprint signal; use selection quality gate before reader-facing inclusion
+browser_required: false
+anti_bot_risk: low
+priority_weight: 0.72
+reaction_weight: 0.35
+cooldown_minutes: 360
+topic_tags: [research, arxiv, artificial-intelligence, papers]

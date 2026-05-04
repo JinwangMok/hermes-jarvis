@@ -36,6 +36,14 @@ sources:
   - docker-blog
   - kubernetes-blog
   - cncf-blog
+  - kubecon-cloudnativecon-europe
+  - kubernetes-contributors-blog
+  - neurips-blog
+  - icml-conference
+  - iclr-conference
+  - aaai-news
+  - arxiv-cs-ai
+  - arxiv-cs-lg
   - pytorch-blog
   - latent-space
   - import-ai

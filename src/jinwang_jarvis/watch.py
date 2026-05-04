@@ -38,6 +38,7 @@ TRACKING_QUERY_KEYS = {
 }
 HN_PREFIX_RE = re.compile(r"^(show|ask|tell)\s+hn\s*:\s*", re.I)
 HTML_PATH_HINT_RE = re.compile(r"/(news|blog|post|posts|article|articles|press|announcements?|research|stories?|20\d{2}/\d{1,2}/)", re.I)
+KOREAN_GOV_BOARD_DETAIL_RE = re.compile(r"/(?:bbs|board|notice|ancm|contents)/.*(?:view|detail|retrieve|select).*\.do$|/(?:bbs|board)/(?:view|detail)\.do$", re.I)
 HTML_BLOCKLIST_RE = re.compile(r"/(tag|category|author|page|privacy|terms|login|signup|contact|about|careers)/", re.I)
 HTML_DATE_RE = re.compile(
     r"\b(?:20\d{2}[-/]\d{1,2}[-/]\d{1,2}|(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)[a-z]*\s+\d{1,2},\s+20\d{2}|\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)[a-z]*\s+20\d{2})\b",
@@ -269,6 +270,8 @@ def _enrich_item_content(item: dict, fetch_text, *, allow_search_fallback: bool 
         article_excerpt, content_source_url = _search_for_item_content(item, fetch_text)
     if article_excerpt:
         enriched["content_excerpt"] = article_excerpt
+        if str(enriched.get("summary_text") or "").startswith("HTML listing candidate from "):
+            enriched["summary_text"] = _compact_excerpt(article_excerpt, limit=900)
         if content_source_url:
             enriched["content_source_url"] = content_source_url
     if feed_summary and not enriched.get("summary_text"):
@@ -576,6 +579,88 @@ def parse_x_status_metrics(text: str) -> dict[str, int]:
     return metrics
 
 
+def _x_metric_from_payload(metrics: dict, *keys: str) -> int:
+    for key in keys:
+        value = metrics.get(key)
+        parsed = _parse_count_value(value)
+        if parsed is not None:
+            return parsed
+    return 0
+
+
+def _clip_title(text: str, *, limit: int = 140) -> str:
+    cleaned = re.sub(r"\s+", " ", text).strip()
+    return cleaned[: limit - 1].rstrip() + "…" if len(cleaned) > limit else cleaned
+
+
+def fetch_x_realtime_search_items(query: str, *, runner=None, max_results: int = 20) -> list[dict]:
+    """Fetch X recent-search results through xurl without accepting inline secrets."""
+    query = re.sub(r"\s+", " ", str(query or "")).strip()
+    if not query:
+        return []
+    safe_max = max(10, min(int(max_results or 20), 100))
+    argv = ["xurl", "tweets", "search", query, "--max-results", str(safe_max), "--json"]
+    forbidden_flags = {
+        "--bearer-token",
+        "--consumer-key",
+        "--consumer-secret",
+        "--access-token",
+        "--token-secret",
+        "--client-id",
+        "--client-secret",
+    }
+    if set(argv) & forbidden_flags:
+        raise ValueError("inline X credential flags are forbidden")
+    if runner is None:
+        def runner(cmd):
+            completed = subprocess.run(cmd, capture_output=True, text=True, timeout=45, check=True)
+            return completed.stdout
+    raw = runner(argv)
+    payload = json.loads(raw or "{}")
+    users = {
+        str(user.get("id")): str(user.get("username") or user.get("name") or user.get("id"))
+        for user in ((payload.get("includes") or {}).get("users") or [])
+        if isinstance(user, dict)
+    }
+    items: list[dict] = []
+    for tweet in payload.get("data") or []:
+        if not isinstance(tweet, dict):
+            continue
+        tweet_id = str(tweet.get("id") or "").strip()
+        text = str(tweet.get("text") or "").strip()
+        if not tweet_id or not text:
+            continue
+        author = users.get(str(tweet.get("author_id") or ""), str(tweet.get("author_id") or "x")) or "x"
+        metrics = tweet.get("public_metrics") or tweet.get("metrics") or {}
+        if not isinstance(metrics, dict):
+            metrics = {}
+        replies = _x_metric_from_payload(metrics, "reply_count", "replies")
+        reposts = _x_metric_from_payload(metrics, "retweet_count", "repost_count", "retweets")
+        quotes = _x_metric_from_payload(metrics, "quote_count", "quotes")
+        likes = _x_metric_from_payload(metrics, "like_count", "favorite_count", "likes")
+        score = likes + reposts + quotes
+        items.append(
+            {
+                "title": _clip_title(text),
+                "url": f"https://x.com/{author}/status/{tweet_id}",
+                "summary_text": text,
+                "published_at": _parse_dt(str(tweet.get("created_at") or "")) or _utc_now().isoformat(),
+                "external_id": tweet_id,
+                "author": author,
+                "engagement": {
+                    "score": score,
+                    "comments": replies,
+                    "favorite_count": likes,
+                    "retweet_count": reposts,
+                    "quote_count": quotes,
+                    "reply_count": replies,
+                },
+                "raw_payload": {"query": query, "tweet": tweet},
+            }
+        )
+    return items
+
+
 def _enrich_x_item(source: WatchSource, item: dict, fetch_text) -> dict:
     enriched = dict(item)
     status_id = extract_x_status_id(item.get("external_id"), item.get("url"), item.get("guid"))
@@ -706,6 +791,9 @@ def _source_html_fallback_urls(source: WatchSource) -> tuple[str, ...]:
 def _html_path_allowed_for_source(source: WatchSource, path: str) -> bool:
     if HTML_PATH_HINT_RE.search(path):
         return True
+    if str(source.source_class or "").lower() in {"government", "ministry", "agency"} or str(source.source_id).lower() in {"msit-home", "iitp", "nipa", "nrf", "bokjiro", "iris", "korea-policy-briefing"}:
+        if KOREAN_GOV_BOARD_DETAIL_RE.search(path):
+            return True
     path_lower = path.lower()
     for hint in _source_tuple_default(source, "html_path_hints"):
         normalized = f"/{hint.strip('/').lower()}/"
@@ -971,6 +1059,13 @@ def fetch_source_items(source: WatchSource, fetch_text=_fetch_text, fetch_json=_
         return _enrich_items_with_bounded_search_fallback(items[:10], fetch_text)
     if source.ingest_strategy == "api" and source.source_id == "hackernews-topstories":
         return _fetch_hackernews(source, fetch_json=fetch_json, fetch_text=fetch_text)
+    if source.ingest_strategy == "x-search":
+        query = ""
+        if source.feed_url:
+            parsed = urlparse(source.feed_url)
+            query = dict(parse_qsl(parsed.query, keep_blank_values=True)).get("q", "")
+        query = query or source.display_name
+        return fetch_x_realtime_search_items(query, max_results=20)
     if source.ingest_strategy == "html":
         return _enrich_items_with_bounded_search_fallback(_parse_html_listing(fetch_text(source.html_list_url or source.base_url), source), fetch_text)
     target_url = source.feed_url or source.html_list_url or source.base_url
@@ -1578,14 +1673,63 @@ def _editorial_interest_floor(title: str, company_tag: str | None, official_coun
         "layoff",
         "cut ",
     )
+    internal_or_reaction_markers = (
+        "green dev build",
+        "dev build",
+        "ci passed",
+        "staging deploy",
+        "internal ops",
+        "internal metadata",
+        "personal reaction",
+        "short reaction",
+        "wow ",
+        "i've seen",
+        "i’ve seen",
+        "podcast mentioned",
+    )
+    if any(marker in haystack for marker in internal_or_reaction_markers):
+        return None
+
     official = official_count > 0 or bool(company_tag)
-    if any(term in haystack for term in research_terms):
-        if any(term in haystack for term in ("omocon", "ralphton", "omc", "omx", "ouroboros", "teamattention", "agentic ai", "autonomous pr")):
+    practitioner_terms = ("omocon", "ralphton", "omc", "omx", "ouroboros", "teamattention", "agentic ai", "autonomous pr")
+    substantive_event_terms = (
+        "announced",
+        "launch",
+        "launched",
+        "release",
+        "released",
+        "ships",
+        "published",
+        "postmortem",
+        "incident",
+        "failure",
+        "failures",
+        "deleted",
+        "created hundreds",
+        "benchmark",
+        "evaluation",
+        "no longer measures",
+        "contaminated",
+        "recommends",
+        "workflow",
+        "workflows",
+        "playbook",
+        "architecture",
+        "harness lessons",
+        "frontier coding",
+        "autonomous software engineering",
+        "capability",
+        "capabilities",
+    )
+    has_research_relevance = any(term in haystack for term in research_terms)
+    has_substantive_event = any(term in haystack for term in substantive_event_terms)
+    if has_research_relevance and has_substantive_event:
+        if any(term in haystack for term in practitioner_terms):
             return 0.62
         return 0.36
     if official and any(term in title_lower for term in major_change_terms):
         return 0.37
-    if official and any(term in haystack for term in infra_terms):
+    if official and any(term in haystack for term in infra_terms) and has_substantive_event:
         return 0.34
     return None
 

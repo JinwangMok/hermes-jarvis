@@ -70,7 +70,7 @@ def _insert_message(conn: sqlite3.Connection, **kwargs):
             kwargs.get("subject"),
             kwargs.get("from_addr"),
             kwargs.get("to_addrs"),
-            None,
+            kwargs.get("cc_addrs"),
             kwargs.get("sent_at"),
             None,
             None,
@@ -214,6 +214,82 @@ def test_generate_proposals_persists_action_signals_and_artifact(tmp_path: Path)
     artifact_payload = json.loads(result["artifact_path"].read_text(encoding="utf-8"))
     assert artifact_payload["proposal_count"] == 1
     assert artifact_payload["proposals"][0]["title"] == "Please review meeting agenda 2026-04-21 13:00"
+
+
+def test_generate_proposals_triggers_advisor_instruction_fact_for_dated_mail(tmp_path: Path):
+    config = _load_config(tmp_path)
+    bootstrap_workspace(config)
+
+    with sqlite3.connect(config.database_path) as conn:
+        _insert_identity(conn, "jongwon@smartx.kr", "advisor", 100)
+        _insert_message(
+            conn,
+            message_id="advisor-date-1",
+            account="smartx",
+            folder_kind="inbox",
+            subject="FW: 세미나 안내 2026-05-10 14:00 참석 필요",
+            from_addr="jongwon@smartx.kr",
+            sent_at="2026-05-04T09:00:00+09:00",
+        )
+        _insert_label(conn, "advisor-date-1", "advisor-fyi", 35.0)
+        conn.commit()
+
+    result = generate_proposals(config, as_of=datetime.fromisoformat("2026-05-04T00:00:00+00:00"))
+
+    assert result["proposal_count"] == 1
+    artifact_payload = json.loads(result["artifact_path"].read_text(encoding="utf-8"))
+    signals = artifact_payload["action_signals"]
+    assert any(
+        signal["source_message_id"] == "advisor-date-1"
+        and signal["signal_type"] == "advisor_instruction_fact"
+        and signal["evidence_message_id"] == "advisor-date-1"
+        and signal["score"] == 0.98
+        and signal["advisor_source"] == "from"
+        for signal in signals
+    )
+    proposal = artifact_payload["proposals"][0]
+    assert proposal["source_message_id"] == "advisor-date-1"
+    assert proposal["reason"]["advisor_instruction_fact"] is True
+    assert proposal["reason"]["calendar_policy"] == "report-first-then-approve-before-write"
+    assert proposal["start_ts"] == "2026-05-10T14:00:00+09:00"
+
+
+def test_generate_proposals_triggers_advisor_instruction_fact_when_advisor_is_cc(tmp_path: Path):
+    config = _load_config(tmp_path)
+    bootstrap_workspace(config)
+
+    with sqlite3.connect(config.database_path) as conn:
+        _insert_identity(conn, "jongwon@smartx.kr", "advisor", 100)
+        _insert_message(
+            conn,
+            message_id="advisor-cc-date-1",
+            account="smartx",
+            folder_kind="inbox",
+            subject="세미나 안내 2026-05-12 15:00 참석 필요",
+            from_addr="admin@example.org",
+            to_addrs="jinwang@smartx.kr",
+            cc_addrs="JongWon Kim <jongwon@smartx.kr>",
+            sent_at="2026-05-04T09:00:00+09:00",
+        )
+        _insert_label(conn, "advisor-cc-date-1", "advisor-fyi", 35.0)
+        conn.commit()
+
+    result = generate_proposals(config, as_of=datetime.fromisoformat("2026-05-04T00:00:00+00:00"))
+
+    assert result["proposal_count"] == 1
+    artifact_payload = json.loads(result["artifact_path"].read_text(encoding="utf-8"))
+    assert any(
+        signal["source_message_id"] == "advisor-cc-date-1"
+        and signal["signal_type"] == "advisor_instruction_fact"
+        and signal["advisor_source"] == "cc"
+        for signal in artifact_payload["action_signals"]
+    )
+    proposal = artifact_payload["proposals"][0]
+    assert proposal["source_message_id"] == "advisor-cc-date-1"
+    assert proposal["reason"]["advisor_instruction_fact"] is True
+    assert proposal["reason"]["calendar_policy"] == "report-first-then-approve-before-write"
+    assert proposal["reason"]["message"]["cc_addrs"] == "JongWon Kim <jongwon@smartx.kr>"
+    assert proposal["start_ts"] == "2026-05-12T15:00:00+09:00"
 
 
 def test_generate_proposals_suppresses_existing_calendar_duplicates(tmp_path: Path):

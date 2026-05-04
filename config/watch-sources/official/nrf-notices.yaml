@@ -1,0 +1,25 @@
+source_id: nrf-notices
+display_name: 한국연구재단 사업공지
+company_tag: null
+source_class: government
+source_role: rnd-agency-origin
+source_type: html
+ingest_strategy: html
+base_url: https://www.nrf.re.kr/
+feed_url: null
+html_list_url: https://www.nrf.re.kr/biz/notice/list?menu_no=362
+poll_minutes: 720
+enabled: true
+validation_status: partial
+validation_notes:
+  - Board detail pages are fetched for body content; program fit/eligibility needs official attachment review.
+browser_required: false
+anti_bot_risk: medium
+priority_weight: 0.85
+reaction_weight: 0.0
+cooldown_minutes: 720
+topic_tags: [research, rnd, government, korea, university]
+freshness_policy: new_since_last_seen
+recency_hours_override: 1080
+rss_stale_after_hours: null
+html_fallback_urls: []

@@ -235,13 +235,34 @@ def _select_schedule_recommendations(proposals: list[dict]) -> list[dict]:
     return with_time[:MAX_SECTION_ITEMS]
 
 
+def _select_advisor_calendar_triggers(proposals: list[dict]) -> list[dict]:
+    triggered = [
+        proposal
+        for proposal in proposals
+        if proposal.get("start_ts")
+        and proposal.get("end_ts")
+        and isinstance(proposal.get("reason"), dict)
+        and proposal["reason"].get("advisor_instruction_fact") is True
+    ]
+    return triggered[:MAX_SECTION_ITEMS]
+
+
 def _artifact_path(workspace_root: Path, moment: datetime) -> Path:
     artifact_dir = workspace_root / "data" / "briefings"
     artifact_dir.mkdir(parents=True, exist_ok=True)
     return artifact_dir / f"briefing-{moment.strftime('%Y%m%dT%H%M%SZ')}.json"
 
 
-def _render_message_text(*, generated_at: datetime, target_channel: str, recent: list[dict], continuing: list[dict], new_items: list[dict], schedule_items: list[dict]) -> str:
+def _render_message_text(
+    *,
+    generated_at: datetime,
+    target_channel: str,
+    recent: list[dict],
+    continuing: list[dict],
+    new_items: list[dict],
+    schedule_items: list[dict],
+    advisor_calendar_triggers: list[dict],
+) -> str:
     lines = [
         f"# Jarvis 브리핑 — {generated_at.astimezone().strftime('%Y-%m-%d %H:%M')}",
         f"보고 채널: {target_channel}",
@@ -266,6 +287,13 @@ def _render_message_text(*, generated_at: datetime, target_channel: str, recent:
         lines.extend(_line_for_proposal(item) for item in new_items)
     else:
         lines.append("- 이번 브리핑에서 새로 급부상한 항목은 아직 없습니다.")
+
+    lines.extend(["", "## 교수님 지시 기반 캘린더 선보고"])
+    if advisor_calendar_triggers:
+        lines.append("- 교수님 지시사항은 Fact로 처리했습니다. 아래 항목은 보고 후 승인받기 전에는 캘린더에 쓰지 않습니다.")
+        lines.extend(_line_for_proposal(item, include_schedule_hint=True) for item in advisor_calendar_triggers)
+    else:
+        lines.append("- 이번 브리핑에서 날짜가 포함된 교수님 지시 캘린더 후보는 없습니다.")
 
     lines.extend(["", "## 추천 일정"])
     if schedule_items:
@@ -300,6 +328,7 @@ def generate_briefing(config: PipelineConfig, *, as_of: datetime | None = None) 
     continuing = _select_continuing_important(actionable_proposals, as_of=moment)
     new_items = _select_newly_important(actionable_proposals, as_of=moment)
     schedule_items = _select_schedule_recommendations(actionable_proposals)
+    advisor_calendar_triggers = _select_advisor_calendar_triggers(actionable_proposals)
     message_text = _render_message_text(
         generated_at=moment,
         target_channel=config.deliver_channel,
@@ -307,6 +336,7 @@ def generate_briefing(config: PipelineConfig, *, as_of: datetime | None = None) 
         continuing=continuing,
         new_items=new_items,
         schedule_items=schedule_items,
+        advisor_calendar_triggers=advisor_calendar_triggers,
     )
     artifact = {
         "generated_at": moment.isoformat(),
@@ -319,6 +349,7 @@ def generate_briefing(config: PipelineConfig, *, as_of: datetime | None = None) 
             "continuing_important": continuing,
             "newly_important": new_items,
             "schedule_recommendations": schedule_items,
+            "advisor_calendar_triggers": advisor_calendar_triggers,
         },
         "message_text": message_text,
     }

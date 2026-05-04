@@ -63,6 +63,26 @@ def test_daily_hot_issues_linter_requires_source_trust_label_not_generic_fact_la
     assert any("출처 성격" in err for err in errors)
 
 
+def test_daily_hot_issues_linter_accepts_agent_os_community_issue_with_hermes_mention():
+    md = """# 오늘의 핫이슈
+
+## 주요 이슈
+
+### Agent OS
+- 출처 성격: 커뮤니티 소개.
+- 확인된 사실: Ouroboros가 Agent OS로 진화 중이며 Claude, Codex, Hermes를 이용한 실제 데모와 공개 목표를 언급했다.
+- 왜 중요한가: Agent OS와 에이전트 실행 방식 변화가 연구 harness 설계와 로컬 에이전트 운영 기준에 직접 영향을 줍니다.
+- 오늘 할 일: 원문에서 실제 데모 내용, 공개된 repo, 릴리스 목표가 무엇인지 확인합니다.
+- 근거: [원문 링크](https://github.com/Q00/ouroboros), 2026-05-03 확인.
+- 불확실성: 커뮤니티 게시물 기반이므로 실제 공개 범위와 릴리스 상태는 원문·저장소에서 재확인해야 합니다.
+"""
+    errors = linter.lint_text(md)
+    joined = "\n".join(errors)
+    assert "mix internal ops" not in joined
+    assert "unclear 출처 성격" not in joined
+    assert "신호" not in joined
+
+
 def test_daily_hot_issues_linter_rejects_opportunity_without_direct_notice_contract():
     md = """# 오늘의 핫이슈
 
@@ -127,6 +147,187 @@ def test_daily_hot_issues_linter_rejects_internal_ops_even_if_ops_section_exists
     assert any("mix internal ops" in err for err in errors)
 
 
+def test_daily_hot_issues_linter_rejects_empty_main_issue_section_even_with_news_briefs():
+    md = """# 오늘의 핫이슈
+
+## 주요 이슈
+
+## 뉴스 카테고리별 브리핑
+
+### 기술
+- 출처 성격: 보도.
+- 확인된 사실: 기술 분야 기사가 수집됐다.
+- 왜 중요한가: 기술 흐름 확인용이다.
+- 오늘 할 일: 원문을 확인한다.
+- 근거: https://example.com/news, 2026-05-03 확인.
+- 불확실성: 세부 영향은 단정하지 않는다.
+"""
+    errors = linter.lint_text(md)
+    assert any("주요 이슈" in err and "no reader-facing issue cards" in err for err in errors)
+
+
+def test_daily_hot_issues_linter_rejects_provider_boilerplate_as_reader_fact():
+    md = """# 오늘의 핫이슈
+
+## 주요 이슈
+
+### AI agent release
+- 출처 성격: 공식 발표.
+- 확인된 사실: 본 공지는 AI agent가 새 API를 공개하고 2026년 5월부터 베타 이용자를 받는다고 설명합니다.
+- 왜 중요한가: 새 API는 연구 자동화에서 도구 권한과 승인 지점을 다시 설계해야 하는 실제 변경입니다.
+- 오늘 할 일: 공식 문서에서 적용 대상 API, 권한 승인 방식, 기존 정책과 달라진 문구를 비교합니다.
+- 근거: [공식 문서](https://example.com/agent-api), 2026-05-03 확인.
+- 불확실성: 세부 요금과 적용 지역은 원문에서 다시 확인해야 합니다.
+
+## 뉴스 카테고리별 브리핑
+
+### 정치
+- 출처 성격: 보도.
+- 확인된 사실: 기사 섹션 정보가 정치/선거를 포함하는 경우 정치/선거섹션 정책이 적용됩니다.
+- 왜 중요한가: 기사 섹션 정보 문구는 원문 사건이 아니라 포털 안내문입니다.
+- 오늘 할 일: Naver News 원문에서 사건 본문을 확인합니다.
+- 근거: [Naver News](https://n.news.naver.com/mnews/article/001/0000000000), 2026-05-03 확인.
+- 불확실성: 자동 추출 요약입니다.
+"""
+
+    errors = linter.lint_text(md)
+
+    assert any("provider boilerplate" in error for error in errors)
+
+
+def test_daily_hot_issues_linter_accepts_explicit_no_promoted_main_issue_with_news_briefs():
+    md = """# 오늘의 핫이슈
+
+## 주요 이슈
+
+- 승격된 주요 이슈 없음: 원문 내용과 독자 행동 근거가 충분한 항목이 없어 이 섹션은 비워 두고, 확인 가능한 뉴스 브리핑만 제공합니다.
+
+## 뉴스 카테고리별 브리핑
+
+### 기술
+- 출처 성격: 보도.
+- 확인된 사실: 본 기사는 한국은행이 올해 경제 성장률 전망을 낮추고 반도체 수출 회복에도 내수 부진이 성장률을 제약한다고 설명했다는 내용을 다뤘다.
+- 왜 중요한가: 성장률 전망 하향은 정책당국이 수출 회복만으로 경기 반등을 확신하지 않는다는 뜻이라 예산·R&D·기업 투자 판단의 전제치를 낮춰 잡아야 합니다.
+- 오늘 할 일: 원문에서 성장률 조정 폭, 내수 부진 근거, 다음 전망 수정 시점을 확인합니다.
+- 근거: https://example.com/news, 2026-05-03 확인.
+- 불확실성: 기사 요약이므로 실제 수치와 발언 맥락은 원문 표와 인용문으로 재확인해야 합니다.
+"""
+    assert linter.lint_text(md) == []
+
+
+def test_daily_hot_issues_linter_rejects_unverified_candidate_wrapped_as_main_issue():
+    md = """# 오늘의 핫이슈
+
+## 주요 이슈
+
+### Our podcast is live!... Ouroboros...
+- 출처 성격: 검증 전 후보.
+- 확인된 사실: watch 후보에 항목이 들어왔다.
+- 왜 중요한가: 분류: AI · 열기: low · 중요도 0.620 · 모멘텀 0.000
+- 오늘 할 일: 원문을 확인한다.
+- 근거: https://example.com/post, 2026-05-03 확인.
+- 불확실성: 후보 단계라 외부 이슈인지 검증되지 않았다.
+"""
+    errors = linter.lint_text(md)
+    joined = "\n".join(errors)
+    assert "검증 전 후보" in joined
+    assert "internal scoring" in joined or "scoring" in joined
+
+
+def test_daily_hot_issues_linter_rejects_keyword_only_main_issue_without_reader_value():
+    md = """# 오늘의 핫이슈
+
+## 주요 이슈
+
+### AI agent / Kubernetes / 논문 키워드가 함께 언급됨
+- 출처 성격: 보도.
+- 확인된 사실: AI agent, Kubernetes, 논문 관련 항목이 수집됐습니다.
+- 왜 중요한가: 기술 분야의 정책·시장·사회 흐름을 원문 기준으로 확인하기 위한 독자용 브리핑입니다.
+- 오늘 할 일: 제목만으로 판단하지 말고 원문을 확인합니다.
+- 근거: https://example.com/article, 2026-05-03 확인.
+- 불확실성: 수집 요약이므로 제목만으로 사실관계나 영향 범위를 단정하지 않습니다.
+"""
+    errors = linter.lint_text(md)
+    joined = "\n".join(errors)
+    assert "keyword-only" in joined or "reader value" in joined
+    assert "generic why-it-matters" in joined
+
+
+def test_daily_hot_issues_linter_rejects_thin_confirmed_fact_that_only_says_collected():
+    md = """# 오늘의 핫이슈
+
+## 주요 이슈
+
+### CNCF 블로그에서 AI sandboxing 글이 수집됨
+- 출처 성격: 공식 블로그.
+- 확인된 사실: CNCF 블로그에서 AI sandboxing 항목이 수집됐습니다.
+- 왜 중요한가: Kubernetes 운영에서 AI 워크로드 격리와 정책 집행이 실제 클러스터 설계 이슈로 올라오고 있어 Playbox/KARVIS의 보안·권한 모델 점검 항목과 직접 연결됩니다.
+- 오늘 할 일: 원문에서 제안하는 격리 경계, 런타임 전제, Kubernetes 정책 컴포넌트를 확인합니다.
+- 근거: https://www.cncf.io/blog/example, 2026-05-03 확인.
+- 불확실성: 특정 프로젝트 채택 여부와 성능 영향은 원문만으로 단정하지 않습니다.
+"""
+    errors = linter.lint_text(md)
+    assert any("thin confirmed fact" in err for err in errors)
+
+
+
+def test_daily_hot_issues_linter_rejects_category_template_without_source_content_summary():
+    md = """# 오늘의 핫이슈
+
+## 주요 이슈
+
+### 경제 성장률 전망 조정
+- 출처 성격: 보도.
+- 확인된 사실: 경제 분야에서는 대표 요약의 구체 변화가 확인되어 관련 정책·시장·사회 파급을 볼 필요가 있습니다.
+- 왜 중요한가: 경제 분야에서는 대표 요약의 구체 변화가 확인되어 후속 공지 여부를 원문 기준으로 분리해 볼 필요가 있습니다.
+- 오늘 할 일: 원문에서 발표 주체, 날짜, 핵심 수치, 후속 조치를 확인합니다.
+- 근거: https://example.com/economy, 2026-05-03 확인.
+- 불확실성: 세부 영향은 단정하지 않습니다.
+"""
+    errors = linter.lint_text(md)
+    joined = "\n".join(errors)
+    assert "source-content summary" in joined or "category/meta filler" in joined
+
+
+def test_daily_hot_issues_linter_accepts_source_grounded_article_summary():
+    md = """# 오늘의 핫이슈
+
+## 주요 이슈
+
+### 한국은행, 성장률 전망 하향과 내수 부진 리스크 설명
+- 출처 성격: 보도.
+- 확인된 사실: 본 기사는 한국은행이 올해 경제 성장률 전망을 낮추고 반도체 수출 회복에도 내수 부진이 성장률을 제약한다고 설명했다는 내용을 다뤘다.
+- 왜 중요한가: 성장률 전망 하향은 정책당국이 수출 회복만으로 경기 반등을 확신하지 않는다는 뜻이라 예산·R&D·기업 투자 판단의 전제치를 낮춰 잡아야 합니다.
+- 오늘 할 일: Example Economy 원문에서 성장률 조정 폭, 한국은행의 내수 부진 근거, 다음 전망 수정 시점을 확인합니다.
+- 근거: https://example.com/economy, 2026-05-03 확인.
+- 불확실성: 기사 요약이므로 실제 수치와 발언 맥락은 원문 표와 인용문으로 재확인해야 합니다.
+"""
+    assert linter.lint_text(md) == []
+
+def test_daily_hot_issues_linter_ignores_reader_dashboard_h3_outside_issue_sections():
+    md = """# 오늘의 핫이슈
+
+## 한눈에 보기
+
+### 독자 대시보드
+
+- 오늘 실제로 읽을 카드: 1개 (주요 이슈 1개, 원문 확인 뉴스 0개, 신청 가능 공고 0개).
+- 보류된 뉴스 카테고리: 0개 — 없음.
+- 즉시 확인 액션: 1개 — 주요 이슈 원문 확인 1건.
+
+## 주요 이슈
+
+### OpenAI, 에이전트 권한 정책 공개
+- 출처 성격: 공식 블로그.
+- 확인된 사실: OpenAI가 에이전트 권한 관리와 검토 흐름을 공개했다.
+- 왜 중요한가: 에이전트가 외부 도구를 실행할 때 승인·권한·감사 로그 경계가 제품 안전성의 핵심 조건이 되므로 로컬 자동화 권한 모델 점검에도 직접 참고된다.
+- 오늘 할 일: 공식 원문에서 권한 검토 절차, 사용자 승인 조건, 감사 로그 제공 범위를 확인한다.
+- 근거: https://example.com/openai-policy, 2026-04-30 확인.
+- 불확실성: 실제 제품별 적용 범위는 추가 확인이 필요하다.
+"""
+    assert linter.lint_text(md) == []
+
+
 def test_daily_hot_issues_linter_accepts_reader_facing_issue_card():
     md = """# 오늘의 핫이슈
 
@@ -151,8 +352,8 @@ def test_daily_hot_issues_linter_stops_issue_card_at_next_h2_section():
 ### OpenAI, 에이전트 권한 정책 공개
 - 출처 성격: 공식 블로그.
 - 확인된 사실: OpenAI가 에이전트 권한 관리와 검토 흐름을 공개했다.
-- 왜 중요한가: 자동화 도구의 권한 경계 설계에 참고가 된다.
-- 오늘 할 일: 공식 원문에서 권한 검토 절차를 확인한다.
+- 왜 중요한가: 에이전트가 외부 도구를 실행할 때 승인·권한·감사 로그 경계가 제품 안전성의 핵심 조건이 되므로 로컬 자동화 권한 모델 점검에도 직접 참고된다.
+- 오늘 할 일: 공식 원문에서 권한 검토 절차, 사용자 승인 조건, 감사 로그 제공 범위를 확인한다.
 - 근거: https://example.com/openai-policy, 2026-04-30 확인.
 - 불확실성: 실제 제품별 적용 범위는 추가 확인이 필요하다.
 
@@ -173,8 +374,8 @@ def test_daily_hot_issues_linter_does_not_apply_opportunity_contract_to_news_cat
 ### OpenAI, 에이전트 권한 정책 공개
 - 출처 성격: 공식 블로그.
 - 확인된 사실: OpenAI가 에이전트 권한 관리와 검토 흐름을 공개했다.
-- 왜 중요한가: 자동화 도구의 권한 경계 설계에 참고가 된다.
-- 오늘 할 일: 공식 원문에서 권한 검토 절차를 확인한다.
+- 왜 중요한가: 에이전트가 외부 도구를 실행할 때 승인·권한·감사 로그 경계가 제품 안전성의 핵심 조건이 되므로 로컬 자동화 권한 모델 점검에도 직접 참고된다.
+- 오늘 할 일: 공식 원문에서 권한 검토 절차, 사용자 승인 조건, 감사 로그 제공 범위를 확인한다.
 - 근거: https://example.com/openai-policy, 2026-04-30 확인.
 - 불확실성: 실제 제품별 적용 범위는 추가 확인이 필요하다.
 

@@ -1,0 +1,24 @@
+source_id: aaai-news
+display_name: AAAI News RSS
+company_tag: null
+source_class: conference
+source_role: official-origin
+source_type: rss
+ingest_strategy: rss
+base_url: https://aaai.org/
+feed_url: https://aaai.org/feed/
+html_list_url: null
+poll_minutes: 360
+enabled: true
+validation_status: verified
+validation_notes:
+  - RSS reachable over HTTP 200 on 2026-05-03
+  - official AAAI updates and association news
+browser_required: false
+anti_bot_risk: low
+priority_weight: 0.78
+reaction_weight: 0.2
+cooldown_minutes: 360
+topic_tags: [research, ai-conference, aaai, artificial-intelligence]
+freshness_policy: new_since_last_seen
+recency_hours_override: 1080

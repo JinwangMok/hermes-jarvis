@@ -154,6 +154,9 @@ def build_parser() -> argparse.ArgumentParser:
     unified_daily_parser.add_argument("--hot-issue", default="", help="Optional existing hot-issues/watch markdown artifact")
     unified_daily_parser.add_argument("--news-json", default="", help="Optional news-center JSON artifact; defaults to data/news-center/latest.json")
     unified_daily_parser.add_argument("--opportunity-json", default="", help="Optional personal opportunity candidate JSON artifact")
+    unified_daily_parser.set_defaults(delivery_gate=True)
+    unified_daily_parser.add_argument("--delivery-gate", dest="delivery_gate", action="store_true", help="Run the hard Daily Hot Issues markdown→PDF delivery gate before returning success (default)")
+    unified_daily_parser.add_argument("--skip-delivery-gate", dest="delivery_gate", action="store_false", help="Local debugging only: write the markdown target without the post-render reader-facing PDF gate")
 
     podcast_parser = subparsers.add_parser("generate-podcast-script", help="Generate a conversational TTS podcast script from a daily report")
     podcast_parser.add_argument("--daily-report", required=True, help="Daily hot-issues markdown path")
@@ -580,6 +583,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             hot_issue_path=Path(args.hot_issue) if args.hot_issue else None,
             news_json_path=Path(args.news_json) if args.news_json else None,
             opportunity_json_path=Path(args.opportunity_json) if args.opportunity_json else None,
+            delivery_gate=args.delivery_gate,
         )
         print(json.dumps(result, ensure_ascii=False))
         return 0

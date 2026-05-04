@@ -1,0 +1,24 @@
+source_id: kubecon-cloudnativecon-europe
+display_name: KubeCon + CloudNativeCon Europe RSS
+company_tag: null
+source_class: event
+source_role: official-origin
+source_type: rss
+ingest_strategy: rss
+base_url: https://events.linuxfoundation.org/kubecon-cloudnativecon-europe/
+feed_url: https://events.linuxfoundation.org/kubecon-cloudnativecon-europe/feed/
+html_list_url: null
+poll_minutes: 360
+enabled: true
+validation_status: verified
+validation_notes:
+  - RSS reachable over HTTP 200 on 2026-05-03
+  - official KubeCon + CloudNativeCon activity feed
+browser_required: false
+anti_bot_risk: low
+priority_weight: 0.76
+reaction_weight: 0.25
+cooldown_minutes: 360
+topic_tags: [cloud-native, kubernetes, cncf, kubecon, dev-infra]
+freshness_policy: new_since_last_seen
+recency_hours_override: 1080

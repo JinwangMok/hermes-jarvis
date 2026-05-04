@@ -1,0 +1,24 @@
+source_id: iclr-conference
+display_name: ICLR Conference 2026
+company_tag: null
+source_class: conference
+source_role: official-origin
+source_type: html
+ingest_strategy: html
+base_url: https://iclr.cc/
+feed_url: null
+html_list_url: https://iclr.cc/Conferences/2026
+poll_minutes: 720
+enabled: true
+validation_status: verified
+validation_notes:
+  - conference page reachable over HTTP 200 on 2026-05-03
+  - no stable RSS found; use conservative HTML listing for deadlines, accepted papers, program and OpenReview links
+browser_required: false
+anti_bot_risk: low
+priority_weight: 0.8
+reaction_weight: 0.2
+cooldown_minutes: 720
+topic_tags: [research, ai-conference, iclr, machine-learning]
+freshness_policy: new_since_last_seen
+recency_hours_override: 1080
