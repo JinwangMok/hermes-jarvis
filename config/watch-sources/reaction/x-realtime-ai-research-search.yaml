@@ -9,11 +9,11 @@ base_url: https://x.com/search
 feed_url: xurl://search?q=(ICML OR ICLR OR NeurIPS OR arXiv OR "AI agent" OR "coding agent" OR vLLM OR KServe OR Kubernetes)
 html_list_url: null
 poll_minutes: 1440
-enabled: false
-validation_status: ready-when-xurl-authenticated
+enabled: true
+validation_status: verified
 validation_notes:
-  - Requires xurl CLI and user-owned X API/search access; no inline credential flags.
-  - Report-time burst lane only; disabled by default until authentication is verified.
+  - xurl CLI, OAuth2 app, and X API pay-per-use credits verified on 2026-05-04 with a live search smoke test.
+  - Report-time burst lane only; keep poll_minutes/cooldown conservative to control pay-per-resource cost.
 browser_required: false
 anti_bot_risk: api-plan-dependent
 priority_weight: 0.6

@@ -171,6 +171,12 @@ SCHEMA_STATEMENTS = [
         importance_score REAL NOT NULL,
         opportunity_score REAL NOT NULL,
         summary_text TEXT,
+        body_excerpt_text TEXT,
+        semantic_summary_text TEXT,
+        impact_text TEXT,
+        next_action_text TEXT,
+        analysis_basis TEXT,
+        analysis_confidence REAL,
         collected_at TEXT NOT NULL
     )
     """,
@@ -395,6 +401,12 @@ def bootstrap_workspace(config: PipelineConfig) -> None:
             "cc_addrs_json": "TEXT",
             "self_role": "TEXT",
             "interaction_role": "TEXT",
+            "body_excerpt_text": "TEXT",
+            "semantic_summary_text": "TEXT",
+            "impact_text": "TEXT",
+            "next_action_text": "TEXT",
+            "analysis_basis": "TEXT",
+            "analysis_confidence": "REAL",
         }.items():
             if col not in existing_knowledge_cols:
                 conn.execute(f"ALTER TABLE knowledge_messages ADD COLUMN {col} {spec}")

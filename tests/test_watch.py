@@ -1322,7 +1322,8 @@ def test_x_realtime_search_items_parse_xurl_json_without_secret_flags():
 
     def runner(argv):
         commands.append(argv)
-        assert argv[:3] == ["xurl", "tweets", "search"]
+        assert argv[:3] == ["xurl", "search", "ICML 2026 agent evaluation"]
+        assert argv[3:5] == ["-n", "10"]
         forbidden = {
             "--bearer-token",
             "--consumer-key",

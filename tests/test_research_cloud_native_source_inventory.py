@@ -63,7 +63,8 @@ def test_watch_sources_include_realtime_x_and_korean_government_content_lanes():
     sources = _load_sources()
     x_source = sources["x-realtime-ai-research-search"]
     assert x_source["ingest_strategy"] == "x-search"
-    assert x_source["enabled"] is False
+    assert x_source["enabled"] is True
+    assert x_source["validation_status"] == "verified"
     assert "xurl" in " ".join(x_source["validation_notes"]).lower()
     assert "--bearer-token" not in " ".join(x_source["validation_notes"])
 

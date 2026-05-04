@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import html
 import json
 import re
 import sqlite3
@@ -10,7 +11,7 @@ from datetime import UTC, datetime, timedelta
 from difflib import SequenceMatcher
 from email import policy
 from zoneinfo import ZoneInfo
-from email.parser import BytesHeaderParser
+from email.parser import BytesHeaderParser, BytesParser
 from email.utils import getaddresses
 from pathlib import Path
 from typing import Callable
@@ -175,6 +176,138 @@ def _knowledge_summary(subject: str | None, category: str) -> str:
     return f"[{category}] {cleaned}"
 
 
+def _normalize_mail_body_text(value: str | None) -> str:
+    text = html.unescape(value or "")
+    text = re.sub(r"(?is)<(script|style).*?>.*?</\1>", " ", text)
+    text = re.sub(r"(?s)<[^>]+>", " ", text)
+    text = re.sub(r"\r\n?", "\n", text)
+    kept: list[str] = []
+    for line in text.split("\n"):
+        stripped = line.strip()
+        if not stripped:
+            continue
+        lowered = stripped.casefold()
+        if stripped.startswith(">"):
+            continue
+        if lowered.startswith(("on ", "from:", "sent:", "to:", "cc:", "-----original message")):
+            break
+        if stripped in {"--", "—"}:
+            break
+        kept.append(stripped)
+        if len(" ".join(kept)) > 5000:
+            break
+    return re.sub(r"\s+", " ", " ".join(kept)).strip()
+
+
+def _extract_mail_body_text(raw: bytes) -> str:
+    if not raw:
+        return ""
+    message = BytesParser(policy=policy.default).parsebytes(raw)
+    parts: list[str] = []
+    if message.is_multipart():
+        for part in message.walk():
+            content_type = part.get_content_type()
+            disposition = (part.get_content_disposition() or "").casefold()
+            if disposition == "attachment":
+                continue
+            if content_type == "text/plain":
+                try:
+                    parts.append(str(part.get_content()))
+                except Exception:
+                    continue
+        if not parts:
+            for part in message.walk():
+                if part.get_content_type() == "text/html":
+                    try:
+                        parts.append(str(part.get_content()))
+                    except Exception:
+                        continue
+    else:
+        try:
+            parts.append(str(message.get_content()))
+        except Exception:
+            payload = message.get_payload(decode=True)
+            if isinstance(payload, bytes):
+                parts.append(payload.decode(message.get_content_charset() or "utf-8", errors="replace"))
+    return _normalize_mail_body_text("\n".join(parts))
+
+
+def _semantic_mail_analysis(subject: str | None, category: str, body_text: str | None, *, from_addr: str | None = None) -> dict[str, object]:
+    subject_text = _clean_subject(subject)
+    body = _normalize_mail_body_text(body_text)
+    basis_text = f"{subject_text} {body}".strip()
+    lowered = basis_text.casefold()
+    body_sentence = ""
+    if body:
+        candidates = [item.strip() for item in re.split(r"(?<=[.!?。]|[다요음함임됨])\s+", body) if item.strip()]
+        body_sentence = (candidates[0] if candidates else body)[:220]
+    summary = body_sentence or f"본문 미확보: 제목 기준으로만 해석 — {subject_text}"
+
+    action_terms = ["요청", "검토", "확인", "회신", "제출", "등록", "신청", "참석", "일정", "미팅", "공유", "review", "confirm", "submit", "register", "reply", "meeting", "deadline", "action required"]
+    decision_terms = ["승인", "결정", "선정", "확정", "approve", "decide", "confirmed", "accepted"]
+    money_terms = ["예산", "견적", "비용", "결제", "구매", "invoice", "receipt", "budget", "payment", "quote"]
+    date_like = bool(re.search(r"20\d{2}[-./년 ]\d{1,2}|\d{1,2}[/-]\d{1,2}(?=\D|$)|마감|deadline|due", basis_text, re.I))
+    has_action = any(term.casefold() in lowered for term in action_terms)
+    has_decision = any(term.casefold() in lowered for term in decision_terms)
+    has_money = any(term.casefold() in lowered for term in money_terms)
+
+    if has_action and date_like:
+        impact = "날짜가 있는 액션 후보라 누락 시 일정/마감 리스크가 있습니다."
+        next_action = "본문 근거를 확인해 선보고하고, 승인 후 캘린더/회신/제출 조치합니다."
+    elif has_action:
+        impact = "진왕님이 직접 대응해야 할 가능성이 있는 업무 흐름입니다."
+        next_action = "요청 주체·요구 산출물·응답 필요 여부를 확인합니다."
+    elif has_decision:
+        impact = "결정/승인 상태가 바뀌어 후속 업무 우선순위에 영향을 줄 수 있습니다."
+        next_action = "변경된 결정과 필요한 후속 공유/반영 항목을 확인합니다."
+    elif has_money:
+        impact = "예산·구매·증빙 흐름이라 지연 시 행정 처리에 영향이 있을 수 있습니다."
+        next_action = "금액·증빙·처리 주체·마감 여부를 확인합니다."
+    elif category == "opportunity":
+        impact = "지원/행사/기회 후보라 마감·적합성 확인 가치가 있습니다."
+        next_action = "지원 조건과 마감일을 확인해 추적 여부를 결정합니다."
+    else:
+        impact = "현재는 참고/맥락 신호에 가깝지만, 관련 스레드 변화 시 중요도가 오를 수 있습니다."
+        next_action = "즉시 조치보다는 관련 후속 메일과 함께 묶어 재평가합니다."
+
+    confidence = 0.35
+    if body:
+        confidence += 0.35
+    if has_action or has_decision or has_money or date_like:
+        confidence += 0.2
+    return {
+        "semantic_summary_text": summary,
+        "impact_text": impact,
+        "next_action_text": next_action,
+        "body_excerpt_text": body[:1200],
+        "analysis_basis": "body+subject" if body else "subject-only",
+        "analysis_confidence": round(min(0.95, confidence), 2),
+    }
+
+
+def _enrich_rows_with_body_semantics(rows: list[dict], *, exporter: Callable[[dict], bytes] | None = None, limit: int = 80) -> dict[str, int]:
+    exporter = exporter or _export_message_raw
+    enriched = 0
+    attempted = 0
+    ordered = sorted(rows, key=lambda item: (item.get("importance_score") or 0, item.get("opportunity_score") or 0, item.get("date") or ""), reverse=True)
+    for row in ordered[:max(0, limit)]:
+        attempted += 1
+        body_text = ""
+        try:
+            body_text = _extract_mail_body_text(exporter(row))
+        except Exception:
+            body_text = ""
+        category = row.get("category") or _categorize_subject(row.get("subject"), row.get("from_addr"))[0]
+        row.update(_semantic_mail_analysis(row.get("subject"), category, body_text, from_addr=row.get("from_addr")))
+        if body_text:
+            enriched += 1
+    for row in rows:
+        if "semantic_summary_text" not in row:
+            category = row.get("category") or _categorize_subject(row.get("subject"), row.get("from_addr"))[0]
+            row.update(_semantic_mail_analysis(row.get("subject"), category, "", from_addr=row.get("from_addr")))
+    return {"attempted": attempted, "body_enriched": enriched}
+
+
 def _fetch_all_mail_rows(
     *,
     runner: Callable[[list[str]], str],
@@ -229,14 +362,21 @@ def _fetch_all_mail_rows(
 def _upsert_knowledge_messages(database_path: Path, rows: list[dict]) -> None:
     with sqlite3.connect(database_path) as conn:
         for row in rows:
-            category, tags, importance, opportunity_score = _categorize_subject(row.get("subject"), row.get("from_addr"))
+            category = row.get("category")
+            tags = row.get("tags")
+            importance = row.get("importance_score")
+            opportunity_score = row.get("opportunity_score")
+            if category is None or tags is None or importance is None or opportunity_score is None:
+                category, tags, importance, opportunity_score = _categorize_subject(row.get("subject"), row.get("from_addr"))
+            summary_text = row.get("semantic_summary_text") or _knowledge_summary(row.get("subject"), str(category))
             conn.execute(
                 """
                 INSERT OR REPLACE INTO knowledge_messages (
                     knowledge_id, account, folder_name, source_id, subject, from_addr, to_addr, to_addrs_json, cc_addrs_json,
                     self_role, interaction_role, sent_at, has_attachment, category, tags_json, importance_score,
-                    opportunity_score, summary_text, collected_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    opportunity_score, summary_text, body_excerpt_text, semantic_summary_text, impact_text,
+                    next_action_text, analysis_basis, analysis_confidence, collected_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     row["message_id"],
@@ -253,10 +393,16 @@ def _upsert_knowledge_messages(database_path: Path, rows: list[dict]) -> None:
                     row.get("date"),
                     int(bool(row.get("has_attachment"))),
                     category,
-                    json.dumps(tags, ensure_ascii=False),
+                    json.dumps(tags or [], ensure_ascii=False),
                     importance,
                     opportunity_score,
-                    _knowledge_summary(row.get("subject"), category),
+                    summary_text,
+                    row.get("body_excerpt_text") or "",
+                    row.get("semantic_summary_text") or summary_text,
+                    row.get("impact_text") or "",
+                    row.get("next_action_text") or "",
+                    row.get("analysis_basis") or "subject-only",
+                    row.get("analysis_confidence") or 0.35,
                     _utc_now().isoformat(),
                 ),
             )
@@ -268,6 +414,8 @@ def collect_knowledge_mail(
     *,
     months: int = 36,
     runner: Callable[[list[str]], str] | None = None,
+    body_analysis_limit: int = 80,
+    body_exporter: Callable[[dict], bytes] | None = None,
 ) -> dict:
     bootstrap_workspace(config)
     runner = runner or _default_runner
@@ -281,6 +429,12 @@ def collect_knowledge_mail(
         folders = parse_folder_list_table(runner(["himalaya", "folder", "list", "-a", account]))
         all_mail_folder = choose_all_mail_folder(account, folders)
         rows = _fetch_all_mail_rows(runner=runner, account=account, folder_name=all_mail_folder, start=start, end=end, self_addresses=set(config.self_addresses))
+        for row in rows:
+            category, tags, importance, opportunity_score = _categorize_subject(row.get("subject"), row.get("from_addr"))
+            row["category"] = category
+            row["tags"] = tags
+            row["importance_score"] = importance
+            row["opportunity_score"] = opportunity_score
         all_rows.extend(rows)
         checkpoints["knowledge_mail"][account] = {
             "all_mail_folder": all_mail_folder,
@@ -290,12 +444,14 @@ def collect_knowledge_mail(
             "message_count": len(rows),
         }
         account_summaries.append({"account": account, "all_mail_folder": all_mail_folder, "message_count": len(rows)})
+    semantic_enrichment = _enrich_rows_with_body_semantics(all_rows, exporter=body_exporter, limit=body_analysis_limit)
     _upsert_knowledge_messages(config.database_path, all_rows)
     config.checkpoints_path.write_text(json.dumps(checkpoints, ensure_ascii=False, indent=2), encoding="utf-8")
     return {
         "window_start": start.isoformat(),
         "window_end": end.isoformat(),
         "message_count": len(all_rows),
+        "semantic_enrichment": semantic_enrichment,
         "accounts": account_summaries,
     }
 
@@ -308,7 +464,8 @@ def _load_recent_knowledge_rows(database_path: Path, *, as_of: datetime, lookbac
             """
             SELECT knowledge_id, account, folder_name, source_id, subject, from_addr, to_addr, to_addrs_json, cc_addrs_json,
                    self_role, interaction_role, sent_at, category, tags_json,
-                   importance_score, opportunity_score, summary_text
+                   importance_score, opportunity_score, summary_text, body_excerpt_text, semantic_summary_text,
+                   impact_text, next_action_text, analysis_basis, analysis_confidence
             FROM knowledge_messages
             WHERE COALESCE(sent_at, '') >= ?
             ORDER BY opportunity_score DESC, importance_score DESC, sent_at DESC, knowledge_id ASC
@@ -2055,6 +2212,15 @@ def _write_category_notes(config: PipelineConfig, rows: list[dict], generated_at
         ]
         for row in items[:30]:
             lines.append(f"- {row['sent_at']} — {row['subject']} ({row['from_addr'] or 'unknown'})")
+            summary = row.get('semantic_summary_text') or row.get('summary_text')
+            impact = row.get('impact_text')
+            next_action = row.get('next_action_text')
+            if summary:
+                lines.append(f"  - 핵심: {summary}")
+            if impact:
+                lines.append(f"  - 영향: {impact}")
+            if next_action:
+                lines.append(f"  - 다음 액션: {next_action}")
         path.write_text("\n".join(lines) + "\n", encoding="utf-8")
         note_paths[category] = path
     return note_paths
@@ -2142,7 +2308,13 @@ def generate_daily_intelligence_report(
     ]
     if opportunities:
         for row in opportunities:
+            summary = row.get('semantic_summary_text') or row.get('summary_text') or row['subject']
+            impact = row.get('impact_text') or '영향 평가 미확보'
+            next_action = row.get('next_action_text') or '추가 확인'
             lines.append(f"- [{row['category']}] {row['subject']} — {row['from_addr'] or 'unknown'} ({row['sent_at']})")
+            lines.append(f"  - 핵심: {summary}")
+            lines.append(f"  - 영향: {impact}")
+            lines.append(f"  - 다음 액션: {next_action}")
     else:
         lines.append("- No strong opportunity signals found in the current lookback window.")
     for category in COMMON_CATEGORY_ORDER:
@@ -2153,7 +2325,11 @@ def generate_daily_intelligence_report(
             continue
         lines.extend(["", f"## {category.title()}"])
         for row in items:
+            summary = row.get('semantic_summary_text') or row.get('summary_text') or row['subject']
+            impact = row.get('impact_text') or '영향 평가 미확보'
             lines.append(f"- {row['subject']} — {row['from_addr'] or 'unknown'} ({row['sent_at']})")
+            lines.append(f"  - 핵심: {summary}")
+            lines.append(f"  - 영향: {impact}")
     text = "\n".join(frontmatter + lines) + "\n"
     artifact_text = "\n".join(lines) + "\n"
     artifact_path.write_text(artifact_text, encoding="utf-8")

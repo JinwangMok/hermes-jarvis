@@ -599,7 +599,7 @@ def fetch_x_realtime_search_items(query: str, *, runner=None, max_results: int =
     if not query:
         return []
     safe_max = max(10, min(int(max_results or 20), 100))
-    argv = ["xurl", "tweets", "search", query, "--max-results", str(safe_max), "--json"]
+    argv = ["xurl", "search", query, "-n", str(safe_max)]
     forbidden_flags = {
         "--bearer-token",
         "--consumer-key",

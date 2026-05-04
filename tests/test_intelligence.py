@@ -424,8 +424,17 @@ def test_collect_knowledge_mail_and_generate_daily_intelligence(tmp_path: Path):
     config = load_pipeline_config(_write_config(tmp_path))
     runner = FakeKnowledgeRunner()
 
-    collect_result = collect_knowledge_mail(config, months=36, runner=runner)
+    def body_exporter(row):
+        bodies = {
+            "201": "참가 등록이 열렸습니다. 4/30까지 신청서를 제출해야 합니다. 연구실 agent demo와 연결 가능성이 있습니다.",
+            "202": "유가와 인플레이션 업데이트입니다. 당장 액션은 없고 시장 맥락 확인용입니다.",
+        }
+        body = bodies.get(str(row.get("source_id")), "")
+        return f"Subject: {row.get('subject')}\nContent-Type: text/plain; charset=utf-8\n\n{body}".encode("utf-8")
+
+    collect_result = collect_knowledge_mail(config, months=36, runner=runner, body_exporter=body_exporter)
     assert collect_result["message_count"] == 4
+    assert collect_result["semantic_enrichment"]["body_enriched"] == 2
     assert collect_result["accounts"][0]["all_mail_folder"] == "[Gmail]/전체보관함"
 
     report_result = generate_daily_intelligence_report(
@@ -447,16 +456,23 @@ def test_collect_knowledge_mail_and_generate_daily_intelligence(tmp_path: Path):
 
     import sqlite3
     with sqlite3.connect(config.database_path) as conn:
-        row = conn.execute("SELECT to_addrs_json, cc_addrs_json, self_role, interaction_role FROM knowledge_messages WHERE knowledge_id = ?", ("personal:[Gmail]/전체보관함:201",)).fetchone()
+        row = conn.execute("SELECT to_addrs_json, cc_addrs_json, self_role, interaction_role, semantic_summary_text, impact_text, next_action_text, analysis_basis FROM knowledge_messages WHERE knowledge_id = ?", ("personal:[Gmail]/전체보관함:201",)).fetchone()
     assert row is not None
     assert json.loads(row[0]) == ["you@example.com"]
     assert json.loads(row[1]) == []
     assert row[2] == "other"
     assert row[3] == "broadcast" or row[3] == "other" or row[3] == "direct-ask"
+    assert "참가 등록" in row[4]
+    assert "일정/마감 리스크" in row[5]
+    assert "선보고" in row[6]
+    assert row[7] == "body+subject"
 
     text = report_result["artifact_path"].read_text(encoding="utf-8")
     assert "Opportunity signals" in text
     assert "AI agent meetup registration open" in text
+    assert "핵심: 참가 등록이 열렸습니다" in text
+    assert "영향: 날짜가 있는 액션 후보" in text
+    assert "다음 액션: 본문 근거를 확인해 선보고" in text
     assert "Global market update: oil and inflation" in text
     assert "HERMES TEST GIST-FORWARD STATIC-001" not in text
     assert "Random low-signal general note" not in text
