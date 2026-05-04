@@ -159,6 +159,8 @@ reproducibility:
     assert units["hermes-gateway.service"].count("/x/bin") == 1
     assert "Restart=always" in units["hermes-gateway.service"]
     assert "StartLimitBurst=10" in units["hermes-gateway.service"]
+    assert "ExecStartPre=-/bin/bash" in units["hermes-gateway.service"]
+    assert "scripts/arm-opencode-gateway-recovery.sh systemd-ExecStartPre-hermes-gateway" in units["hermes-gateway.service"]
     assert "EnvironmentFile=-" in units["jinwang-jarvis-hermes-health.service"]
     assert ".hermes/.env" in units["jinwang-jarvis-hermes-health.service"]
     assert "JARVIS_HEALTH_DISCORD_CHANNEL=1496014213276241922" in units["jinwang-jarvis-hermes-health.service"]

@@ -206,6 +206,7 @@ WorkingDirectory={home}/.hermes/hermes-agent
 Environment=PATH={service_path}
 Environment=VIRTUAL_ENV={home}/.hermes/hermes-agent/venv
 Environment=HERMES_HOME={home}/.hermes
+ExecStartPre=-/bin/bash {workspace}/scripts/arm-opencode-gateway-recovery.sh systemd-ExecStartPre-hermes-gateway
 ExecStart={home}/.hermes/hermes-agent/venv/bin/python -m hermes_cli.main gateway run --replace
 Restart=always
 RestartSec=30
