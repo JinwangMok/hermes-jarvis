@@ -1,0 +1,33 @@
+name: hermes_zeus_gateway
+version: 0.1.0
+description: |
+  Hermes gateway plugin for Zeus OS boardroom projection.
+  Provides dry-run Discord card rendering without restarting the gateway.
+  Live delivery requires explicit operator approval.
+author: jinwang-jarvis
+type: gateway_adapter
+entrypoint: __init__.py
+config_schema:
+  dry_run:
+    type: boolean
+    default: true
+    description: When true, only render cards locally without Discord API calls
+  zeus_db_path:
+    type: string
+    default: ""
+    description: Path to zeus_os.db; defaults to state/zeus_os.db under workspace
+  projection_poll_seconds:
+    type: integer
+    default: 30
+    description: How often to poll for new events to project
+  max_cards_per_batch:
+    type: integer
+    default: 10
+    description: Maximum cards to render in one poll cycle
+  allowed_channels:
+    type: array
+    items: { type: string }
+    default: []
+    description: Channel IDs where Zeus cards may be projected
+requirements:
+  - jinwang_jarvis >= 0.1.0

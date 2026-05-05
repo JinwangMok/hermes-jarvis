@@ -33,6 +33,7 @@ from .unified_daily_report import generate_unified_daily_report
 from .watch import build_watch_stories, collect_watch_signals, generate_external_hot_issue_alert, generate_watch_report, judge_watch_issues, run_watch_cycle, sync_watch_sources
 from .wiki_search import rebuild_operational_search_index, search_operational_index
 from .wiki_semantic_lint import lint_wiki_semantics
+from .zeus_os.cli import handle_zeus
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -320,7 +321,110 @@ def build_parser() -> argparse.ArgumentParser:
         if command_name == "run":
             command_parser.add_argument("--executor", default="", help="Optional execution backend, e.g. claude-code")
 
+    zeus_parser = subparsers.add_parser("zeus", help="Zeus OS control plane")
+    zeus_subparsers = zeus_parser.add_subparsers(dest="zeus_command", required=True)
+    build_zeus_parser(zeus_subparsers)
+
     return parser
+
+
+def build_zeus_parser(zeus_subparsers):
+    """Build Zeus OS subparser tree into the provided subparsers object."""
+    init_parser = zeus_subparsers.add_parser("init", help="Initialize Zeus OS schema and directories")
+    init_parser.add_argument("--workspace", default=".", help="Workspace root directory")
+
+    doctor_parser = zeus_subparsers.add_parser("doctor", help="Run Zeus OS health diagnostics")
+    doctor_parser.add_argument("--workspace", default=".", help="Workspace root directory")
+
+    task_parser = zeus_subparsers.add_parser("task", help="Task management")
+    task_subparsers = task_parser.add_subparsers(dest="task_command", required=True)
+
+    task_submit = task_subparsers.add_parser("submit", help="Submit a new task")
+    task_submit.add_argument("--title", required=True, help="Task title")
+    task_submit.add_argument("--goal", default="", help="User goal")
+    task_submit.add_argument("--workspace", default=".", help="Workspace root directory")
+    task_submit.add_argument("--priority", default="medium", choices=["low", "medium", "high", "critical"])
+
+    task_status = task_subparsers.add_parser("status", help="Show task status")
+    task_status.add_argument("task_id", help="Task ID")
+    task_status.add_argument("--workspace", default=".", help="Workspace root directory")
+    task_status.add_argument("--ops", action="store_true", help="Show operator-level details")
+
+    task_replay = task_subparsers.add_parser("replay", help="Replay task events")
+    task_replay.add_argument("task_id", help="Task ID")
+    task_replay.add_argument("--workspace", default=".", help="Workspace root directory")
+
+    task_export = task_subparsers.add_parser("export", help="Export task to JSONL")
+    task_export.add_argument("task_id", help="Task ID")
+    task_export.add_argument("--workspace", default=".", help="Workspace root directory")
+    task_export.add_argument("--output", default="", help="Output file path")
+
+    agent_parser = zeus_subparsers.add_parser("agent", help="Agent management")
+    agent_subparsers = agent_parser.add_subparsers(dest="agent_command", required=True)
+
+    agent_list = agent_subparsers.add_parser("list", help="List agents")
+    agent_list.add_argument("--workspace", default=".", help="Workspace root directory")
+
+    agent_show = agent_subparsers.add_parser("show", help="Show agent details")
+    agent_show.add_argument("agent_id", help="Agent ID")
+    agent_show.add_argument("--workspace", default=".", help="Workspace root directory")
+
+    queue_parser = zeus_subparsers.add_parser("queue", help="Queue management")
+    queue_subparsers = queue_parser.add_subparsers(dest="queue_command", required=True)
+
+    queue_list = queue_subparsers.add_parser("list", help="List queue state")
+    queue_list.add_argument("--workspace", default=".", help="Workspace root directory")
+
+    queue_recover = queue_subparsers.add_parser("recover", help="Recover expired leases")
+    queue_recover.add_argument("--workspace", default=".", help="Workspace root directory")
+
+    worker_parser = zeus_subparsers.add_parser("worker", help="Worker management")
+    worker_subparsers = worker_parser.add_subparsers(dest="worker_command", required=True)
+
+    worker_list = worker_subparsers.add_parser("list", help="List workers")
+    worker_list.add_argument("--workspace", default=".", help="Workspace root directory")
+
+    worker_run = worker_subparsers.add_parser("run", help="Run a worker")
+    worker_run.add_argument("--kind", default="deterministic", help="Worker kind")
+    worker_run.add_argument("--once", action="store_true", help="Process one item and exit")
+    worker_run.add_argument("--workspace", default=".", help="Workspace root directory")
+
+    boardroom_parser = zeus_subparsers.add_parser("boardroom", help="Boardroom session management")
+    boardroom_subparsers = boardroom_parser.add_subparsers(dest="boardroom_command", required=True)
+
+    boardroom_create = boardroom_subparsers.add_parser("create", help="Create a boardroom session")
+    boardroom_create.add_argument("--title", required=True, help="Session title")
+    boardroom_create.add_argument("--max-rounds", type=int, default=5)
+    boardroom_create.add_argument("--workspace", default=".", help="Workspace root directory")
+
+    boardroom_status = boardroom_subparsers.add_parser("status", help="Show boardroom status")
+    boardroom_status.add_argument("session_id", help="Session ID")
+    boardroom_status.add_argument("--workspace", default=".", help="Workspace root directory")
+
+    boardroom_advance = boardroom_subparsers.add_parser("advance", help="Advance to next round")
+    boardroom_advance.add_argument("session_id", help="Session ID")
+    boardroom_advance.add_argument("--workspace", default=".", help="Workspace root directory")
+
+    a2a_parser = zeus_subparsers.add_parser("a2a", help="A2A projection utilities")
+    a2a_subparsers = a2a_parser.add_subparsers(dest="a2a_command", required=True)
+
+    a2a_task = a2a_subparsers.add_parser("task", help="Show A2A task projection")
+    a2a_task.add_argument("task_id", help="Task ID")
+    a2a_task.add_argument("--workspace", default=".", help="Workspace root directory")
+
+    a2a_agent = a2a_subparsers.add_parser("agent", help="Show A2A agent card projection")
+    a2a_agent.add_argument("agent_id", help="Agent ID")
+    a2a_agent.add_argument("--workspace", default=".", help="Workspace root directory")
+
+    painter_parser = zeus_subparsers.add_parser("painter", help="Painter workflow")
+    painter_subparsers = painter_parser.add_subparsers(dest="painter_command", required=True)
+
+    painter_run = painter_subparsers.add_parser("run", help="Run painter workflow")
+    painter_run.add_argument("task_id", help="Task ID")
+    painter_run.add_argument("--purpose", default="", help="Visual purpose")
+    painter_run.add_argument("--prompt", default="", help="Image prompt")
+    painter_run.add_argument("--style", default="", help="Style notes")
+    painter_run.add_argument("--workspace", default=".", help="Workspace root directory")
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -795,6 +899,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             return 1
         print(json.dumps(result, ensure_ascii=False))
         return 0
+
+    if args.command == "zeus":
+        return handle_zeus(args)
 
     parser.error(f"Unknown command: {args.command}")
     return 2
