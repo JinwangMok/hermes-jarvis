@@ -82,10 +82,10 @@ def test_compose_unified_daily_report_has_required_sections_and_categories() -> 
         opportunity_candidates=[],
     )
 
-    for heading in ["한눈에 보기", "주요 이슈", "뉴스 카테고리별 브리핑", "근거 커버리지"]:
+    for heading in ["한눈에 보기", "오늘의 체크리스트", "주요 이슈", "뉴스 카테고리별 브리핑", "근거 커버리지"]:
         assert f"## {heading}" in report.markdown
-    assert "## 오늘의 체크리스트" not in report.markdown
     assert "## 개인 기회/공고 검토" not in report.markdown
+    assert "오늘 검증된 개인 기회/공고 후보는 없습니다" not in report.markdown
     for category in ["정치", "경제", "사회", "문화", "국제", "기술", "예능"]:
         assert f"### {category}" in report.markdown
     assert "Appendix" not in report.markdown
@@ -249,6 +249,48 @@ https://github.com/Q00/ouroboros
     assert "모멘텀" not in main
 
 
+def test_compose_unified_daily_report_drops_low_level_tool_maintenance_commits() -> None:
+    hot = """## 🔥 핫이슈 업데이트
+
+### 1. This release lands two major milestones of the Agent OS RFC.
+
+1. I/O journal Layer
+Every LLM call and tool dispatch is now wrapped in a structured, privacy-aware journal.
+
+2. AgentProcess cooperative lifecycle
+Ouroboros can execute other harnesses for specific contracts.
+**내용 요약:** This release lands two major milestones of the Agent OS RFC.
+**출처:** https://github.com/Q00/ouroboros/releases/tag/v0.32.0
+
+### 2. Fix HUD statusLine cold-start flicker (#2844)
+**내용 요약:** Fix HUD statusLine cold-start flicker and cache statusLine renderer output for one CLI tool.
+**출처:** https://github.com/Yeachan-Heo/oh-my-claudecode/commit/45d1855fc7ba140615f6d75889496aa1e8a8e656
+
+### 3. Merge pull request #2914 from Yeachan-Heo/issue-2913-prebuild-warning
+**내용 요약:** docs: explain prebuild-install warning.
+**출처:** https://github.com/Yeachan-Heo/oh-my-claudecode/commit/836699c9392da5c49407e2db36d9b556819b8e9d
+
+### 4. docs(release): add v4.13.6 release notes
+**내용 요약:** docs(release): add v4.13.6 release notes Covers 14 net-user-facing PRs since v4.13.5.
+**출처:** https://github.com/Yeachan-Heo/oh-my-claudecode/commit/23b01a
+"""
+
+    report = compose_unified_daily_report(
+        report_date="2026-05-04",
+        hot_issue_markdown=hot,
+        news_items=_news_items(),
+        opportunity_candidates=[],
+    )
+
+    main = report.markdown.split("## 주요 이슈", 1)[1].split("## 뉴스 카테고리별 브리핑", 1)[0]
+    assert "Agent OS" in main
+    assert "I/O journal" in main
+    assert "AgentProcess" in main
+    assert "Fix HUD statusLine" not in main
+    assert "Merge pull request" not in main
+    assert "docs(release)" not in main
+
+
 def test_compose_unified_daily_report_news_brief_uses_article_content_not_category_template() -> None:
     report = compose_unified_daily_report(
         report_date="2026-04-30",
@@ -406,6 +448,7 @@ def test_write_unified_daily_report_writes_single_markdown_and_pdf_path(tmp_path
     markdown = Path(markdown_path).read_text(encoding="utf-8")
     assert "## 주요 이슈" in markdown
     assert "## 개인 기회/공고 검토" not in markdown
+    assert "오늘 검증된 개인 기회/공고 후보는 없습니다" not in markdown
     assert "신청 가능한 공고 없음" not in markdown
 
 

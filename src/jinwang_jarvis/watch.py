@@ -55,6 +55,15 @@ X_METRIC_PATTERNS = {
     "quote_count": re.compile(r'"quote_count"\s*:\s*"?([0-9][0-9,]*(?:\.[0-9]+)?[KMB]?)"?', re.I),
     "favorite_count": re.compile(r'"favorite_count"\s*:\s*"?([0-9][0-9,]*(?:\.[0-9]+)?[KMB]?)"?', re.I),
 }
+X_RESEARCH_ARTIFACT_RE = re.compile(
+    r"\b(arxiv|paper|preprint|benchmark|dataset|github|repo|code|release|technical report|eval(?:uation)?|swe-bench|kubernetes|vllm|kserve)\b|https?://(?:arxiv\.org|github\.com)",
+    re.I,
+)
+X_SPAM_RE = re.compile(
+    r"\b(sol(?:ana)?|airdrop|pump|token|crypto|web3|blockchain|memecoin|giveaway|presale|profit|trading|on-chain|chain|producthunt|gamified|verifiable identity|stock|trx)\b|\$[A-Z]{2,6}\b",
+    re.I,
+)
+X_LOW_SIGNAL_CELEBRATION_RE = re.compile(r"^\s*(congrats|congratulations|accepted!|excited to share|happy to share)\b", re.I)
 SOURCE_DEFAULTS: dict[str, dict[str, object]] = {
     "semianalysis": {
         "rss_stale_after_hours": 72,
@@ -588,9 +597,48 @@ def _x_metric_from_payload(metrics: dict, *keys: str) -> int:
     return 0
 
 
+def _score_x_realtime_signal(text: str, engagement_score: int, replies: int) -> tuple[int, str | None]:
+    """Return reader-value score/quality for report-time X search results."""
+    cleaned = re.sub(r"\s+", " ", text or "").strip()
+    lower = cleaned.casefold()
+    leading_mentions = len(re.findall(r"(?:^|\s)@[A-Za-z0-9_]{1,15}\b", cleaned[:80]))
+    has_artifact = bool(X_RESEARCH_ARTIFACT_RE.search(cleaned))
+    has_url = "http://" in lower or "https://" in lower
+    if X_SPAM_RE.search(cleaned):
+        return 0, None
+    if leading_mentions >= 2 and engagement_score < 10 and not has_artifact:
+        return 0, None
+    if X_LOW_SIGNAL_CELEBRATION_RE.search(cleaned) and not has_artifact:
+        return 0, None
+    signal_score = min(engagement_score, 500)
+    quality = "community_reaction"
+    if has_artifact:
+        signal_score += 80
+        quality = "research_artifact"
+    if has_url:
+        signal_score += 15
+    if re.search(r"\b(ICML|ICLR|NeurIPS|AAAI|arXiv|Kubernetes|vLLM|KServe|SWE-bench)\b", cleaned, re.I):
+        signal_score += 30
+    if replies >= 5:
+        signal_score += 5
+    if len(cleaned) < 45 and not has_artifact:
+        signal_score -= 25
+    if not has_artifact and signal_score < 25:
+        return 0, None
+    if signal_score <= 0:
+        return 0, None
+    return signal_score, quality
+
+
 def _clip_title(text: str, *, limit: int = 140) -> str:
     cleaned = re.sub(r"\s+", " ", text).strip()
     return cleaned[: limit - 1].rstrip() + "…" if len(cleaned) > limit else cleaned
+
+
+def _x_realtime_dedupe_key(text: str) -> str:
+    cleaned = re.sub(r"https?://\S+", "", text or "")
+    cleaned = re.sub(r"\s+", " ", cleaned).casefold().strip()
+    return cleaned[:240]
 
 
 def fetch_x_realtime_search_items(query: str, *, runner=None, max_results: int = 20) -> list[dict]:
@@ -639,6 +687,9 @@ def fetch_x_realtime_search_items(query: str, *, runner=None, max_results: int =
         quotes = _x_metric_from_payload(metrics, "quote_count", "quotes")
         likes = _x_metric_from_payload(metrics, "like_count", "favorite_count", "likes")
         score = likes + reposts + quotes
+        x_signal_score, x_signal_quality = _score_x_realtime_signal(text, score, replies)
+        if not x_signal_quality:
+            continue
         items.append(
             {
                 "title": _clip_title(text),
@@ -647,6 +698,8 @@ def fetch_x_realtime_search_items(query: str, *, runner=None, max_results: int =
                 "published_at": _parse_dt(str(tweet.get("created_at") or "")) or _utc_now().isoformat(),
                 "external_id": tweet_id,
                 "author": author,
+                "x_signal_score": x_signal_score,
+                "x_signal_quality": x_signal_quality,
                 "engagement": {
                     "score": score,
                     "comments": replies,
@@ -658,7 +711,13 @@ def fetch_x_realtime_search_items(query: str, *, runner=None, max_results: int =
                 "raw_payload": {"query": query, "tweet": tweet},
             }
         )
-    return items
+    unique: dict[str, dict] = {}
+    for item in items:
+        key = _x_realtime_dedupe_key(str(item.get("summary_text") or item.get("title") or ""))
+        current = unique.get(key)
+        if current is None or int(item.get("x_signal_score") or 0) > int(current.get("x_signal_score") or 0):
+            unique[key] = item
+    return sorted(unique.values(), key=lambda item: int(item.get("x_signal_score") or 0), reverse=True)
 
 
 def _enrich_x_item(source: WatchSource, item: dict, fetch_text) -> dict:

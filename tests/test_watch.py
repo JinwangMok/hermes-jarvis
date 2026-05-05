@@ -1359,6 +1359,54 @@ def test_x_realtime_search_items_parse_xurl_json_without_secret_flags():
     assert items[0]["raw_payload"]["query"] == "ICML 2026 agent evaluation"
 
 
+def test_x_realtime_search_items_filter_spam_replies_and_low_signal_congrats():
+    def runner(argv):
+        return json.dumps(
+            {
+                "data": [
+                    {
+                        "id": "201",
+                        "text": "@foo @bar AI agent swarm on Solana for decentralized peptide research pump token now",
+                        "author_id": "spam",
+                        "public_metrics": {"like_count": 1, "retweet_count": 0, "quote_count": 0, "reply_count": 0},
+                    },
+                    {
+                        "id": "202",
+                        "text": "Congrats to the team on the ICML acceptance!🥳 https://t.co/example",
+                        "author_id": "lab",
+                        "public_metrics": {"like_count": 80, "retweet_count": 3, "quote_count": 0, "reply_count": 1},
+                    },
+                    {
+                        "id": "203",
+                        "text": "New arXiv paper with GitHub code evaluates autonomous coding agents on Kubernetes incident repair and SWE-bench style tasks https://arxiv.org/abs/2605.00001 https://github.com/example/agent-bench",
+                        "author_id": "researcher",
+                        "created_at": "2026-05-04T00:01:02Z",
+                        "public_metrics": {"like_count": 12, "retweet_count": 4, "quote_count": 1, "reply_count": 2},
+                    },
+                    {
+                        "id": "205",
+                        "text": "Just gave my AI agent a verifiable identity on-chain and listed the gamified app on ProductHunt",
+                        "author_id": "spam",
+                        "public_metrics": {"like_count": 30, "retweet_count": 4, "quote_count": 1, "reply_count": 1},
+                    },
+                ],
+                "includes": {
+                    "users": [
+                        {"id": "spam", "username": "crypto_pumper"},
+                        {"id": "lab", "username": "some_lab"},
+                        {"id": "researcher", "username": "systems_researcher"},
+                    ]
+                },
+            }
+        )
+
+    items = fetch_x_realtime_search_items("ICML OR arXiv AI agent", runner=runner, max_results=10)
+
+    assert [item["external_id"] for item in items] == ["203"]
+    assert items[0]["x_signal_quality"] == "research_artifact"
+    assert items[0]["x_signal_score"] > 0
+
+
 def test_top_tier_conference_and_paper_items_get_editorial_floor():
     judgment = {"is_true_hot_issue": False, "importance_score_adjusted": 0.05, "heat_level": "low"}
     updated = _apply_editorial_interest_floor(

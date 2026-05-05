@@ -14,6 +14,7 @@ from .news_crawlers.adapters import extract_article_body
 
 REQUIRED_SECTIONS = (
     "한눈에 보기",
+    "오늘의 체크리스트",
     "주요 이슈",
     "뉴스 카테고리별 브리핑",
     "근거 커버리지",
@@ -170,11 +171,14 @@ def _is_domain_hot_issue(text: str) -> bool:
 
 def _compose_domain_hot_issue_card(title: str, block: str, url: str, report_date: str) -> list[str] | None:
     raw_summary = _extract_labeled_value(block, "내용 요약") or _reader_text(block, "")
+    preamble = _reader_text(block.split("**분류:**", 1)[0].split("**내용 요약:**", 1)[0], "")
+    if _wordish_count(preamble) > _wordish_count(raw_summary):
+        raw_summary = f"{raw_summary}. {preamble}"
     source = _extract_labeled_value(block, "출처") or url
     combined = f"{title} {raw_summary} {source}"
     if not _is_domain_hot_issue(combined):
         return None
-    if re.search(r"^docs:|^feat:|^Promote|dev build|Co-Authored-By|GitHub Actions CI", title, flags=re.I):
+    if re.search(r"^(?:docs[:(]|feat:|fix\b|chore\b|merge pull request|promote)|dev build|Co-Authored-By|GitHub Actions CI", title, flags=re.I):
         return None
     summary = _reader_text(raw_summary or title, "")
     summary = re.sub(r"<img\b.*", " ", summary, flags=re.I | re.S)
@@ -183,6 +187,10 @@ def _compose_domain_hot_issue_card(title: str, block: str, url: str, report_date
     if _wordish_count(summary) < 6:
         summary = _reader_text(f"{title}. {raw_summary}", "")
     fact = _first_sentence(summary, 260)
+    if re.search(r"\b(?:I/O journal|AgentProcess|benchmark|dataset|API|Kubernetes|vLLM|KServe)\b", summary, flags=re.I) and not re.search(
+        r"\b(?:I/O journal|AgentProcess|benchmark|dataset|API|Kubernetes|vLLM|KServe)\b", fact, flags=re.I
+    ):
+        fact = summary[:260].rstrip(" ,.;")
     if _wordish_count(fact) < 8 or re.search(r"^wow\b|^Our podcast is live!?$", fact, flags=re.I):
         fact = summary[:260].rstrip(" ,.;")
     if _wordish_count(fact) < 6:
@@ -222,7 +230,7 @@ def _render_opportunities(candidates: Iterable[OpportunityCandidate]) -> list[st
     items = list(candidates)
     lines = ["## 개인 기회/공고 검토", "", "공식 상세 URL, 접수기간/마감, 지원대상/자격, 지원내용이 모두 확인된 항목만 행동 후보로 올립니다.", ""]
     if not items:
-        return []
+        return lines + ["- 오늘 검증된 개인 기회/공고 후보는 없습니다.", "- 보류 기준: 공식 상세 URL, 접수기간/마감, 지원대상/자격, 지원내용 중 하나라도 비어 있으면 행동 후보로 올리지 않습니다.", ""]
     for item in items:
         status, missing = _opportunity_status(item)
         lines.extend(
@@ -617,6 +625,12 @@ def compose_unified_daily_report(
         *[f"- {card[0].removeprefix('### ').strip()}" for card in issue_cards[:3]],
         *([] if issue_cards else ["- 확인된 핵심 핫이슈 없음 — 뉴스 브리핑만 보조로 확인합니다."]),
         "",
+        "## 오늘의 체크리스트",
+        "",
+        "- 오늘 확인: 주요 이슈 원문에서 실제 공개 범위, 릴리스 상태, 적용 대상을 확인합니다.",
+        "- 이번 주 확인: 뉴스 브리핑의 수치·조건·정책 변화는 원문과 공식 발표가 일치하는 항목만 추적합니다.",
+        "- 보류: 공식 상세 URL·마감·자격·지원내용이 모두 확인되지 않은 개인 기회는 신청 행동으로 올리지 않습니다.",
+        "",
         "## 주요 이슈",
         "",
     ]
@@ -630,7 +644,8 @@ def compose_unified_daily_report(
                 "",
             ]
         )
-    lines.extend(_render_opportunities(opportunity_list))
+    if opportunity_list:
+        lines.extend(_render_opportunities(opportunity_list))
     lines.extend(_render_category_briefing(news_items_list, report_date))
     lines.extend(
         [
@@ -638,7 +653,7 @@ def compose_unified_daily_report(
             "",
             f"- 주요 이슈 카드: {issue_count}개",
             f"- 뉴스 입력 항목: {len(news_items_list)}개",
-            f"- 개인 기회 후보: {len(opportunity_list)}개",
+            f"- 개인 기회 입력: {len(opportunity_list)}개",
             f"- 필수 카테고리: {', '.join(ko for _, ko in REQUIRED_CATEGORY_ORDER)}",
             "- 확인 원칙: 원문 근거가 없는 항목은 행동 가능 또는 확정 사실로 보지 않습니다.",
             "",
