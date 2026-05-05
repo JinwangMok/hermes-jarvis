@@ -82,10 +82,9 @@ def test_compose_unified_daily_report_has_required_sections_and_categories() -> 
         opportunity_candidates=[],
     )
 
-    for heading in ["한눈에 보기", "오늘의 체크리스트", "주요 이슈", "뉴스 카테고리별 브리핑", "근거 커버리지"]:
+    for heading in ["한눈에 보기", "오늘의 체크리스트", "주요 이슈", "개인 기회/공고 검토", "뉴스 카테고리별 브리핑", "근거 커버리지"]:
         assert f"## {heading}" in report.markdown
-    assert "## 개인 기회/공고 검토" not in report.markdown
-    assert "오늘 검증된 개인 기회/공고 후보는 없습니다" not in report.markdown
+    assert "오늘 검증된 개인 기회/공고 후보는 없습니다" in report.markdown
     for category in ["정치", "경제", "사회", "문화", "국제", "기술", "예능"]:
         assert f"### {category}" in report.markdown
     assert "Appendix" not in report.markdown
@@ -447,8 +446,8 @@ def test_write_unified_daily_report_writes_single_markdown_and_pdf_path(tmp_path
     assert Path(markdown_path).exists()
     markdown = Path(markdown_path).read_text(encoding="utf-8")
     assert "## 주요 이슈" in markdown
-    assert "## 개인 기회/공고 검토" not in markdown
-    assert "오늘 검증된 개인 기회/공고 후보는 없습니다" not in markdown
+    assert "## 개인 기회/공고 검토" in markdown
+    assert "오늘 검증된 개인 기회/공고 후보는 없습니다" in markdown
     assert "신청 가능한 공고 없음" not in markdown
 
 

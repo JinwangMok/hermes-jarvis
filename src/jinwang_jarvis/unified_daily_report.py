@@ -16,6 +16,7 @@ REQUIRED_SECTIONS = (
     "한눈에 보기",
     "오늘의 체크리스트",
     "주요 이슈",
+    "개인 기회/공고 검토",
     "뉴스 카테고리별 브리핑",
     "근거 커버리지",
 )
@@ -644,8 +645,7 @@ def compose_unified_daily_report(
                 "",
             ]
         )
-    if opportunity_list:
-        lines.extend(_render_opportunities(opportunity_list))
+    lines.extend(_render_opportunities(opportunity_list))
     lines.extend(_render_category_briefing(news_items_list, report_date))
     lines.extend(
         [
