@@ -178,10 +178,21 @@ async def _run_styled_voice_helper(request: StyledVoiceRequest) -> dict[str, Any
         return {"ok": False, "error": err[-1000:] or f"helper exited {proc.returncode}"}
     text = stdout.decode("utf-8", errors="replace").strip()
     try:
-        payload = json.loads(text.splitlines()[-1])
+        payload = json.loads(text)
     except Exception:
-        return {"ok": False, "error": f"helper returned non-json output: {text[-1000:]}"}
-    output_ogg = payload.get("output_ogg") or payload.get("ogg_path") or payload.get("output")
+        payload = None
+        for line in reversed(text.splitlines()):
+            candidate = line.strip()
+            if not candidate:
+                continue
+            try:
+                payload = json.loads(candidate)
+                break
+            except Exception:
+                continue
+        if payload is None:
+            return {"ok": False, "error": f"helper returned non-json output: {text[-1000:]}"}
+    output_ogg = payload.get("output_ogg") or payload.get("ogg_output") or payload.get("ogg_path") or payload.get("output")
     if not output_ogg:
         return {"ok": False, "error": f"helper JSON missing output_ogg: {payload}"}
     return {"ok": True, "output_ogg": output_ogg, "payload": payload}

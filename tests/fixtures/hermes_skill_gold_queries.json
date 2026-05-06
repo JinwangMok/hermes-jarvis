@@ -9,6 +9,10 @@
       "expected_skill_names": ["opencode", "jinwang-opencode-tmux-team"]
     },
     {
+      "query": "외부에 수주맡겨 kimi glm opencode tmux ulw",
+      "expected_skill_names": ["jinwang-opencode-tmux-team", "opencode"]
+    },
+    {
       "query": "hermes jinwang customization",
       "expected_skill_names": ["hermes-jinwang-customization"]
     },

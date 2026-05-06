@@ -102,3 +102,20 @@ def test_run_styled_voice_helper_reads_output_ogg(monkeypatch, tmp_path):
 
     assert result["ok"] is True
     assert result["output_ogg"] == str(fake_output)
+
+
+def test_run_styled_voice_helper_accepts_pretty_json_ogg_output(monkeypatch, tmp_path):
+    plugin = load_plugin()
+    fake_helper = tmp_path / "helper.py"
+    fake_output = tmp_path / "out.ogg"
+    fake_output.write_bytes(b"ogg")
+    fake_helper.write_text(
+        "import json\nprint(json.dumps({'ok': True, 'ogg_output': '" + str(fake_output) + "'}, indent=2))\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(plugin, "DEFAULT_HELPER", fake_helper)
+
+    result = asyncio.run(plugin._run_styled_voice_helper(plugin.StyledVoiceRequest(text="hello")))
+
+    assert result["ok"] is True
+    assert result["output_ogg"] == str(fake_output)

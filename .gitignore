@@ -6,6 +6,9 @@ __pycache__/
 /data/
 /state/
 /wiki/
+/.hermes/
+/orchestration/**/opencode*.log
+/orchestration/**/prompt*.txt
 
 config/pipeline.local.yaml
 config/sender-map.md
