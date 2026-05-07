@@ -25,7 +25,7 @@ INTERVIEW_DIMENSION_LABELS = {
 }
 INTERVIEW_PROPOSALS = {
     "scope": (
-        ("a", "Jarvis-owned implementation", "Implement only Jarvis-owned HOOO/Houroboros runtime, gateway bridge, tests, and necessary docs for this task."),
+        ("a", "ZeusOS-owned implementation", "Implement only ZeusOS-owned HOOO/Houroboros runtime, gateway bridge, tests, and necessary docs for this task."),
         ("b", "Seed and plan only", "Produce a deterministic HOOO seed and implementation plan, without changing runtime behavior."),
         ("c", "Tests and contract only", "Limit work to regression tests and contract documentation; defer runtime implementation."),
     ),
@@ -35,7 +35,7 @@ INTERVIEW_PROPOSALS = {
         ("c", "Regression is locked", "A regression test fails on the old continue-only interview and passes with proposal buttons."),
     ),
     "constraint": (
-        ("a", "Jarvis boundary", "Modify only Jarvis-owned repository files; do not touch Hermes source/config, secrets, systemd, cron, raw wiki, or external services."),
+        ("a", "ZeusOS boundary", "Modify only ZeusOS-owned repository files; do not touch Hermes source/config, secrets, systemd, cron, raw wiki, or external services."),
         ("b", "Dry-run side effects", "Avoid live Discord or gateway side effects; write local handoff/artifact evidence only."),
         ("c", "Minimal patch", "Keep the change small, test-backed, and isolated from unrelated dirty files."),
     ),
@@ -45,7 +45,7 @@ INTERVIEW_PROPOSALS = {
         ("c", "Deterministic placeholder", "deterministic-placeholder"),
     ),
     "permission": (
-        ("a", "Implement and test locally", "Read/write Jarvis-owned repo files and run local verification commands; no external side effects."),
+        ("a", "Implement and test locally", "Read/write ZeusOS-owned repo files and run local verification commands; no external side effects."),
         ("b", "Seed approval only", "Create a reviewable seed after the ambiguity gate; implementation requires separate approval."),
         ("c", "Read-only analysis", "Analyze and document the task without code changes until explicit approval."),
     ),
@@ -272,7 +272,7 @@ class HouroborosWorkflow:
             "decisions": interview_state.get("decisions", {}),
             "acceptance_criteria": acceptance,
             "constraints": [
-                "Jarvis workspace artifacts only",
+                "ZeusOS workspace artifacts only",
                 "No Hermes source/config mutation",
                 "No external service calls",
                 "Seed v1 is immutable; evolve writes proposals instead of hidden mutation",
@@ -1021,7 +1021,7 @@ class HouroborosWorkflow:
         return result
 
     def _write_claude_code_handoff(self, run_id: str, seed: dict[str, Any]) -> None:
-        command = "claude -p 'Execute this HOOO seed from stdin; implement only Jarvis-owned changes, then run tests' --max-turns 10 --allowedTools 'Read,Edit,Write,Bash(PYTHONPATH=src pytest *),Bash(python -m compileall *)'"
+        command = "claude -p 'Execute this HOOO seed from stdin; implement only ZeusOS-owned changes, then run tests' --max-turns 10 --allowedTools 'Read,Edit,Write,Bash(PYTHONPATH=src pytest *),Bash(python -m compileall *)'"
         self._write_json(run_id, "claude_code_handoff.json", {
             "action": "claude-code.execute_seed",
             "contract_version": 1,

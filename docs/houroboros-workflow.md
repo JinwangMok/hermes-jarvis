@@ -1,6 +1,6 @@
-# Jarvis Houroboros Workflow
+# ZeusOS Houroboros Workflow
 
-Houroboros is a Jarvis-native, Hermes-source-untouched workflow harness for turning a Discord-origin request into a task-specific operating thread, interactive interview state, immutable seed, explicit execution handoff, evaluation, drift visibility, and an evolution proposal.
+Houroboros is a ZeusOS-native, Hermes-source-untouched workflow harness for turning a Discord-origin request into a task-specific operating thread, interactive interview state, immutable seed, explicit execution handoff, evaluation, drift visibility, and an evolution proposal.
 
 The intended UX is now Discord-native, not CLI-only:
 
@@ -34,7 +34,7 @@ Each `turn` updates `interview_state.json`, appends the raw message to `intervie
 
 ## State and artifacts
 
-Artifacts live under the configured Jarvis workspace:
+Artifacts live under the configured ZeusOS workspace:
 
 - `state/houroboros.db`
 - `data/houroboros/<run_id>/origin.json`
@@ -68,4 +68,4 @@ Every new `/hooo` run should own a dedicated task thread. If invoked in a parent
 
 ## Safety model
 
-The harness writes only Jarvis-owned workspace files by default. It does not change Hermes source, `~/.hermes`, Hermes skills, wiki raw files, systemd units, cron jobs, secrets, or external services. Live Discord rendering and Claude Code execution remain explicit handoff surfaces.
+The harness writes only ZeusOS-owned workspace files by default. It does not change Hermes source, `~/.hermes`, Hermes skills, wiki raw files, systemd units, cron jobs, secrets, or external services. Live Discord rendering and Claude Code execution remain explicit handoff surfaces.

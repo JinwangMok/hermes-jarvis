@@ -2,11 +2,11 @@
 
 > For Hermes: implement this plan end-to-end without stopping before verification and the final monthly report.
 
-**Goal:** Add an `All Mail`-based knowledge lane that preserves operational precision while expanding long-term news/opportunity memory for Jarvis.
+**Goal:** Add an `All Mail`-based knowledge lane that preserves operational precision while expanding long-term news/opportunity memory for ZeusOS.
 
 **Architecture:** Keep the existing operational lane (`INBOX + sent`) unchanged for proposals/approval loops. Add a separate `knowledge_messages` store fed from Gmail `All Mail`/archive-like folders, then generate category-based daily intelligence artifacts and wiki notes from that store.
 
-**Tech Stack:** Python, SQLite, Himalaya CLI, existing Jarvis CLI/runtime/wiki pipeline.
+**Tech Stack:** Python, SQLite, Himalaya CLI, existing ZeusOS CLI/runtime/wiki pipeline.
 
 ---
 

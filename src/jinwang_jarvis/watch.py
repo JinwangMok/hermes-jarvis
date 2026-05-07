@@ -752,13 +752,13 @@ def _enrich_x_item(source: WatchSource, item: dict, fetch_text) -> dict:
 
 
 def _fetch_text(url: str) -> str:
-    response = requests.get(url, headers={"User-Agent": "Mozilla/5.0 HermesBot/1.0"}, timeout=12)
+    response = requests.get(url, headers={"User-Agent": "Mozilla/5.0 ZeusOSBot/1.0"}, timeout=12)
     response.raise_for_status()
     return response.text
 
 
 def _fetch_json(url: str):
-    response = requests.get(url, headers={"User-Agent": "Mozilla/5.0 HermesBot/1.0"}, timeout=12)
+    response = requests.get(url, headers={"User-Agent": "Mozilla/5.0 ZeusOSBot/1.0"}, timeout=12)
     response.raise_for_status()
     return response.json()
 
@@ -2270,7 +2270,7 @@ def _news_center_fallback_report(config: PipelineConfig, *, generated_at: str) -
     body_lines = [line for line in news_md.splitlines() if line.strip()]
     # Keep the hourly Discord message compact; full markdown/json artifacts are persisted.
     lines.extend(body_lines[:36])
-    lines.extend(["", "_전체 뉴스 원문/근거는 Jarvis News Center 아티팩트에 저장했습니다._"])
+    lines.extend(["", "_전체 뉴스 원문/근거는 ZeusOS News Center 아티팩트에 저장했습니다._"])
     issue_ids = [f"news-center:{result.get('artifact_path')}"]
     return "\n".join(lines).strip() + "\n", issue_ids, result
 

@@ -33,7 +33,7 @@ hermes:
 reproducibility:
   packaging: pyproject
   config_format: yaml
-  project_name: jinwang-jarvis
+  project_name: zeus-os
 """.format(root=root.as_posix(), sender_map=(root / 'sender-map.md').as_posix())
 
 
@@ -177,6 +177,7 @@ def test_cli_classify_messages_command_runs_pipeline(tmp_path: Path):
 
 def test_cli_run_cycle_and_install_systemd_commands(tmp_path: Path, monkeypatch):
     config_file = tmp_path / "pipeline.yaml"
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
     (tmp_path / "sender-map.md").write_text("## Current members\n- Professor | 김종원(JongWon Kim) | jongwon@smartx.kr\n", encoding="utf-8")
     config_file.write_text(_config_text(tmp_path), encoding="utf-8")
 
@@ -202,7 +203,7 @@ def test_cli_run_cycle_and_install_systemd_commands(tmp_path: Path, monkeypatch)
     install_exit_code = main(["install-systemd", "--config", str(config_file), "--poll-minutes", "10", "--no-enable"])
     assert install_exit_code == 0
     assert calls == [["systemctl", "--user", "daemon-reload"]]
-    assert (tmp_path / "systemd" / "jinwang-jarvis-cycle.timer").exists()
+    assert (tmp_path / "systemd" / "zeus-os-cycle.timer").exists()
 
     calls.clear()
     standby_exit_code = main([
@@ -219,7 +220,29 @@ def test_cli_run_cycle_and_install_systemd_commands(tmp_path: Path, monkeypatch)
     assert standby_exit_code == 0
     assert calls == []
     assert (tmp_path / "systemd" / "hermes-gateway.service").exists()
-    assert (tmp_path / "systemd" / "jinwang-jarvis-hermes-health.timer").exists()
+    assert (tmp_path / "systemd" / "zeus-os-hermes-health.timer").exists()
+
+    calls.clear()
+    standby_enable_exit_code = main([
+        "install-standby-systemd",
+        "--config",
+        str(config_file),
+        "--health-minutes",
+        "5",
+        "--stale-minutes",
+        "15",
+    ])
+    assert standby_enable_exit_code == 0
+    assert ["systemctl", "--user", "daemon-reload"] in calls
+    assert [
+        "systemctl",
+        "--user",
+        "disable",
+        "--now",
+        "jinwang-jarvis-hermes-health.timer",
+        "jinwang-jarvis-hermes-health.service",
+    ] in calls
+    assert ["systemctl", "--user", "enable", "--now", "zeus-os-hermes-health.timer"] in calls
 
 
 def test_cli_hermes_health_check_restarts_until_discord_ready(tmp_path: Path, monkeypatch, capsys):

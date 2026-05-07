@@ -75,7 +75,7 @@ hermes:
 reproducibility:
   packaging: pyproject
   config_format: yaml
-  project_name: jinwang-jarvis
+  project_name: zeus-os
 """.format(root=tmp_path.as_posix()),
         encoding="utf-8",
     )

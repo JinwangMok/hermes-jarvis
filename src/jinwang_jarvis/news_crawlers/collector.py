@@ -62,7 +62,7 @@ DEFAULT_GOOGLE_QUERIES = {
 
 
 def _default_fetch(url: str) -> str:
-    req = urllib.request.Request(url, headers={"User-Agent": "jinwang-jarvis-news-center/0.2"})
+    req = urllib.request.Request(url, headers={"User-Agent": "zeus-os-news-center/0.2"})
     with urllib.request.urlopen(req, timeout=20) as response:  # noqa: S310 - curated public news URLs only
         raw = response.read()
         charset = response.headers.get_content_charset() or "utf-8"
@@ -268,7 +268,7 @@ def collect_news_center(
         title=f"News Center Daily {generated_day}",
         date=generated_day,
         subtype="generated-daily-report",
-        tags=["jarvis", "intelligence", "report", "daily", "hot-issues"],
+        tags=["zeus-os", "intelligence", "report", "daily", "hot-issues"],
         operational_source_of_truth=str(artifact_path),
         summary="Crawler-first Naver/Google News category briefing",
         refresh_policy="daily-snapshot",
@@ -285,7 +285,7 @@ def collect_news_center(
             title=f"News Center Category — {CATEGORY_KO.get(category, category)}",
             date=generated_day,
             subtype="category-shard",
-            tags=["jarvis", "intelligence", "report", "daily"],
+            tags=["zeus-os", "intelligence", "report", "daily"],
             operational_source_of_truth=str(artifact_path),
             summary=f"Crawler-first news category shard for {category}",
         )

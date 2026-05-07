@@ -1,6 +1,6 @@
-# Hermes Jarvis 제품화 가이드
+# Hermes ZeusOS 제품화 가이드
 
-이 문서는 **Hermes를 새로 설치한 사람도** 메일/캘린더/위키/디스코드 기반의 개인 비서형 Jarvis를 구축할 수 있도록 정리한 운영 가이드다.
+이 문서는 **Hermes를 새로 설치한 사람도** 메일/캘린더/위키/디스코드 기반의 개인 비서형 ZeusOS를 구축할 수 있도록 정리한 운영 가이드다.
 
 목표는 다음과 같다.
 - 새 메일이 들어오면 로컬 DB와 위키 기반 데이터소스에 반영
@@ -30,7 +30,7 @@
 
 ## 3. Gmail / Himalaya 준비
 
-Jarvis는 자체적으로 Gmail 인증을 만들지 않는다. **메일 수집이 가능한 Himalaya 계정 환경**이 먼저 준비되어야 한다.
+ZeusOS는 자체적으로 Gmail 인증을 만들지 않는다. **메일 수집이 가능한 Himalaya 계정 환경**이 먼저 준비되어야 한다.
 
 최소 요구:
 - Gmail OAuth client 준비
@@ -72,11 +72,11 @@ cp config/sender-map.example.md config/sender-map.md
 ## 5. 첫 실행 순서
 
 ```bash
-PYTHONPATH=src python3 -m jinwang_jarvis.cli collect-mail --config config/pipeline.local.yaml
-PYTHONPATH=src python3 -m jinwang_jarvis.cli collect-calendar --config config/pipeline.local.yaml
-PYTHONPATH=src python3 -m jinwang_jarvis.cli classify-messages --config config/pipeline.local.yaml
-PYTHONPATH=src python3 -m jinwang_jarvis.cli collect-knowledge-mail --config config/pipeline.local.yaml
-PYTHONPATH=src python3 -m jinwang_jarvis.cli generate-daily-intelligence --config config/pipeline.local.yaml
+PYTHONPATH=src python3 -m zeus_os.cli collect-mail --config config/pipeline.local.yaml
+PYTHONPATH=src python3 -m zeus_os.cli collect-calendar --config config/pipeline.local.yaml
+PYTHONPATH=src python3 -m zeus_os.cli classify-messages --config config/pipeline.local.yaml
+PYTHONPATH=src python3 -m zeus_os.cli collect-knowledge-mail --config config/pipeline.local.yaml
+PYTHONPATH=src python3 -m zeus_os.cli generate-daily-intelligence --config config/pipeline.local.yaml
 ```
 
 이 단계까지 끝나면:
@@ -120,7 +120,7 @@ PYTHONPATH=src python3 -m jinwang_jarvis.cli generate-daily-intelligence --confi
 
 또는:
 ```bash
-PYTHONPATH=src python3 -m jinwang_jarvis.cli install-systemd --config config/pipeline.local.yaml --poll-minutes 5
+PYTHONPATH=src python3 -m zeus_os.cli install-systemd --config config/pipeline.local.yaml --poll-minutes 5
 ```
 
 ### 중요: linger 설정
@@ -193,7 +193,7 @@ systemctl --user list-timers
 
 ## 11. watch source 확장 방향
 
-향후 “진짜 Jarvis”로 가려면 메일 외에도 아래를 추가할 수 있다.
+향후 “진짜 ZeusOS”로 가려면 메일 외에도 아래를 추가할 수 있다.
 - RSS / 블로그
 - 학회 CFP
 - 스타트업/지원사업 공고
@@ -214,7 +214,7 @@ systemctl --user list-timers
 2. local-first 개인 비서 파이프라인을 재현 가능하게 하기
 3. 메일 → 기억 → 브리핑 → 추천 루프를 제품처럼 운영 가능하게 하기
 
-즉 README만 보는 사람이 아니라, **Hermes를 새로 설치한 사용자**가 그대로 따라 하면 개인용 Jarvis를 만들 수 있어야 한다.
+즉 README만 보는 사람이 아니라, **Hermes를 새로 설치한 사용자**가 그대로 따라 하면 개인용 ZeusOS를 만들 수 있어야 한다.
 
 ## 13. 체크리스트
 

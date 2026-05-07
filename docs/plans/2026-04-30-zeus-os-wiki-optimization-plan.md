@@ -1,34 +1,34 @@
-# Jarvis Wiki Optimization Final Consensus Plan
+# ZeusOS Wiki Optimization Final Consensus Plan
 
-**Goal:** Add first-class wiki search, provenance/status helpers, and read-only semantic lint support to `jinwang-jarvis` while preserving the Markdown wiki as the human/canonical surface and `state/personal_intel.db` as the operational source of truth.
+**Goal:** Add first-class wiki search, provenance/status helpers, and read-only semantic lint support to `zeus-os` while preserving the Markdown wiki as the human/canonical surface and `state/personal_intel.db` as the operational source of truth.
 
 **Scope for the subsequent OpenCode implementation run:** one focused code/documentation/test change set. Implement only the tasks below. Do not perform broad wiki migrations, durable-page promotion, raw evidence rewrites, or dependency changes.
 
-**Tech stack:** Python 3.11 stdlib only (`sqlite3`, `hashlib`, `json`, `re`, `dataclasses`, `pathlib`, `argparse` through the existing CLI), pytest, existing Jarvis config/bootstrap/CLI patterns.
+**Tech stack:** Python 3.11 stdlib only (`sqlite3`, `hashlib`, `json`, `re`, `dataclasses`, `pathlib`, `argparse` through the existing CLI), pytest, existing ZeusOS config/bootstrap/CLI patterns.
 
 ---
 
 ## Non-negotiable constraints
 
 1. Do not rewrite, delete, normalize, or body-lint anything under `/home/jinwang/wiki/raw/`.
-2. Do not migrate existing generated pages from `queries/` to `reports/`; current generated pages under `queries/jinwang-jarvis-*` and `queries/external-hot-issues/` are tolerated by policy until a coordinated writer migration exists.
+2. Do not migrate existing generated pages from `queries/` to `reports/`; current generated pages under `queries/zeus-os-*` and `queries/external-hot-issues/` are tolerated by policy until a coordinated writer migration exists.
 3. Do not overwrite or reformat unrelated dirty files:
    - `scripts/lint_daily_hot_issues_content.py`
-   - `src/jinwang_jarvis/unified_daily_report.py`
+   - `src/zeus_os/unified_daily_report.py`
    - `tests/test_daily_hot_issues_content_quality.py`
    - `tests/test_unified_daily_report.py`
 4. Do not add runtime dependencies. In particular, do not add PyYAML, vector databases, embedding libraries, search daemons, or web services.
 5. Generated report facts remain advisory unless explicitly promoted into durable pages with source links.
 6. New commands must be deterministic and safe to run repeatedly.
-7. Search indexing may modify only additive FTS sidecar tables inside the configured Jarvis SQLite database.
+7. Search indexing may modify only additive FTS sidecar tables inside the configured ZeusOS SQLite database.
 8. Semantic lint must report issues only; it must not edit wiki files, queues, indexes, or logs.
 
 ---
 
 ## Reviewer Consensus
 
-- **Wiki governance reviewer:** The plan is acceptable only if generated/canonical boundaries stay explicit. Required decisions: keep `raw/` immutable, preserve generated pages as `authority: derived` or `advisory`, treat current `queries/jinwang-jarvis-*` generated pages as compatibility paths, and route future durable promotions through explicit source-linked review rather than automatic edits.
-- **Jarvis runtime/SQLite reviewer:** The plan is safe if SQLite changes are additive and idempotent. Required decisions: use FTS5 virtual tables only as rebuildable sidecars, detect missing FTS5 without failing bootstrap, avoid triggers in this first implementation, never rewrite source tables, and make `wiki-search-index` delete/reinsert only FTS rows.
+- **Wiki governance reviewer:** The plan is acceptable only if generated/canonical boundaries stay explicit. Required decisions: keep `raw/` immutable, preserve generated pages as `authority: derived` or `advisory`, treat current `queries/zeus-os-*` generated pages as compatibility paths, and route future durable promotions through explicit source-linked review rather than automatic edits.
+- **ZeusOS runtime/SQLite reviewer:** The plan is safe if SQLite changes are additive and idempotent. Required decisions: use FTS5 virtual tables only as rebuildable sidecars, detect missing FTS5 without failing bootstrap, avoid triggers in this first implementation, never rewrite source tables, and make `wiki-search-index` delete/reinsert only FTS rows.
 - **UX/search/report reviewer:** The plan is useful for Hermes if all command outputs are machine-readable JSON with stable fields. Required decisions: expose simple CLI commands, normalize search rows across source tables, include source IDs and timestamps for follow-up, and make lint issues specific enough to route future review or report-quality fixes.
 - **Final agreed decisions:** Implement explicit rebuild search, reusable evidence/status rendering helpers, read-only semantic lint, and one low-risk integration in the generated watchlist writer. Defer migrations, triggers, automatic promotion, external search, and review-queue mutation.
 
@@ -42,7 +42,7 @@ The implementation is done when all of the following are true:
 2. `wiki-search-index` and `wiki-search` emit JSON only and work repeatedly against a temporary test database.
 3. `wiki_contract.py` can render deterministic evidence lines and generated-report status blocks with obvious secrets redacted.
 4. `wiki-semantic-lint` reports generated/canonical boundary issues and evidence gaps without mutating wiki content.
-5. `synthesize-knowledge` adds a status block to `queries/jinwang-jarvis-importance-shift-watchlist.md` without changing watchlist scoring behavior.
+5. `synthesize-knowledge` adds a status block to `queries/zeus-os-importance-shift-watchlist.md` without changing watchlist scoring behavior.
 6. README and schema documentation describe only the new commands, FTS sidecar tables, and semantic lint JSON shape.
 7. The unrelated dirty files listed above are untouched.
 
@@ -52,10 +52,10 @@ The implementation is done when all of the following are true:
 
 ### Modify
 
-- `src/jinwang_jarvis/bootstrap.py`
-- `src/jinwang_jarvis/cli.py`
-- `src/jinwang_jarvis/wiki_contract.py`
-- `src/jinwang_jarvis/knowledge.py`
+- `src/zeus_os/bootstrap.py`
+- `src/zeus_os/cli.py`
+- `src/zeus_os/wiki_contract.py`
+- `src/zeus_os/knowledge.py`
 - `tests/test_bootstrap.py`
 - `tests/test_cli.py`
 - `tests/test_knowledge.py`
@@ -64,8 +64,8 @@ The implementation is done when all of the following are true:
 
 ### Create
 
-- `src/jinwang_jarvis/wiki_search.py`
-- `src/jinwang_jarvis/wiki_semantic_lint.py`
+- `src/zeus_os/wiki_search.py`
+- `src/zeus_os/wiki_semantic_lint.py`
 - `tests/test_wiki_search.py`
 - `tests/test_wiki_contract.py`
 - `tests/test_wiki_semantic_lint.py`
@@ -73,7 +73,7 @@ The implementation is done when all of the following are true:
 ### Do not edit in the next run
 
 - `scripts/lint_daily_hot_issues_content.py`
-- `src/jinwang_jarvis/unified_daily_report.py`
+- `src/zeus_os/unified_daily_report.py`
 - `tests/test_daily_hot_issues_content_quality.py`
 - `tests/test_unified_daily_report.py`
 - Any file under `/home/jinwang/wiki/raw/`
@@ -86,12 +86,12 @@ The implementation is done when all of the following are true:
 ### Task 0 — Preflight guardrails
 
 1. Run `git status --short` and note the unrelated dirty files before editing.
-2. Inspect `src/jinwang_jarvis/bootstrap.py`, `src/jinwang_jarvis/cli.py`, `src/jinwang_jarvis/wiki_contract.py`, `src/jinwang_jarvis/knowledge.py`, `tests/test_bootstrap.py`, `tests/test_cli.py`, and `tests/test_knowledge.py` immediately before editing.
+2. Inspect `src/zeus_os/bootstrap.py`, `src/zeus_os/cli.py`, `src/zeus_os/wiki_contract.py`, `src/zeus_os/knowledge.py`, `tests/test_bootstrap.py`, `tests/test_cli.py`, and `tests/test_knowledge.py` immediately before editing.
 3. Confirm no planned edit overlaps the unrelated dirty files.
 
 ### Task 1 — Add additive FTS5 bootstrap support
 
-**Files:** `src/jinwang_jarvis/bootstrap.py`, `tests/test_bootstrap.py`, `tests/test_wiki_search.py`
+**Files:** `src/zeus_os/bootstrap.py`, `tests/test_bootstrap.py`, `tests/test_wiki_search.py`
 
 Implementation requirements:
 
@@ -112,7 +112,7 @@ Tests:
 
 ### Task 2 — Add operational search module and CLI commands
 
-**Files:** `src/jinwang_jarvis/wiki_search.py`, `src/jinwang_jarvis/cli.py`, `tests/test_wiki_search.py`, `tests/test_cli.py`
+**Files:** `src/zeus_os/wiki_search.py`, `src/zeus_os/cli.py`, `tests/test_wiki_search.py`, `tests/test_cli.py`
 
 Implementation requirements:
 
@@ -143,7 +143,7 @@ Tests:
 
 ### Task 3 — Add evidence and generated-report status helpers
 
-**Files:** `src/jinwang_jarvis/wiki_contract.py`, `tests/test_wiki_contract.py`
+**Files:** `src/zeus_os/wiki_contract.py`, `tests/test_wiki_contract.py`
 
 Implementation requirements:
 
@@ -175,17 +175,17 @@ Tests:
 
 ### Task 4 — Add read-only semantic wiki lint
 
-**Files:** `src/jinwang_jarvis/wiki_semantic_lint.py`, `src/jinwang_jarvis/cli.py`, `tests/test_wiki_semantic_lint.py`, `tests/test_cli.py`
+**Files:** `src/zeus_os/wiki_semantic_lint.py`, `src/zeus_os/cli.py`, `tests/test_wiki_semantic_lint.py`, `tests/test_cli.py`
 
 Implementation requirements:
 
 1. Implement `lint_wiki_semantics(wiki_root: Path) -> dict[str, object]`.
 2. Scan Markdown files under the wiki root while excluding `.git`, `_archive`, and body checks under `raw/`.
-3. Parse simple YAML frontmatter with local stdlib logic only. Support scalar strings, booleans, and one-line bracket lists well enough for current Jarvis-generated frontmatter.
+3. Parse simple YAML frontmatter with local stdlib logic only. Support scalar strings, booleans, and one-line bracket lists well enough for current ZeusOS-generated frontmatter.
 4. Report issues with stable fields: `severity`, `path`, `code`, `message`, `evidence`.
 5. Return summary fields: `ok`, `error_count`, `warning_count`, `issues`.
 6. Checks to implement:
-   - Generated report paths under `reports/`, `queries/jinwang-jarvis-*`, and `queries/external-hot-issues/` are missing one of `generated: true`, `authority`, `refresh_policy`, or `operational_source_of_truth`.
+   - Generated report paths under `reports/`, `queries/zeus-os-*`, and `queries/external-hot-issues/` are missing one of `generated: true`, `authority`, `refresh_policy`, or `operational_source_of_truth`.
    - Generated pages use canonicalizing phrases such as `source of truth`, `canonical`, or `확정 사실` without nearby evidence/status disclaimers.
    - Opportunity/actionable language such as `신청 가능`, `apply now`, or `actionable` lacks a direct non-homepage URL and date/deadline evidence.
    - Durable pages under `entities/`, `concepts/`, `comparisons/`, and durable `queries/` have `sources: []` and strong claim markers such as `must`, `always`, `확정`, `현재`, or `source of truth`; report this as a warning, not an error.
@@ -204,12 +204,12 @@ Tests:
 
 ### Task 5 — Apply the status block to one generated surface
 
-**Files:** `src/jinwang_jarvis/knowledge.py`, `tests/test_knowledge.py`
+**Files:** `src/zeus_os/knowledge.py`, `tests/test_knowledge.py`
 
 Implementation requirements:
 
 1. Import and use `render_status_block` in `_write_wiki_summary(...)` only.
-2. Insert the status block immediately after `# Jinwang Jarvis Importance Shift Watchlist` and before `## Why this page exists`.
+2. Insert the status block immediately after `# ZeusOS Importance Shift Watchlist` and before `## Why this page exists`.
 3. Use deterministic values:
    - TL;DR: include the current watchlist candidate count.
    - Current status: `derived watchlist; not canonical`.
@@ -221,7 +221,7 @@ Implementation requirements:
 Tests:
 
 - Extend `test_synthesize_knowledge_creates_watchlist_artifact_and_wiki_summary` to assert the status block exists.
-- Keep existing assertions for `generated: true`, `generator: jinwang-jarvis`, `authority: derived`, and `operational_source_of_truth`.
+- Keep existing assertions for `generated: true`, `generator: zeus-os`, `authority: derived`, and `operational_source_of_truth`.
 
 ### Task 6 — Document commands and schema additions
 
@@ -252,10 +252,10 @@ PYTHONPATH=src python -m compileall src
 Manual QA must also execute the actual feature paths in a temporary or safe local workspace:
 
 ```bash
-PYTHONPATH=src python -m jinwang_jarvis.cli bootstrap --config <temp-pipeline.yaml>
-PYTHONPATH=src python -m jinwang_jarvis.cli wiki-search-index --config <temp-pipeline.yaml>
-PYTHONPATH=src python -m jinwang_jarvis.cli wiki-search --config <temp-pipeline.yaml> --query "jongwon" --limit 5
-PYTHONPATH=src python -m jinwang_jarvis.cli wiki-semantic-lint --wiki-root <temp-wiki-root>
+PYTHONPATH=src python -m zeus_os.cli bootstrap --config <temp-pipeline.yaml>
+PYTHONPATH=src python -m zeus_os.cli wiki-search-index --config <temp-pipeline.yaml>
+PYTHONPATH=src python -m zeus_os.cli wiki-search --config <temp-pipeline.yaml> --query "jongwon" --limit 5
+PYTHONPATH=src python -m zeus_os.cli wiki-semantic-lint --wiki-root <temp-wiki-root>
 ```
 
 Expected evidence:
@@ -285,15 +285,15 @@ Expected evidence:
 
 1. **Vector embeddings or external search engines:** rejected because the current requirement is local, stdlib-only, and operationally simple.
 2. **Automatic durable-page promotion:** rejected because generated report facts must remain advisory until explicitly source-linked and reviewed.
-3. **Mass migration from `queries/jinwang-jarvis-*` to `reports/`:** rejected because wiki policy currently tolerates those compatibility paths and writer/link migration needs separate coordination.
+3. **Mass migration from `queries/zeus-os-*` to `reports/`:** rejected because wiki policy currently tolerates those compatibility paths and writer/link migration needs separate coordination.
 4. **Trigger-based live FTS updates:** rejected for the first implementation because explicit rebuild is easier to reason about, test, and roll back.
 5. **Raw body linting, rewriting, or normalization:** rejected because `raw/` is immutable evidence.
 6. **Writing `_meta/review-queue/` from semantic lint:** rejected because this task is a read-only reporter; queue mutation can be designed later with side-effect budgets.
-7. **Adding PyYAML or parser dependencies:** rejected because frontmatter parsing needs only the simple shapes already produced by Jarvis helpers.
+7. **Adding PyYAML or parser dependencies:** rejected because frontmatter parsing needs only the simple shapes already produced by ZeusOS helpers.
 8. **Changing unified daily report behavior in this run:** rejected because related files are currently dirty and outside this plan’s minimal integration target.
 
 ---
 
 ## Implementation readiness
 
-This plan is ready for one subsequent OpenCode implementation run. It has exact file paths, ordered tasks, test targets, rollback steps, and explicit boundaries from the wiki governance, Jarvis runtime/SQLite, and UX/search/report reviewer perspectives.
+This plan is ready for one subsequent OpenCode implementation run. It has exact file paths, ordered tasks, test targets, rollback steps, and explicit boundaries from the wiki governance, ZeusOS runtime/SQLite, and UX/search/report reviewer perspectives.

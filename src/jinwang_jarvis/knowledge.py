@@ -10,10 +10,10 @@ from .briefing import generate_briefing
 from .config import PipelineConfig
 from .wiki_contract import render_status_block, run_wiki_lint_if_available, wiki_governance, wiki_operational_source
 
-WATCHLIST_NOTE_RELATIVE_PATH = "queries/jinwang-jarvis-importance-shift-watchlist.md"
-WATCHLIST_INDEX_LINE = "- [[jinwang-jarvis-importance-shift-watchlist]] — Rolling watchlist of suppressed-but-promotable mail threads and the current importance-shift patterns in Jinwang Jarvis."
-SENT_MAIL_MEMORY_INDEX_LINE = "- [[queries/jinwang-jarvis-memory/sent-mail-memory|Jinwang Jarvis Sent Mail Memory]] — 보낸편지함 메일을 신규 수신 추천에서는 제외하되, 실제 발신·회신·공유·결정 맥락을 계층적으로 저장하는 generated memory shard."
-MEMORY_NOTE_DIR = "queries/jinwang-jarvis-memory"
+WATCHLIST_NOTE_RELATIVE_PATH = "queries/zeus-os-importance-shift-watchlist.md"
+WATCHLIST_INDEX_LINE = "- [[zeus-os-importance-shift-watchlist]] — Rolling watchlist of suppressed-but-promotable mail threads and the current importance-shift patterns in ZeusOS."
+SENT_MAIL_MEMORY_INDEX_LINE = "- [[queries/zeus-os-memory/sent-mail-memory|ZeusOS Sent Mail Memory]] — 보낸편지함 메일을 신규 수신 추천에서는 제외하되, 실제 발신·회신·공유·결정 맥락을 계층적으로 저장하는 generated memory shard."
+MEMORY_NOTE_DIR = "queries/zeus-os-memory"
 MEMORY_INDEX_RELATIVE_PATH = f"{MEMORY_NOTE_DIR}/index.md"
 MEMORY_SECTION_FILES = {
     "recent_important": f"{MEMORY_NOTE_DIR}/recent-important.md",
@@ -208,11 +208,11 @@ def _append_log(log_path: Path, today: str, wiki_rel_path: str, watchlist_count:
     wiki_root = log_path.parent
     runs_dir = wiki_root / "_meta" / "runs" / today
     runs_dir.mkdir(parents=True, exist_ok=True)
-    run_path = runs_dir / f"jarvis-watchlist-{artifact_name.replace('watchlist-', '').replace('.json', '')}.json"
+    run_path = runs_dir / f"zeus-os-watchlist-{artifact_name.replace('watchlist-', '').replace('.json', '')}.json"
     run_path.write_text(
         json.dumps(
             {
-                "kind": "jarvis-watchlist-refresh",
+                "kind": "zeus-os-watchlist-refresh",
                 "date": today,
                 "wiki_rel_path": wiki_rel_path,
                 "watchlist_count": watchlist_count,
@@ -225,7 +225,7 @@ def _append_log(log_path: Path, today: str, wiki_rel_path: str, watchlist_count:
         ),
         encoding="utf-8",
     )
-    marker = f"## [{today}] update | Jinwang Jarvis recurring watchlist rollup"
+    marker = f"## [{today}] update | ZeusOS recurring watchlist rollup"
     existing = log_path.read_text(encoding="utf-8") if log_path.exists() else "# Wiki Log\n"
     if marker in existing:
         return
@@ -245,23 +245,23 @@ def _write_wiki_summary(config: PipelineConfig, proposal_payload: dict, entries:
     proposals = proposal_payload.get("proposals") or []
     lines = [
         "---",
-        "title: Jinwang Jarvis Importance Shift Watchlist",
+        "title: ZeusOS Importance Shift Watchlist",
         f"created: {today}",
         f"updated: {today}",
         "type: query",
         "subtype: generated-watchlist",
         "tags: [email, advisor, lab, filtering, automation, query]",
         "sources: []",
-        "owner: jarvis",
+        "owner: zeus-os",
         "authority: derived",
         "generated: true",
-        "generator: jinwang-jarvis",
+        "generator: zeus-os",
         "refresh_policy: overwrite",
         f"operational_source_of_truth: {wiki_operational_source(config)}",
         "summary: Rolling derived watchlist of suppressed-but-promotable mail threads.",
         "---",
         "",
-        "# Jinwang Jarvis Importance Shift Watchlist",
+        "# ZeusOS Importance Shift Watchlist",
         "",
         *render_status_block(
             tldr=f"{len(entries)} watchlist candidates in the latest generated rollup.",
@@ -304,10 +304,10 @@ def _write_wiki_summary(config: PipelineConfig, proposal_payload: dict, entries:
         "- operational source of truth remains SQLite + artifacts; this page is the rolling synthesis layer.",
         "",
         "## Relationships",
-        "- [[entities/jinwang-jarvis]]",
+        "- [[entities/zeus-os]]",
         "- [[queries/personal-intelligence-pipeline-mvp-implementation-plan-april-2026]]",
-        "- [[queries/jinwang-jarvis-mvp-completion-april-2026]]",
-        "- [[queries/jinwang-jarvis-memory/index]]",
+        "- [[queries/zeus-os-mvp-completion-april-2026]]",
+        "- [[queries/zeus-os-memory/index]]",
     ])
     note_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     _update_index(config.wiki_root / "index.md", today)
@@ -317,11 +317,11 @@ def _write_wiki_summary(config: PipelineConfig, proposal_payload: dict, entries:
 
 def _memory_note_title(stem: str) -> str:
     mapping = {
-        "recent-important": "Jinwang Jarvis Recent Important Mail",
-        "continuing-important": "Jinwang Jarvis Continuing Important Work",
-        "newly-important": "Jinwang Jarvis Newly Important Work",
-        "schedule-recommendations": "Jinwang Jarvis Schedule Recommendations",
-        "sent-mail-memory": "Jinwang Jarvis Sent Mail Memory",
+        "recent-important": "ZeusOS Recent Important Mail",
+        "continuing-important": "ZeusOS Continuing Important Work",
+        "newly-important": "ZeusOS Newly Important Work",
+        "schedule-recommendations": "ZeusOS Schedule Recommendations",
+        "sent-mail-memory": "ZeusOS Sent Mail Memory",
     }
     return mapping.get(stem, stem.replace("-", " ").title())
 
@@ -382,10 +382,10 @@ def _write_sent_mail_memory_note(note_path: Path, *, config: PipelineConfig, gen
         "subtype: generated-memory-shard",
         "tags: [email, automation, memory, query]",
         "sources: []",
-        "owner: jarvis",
+        "owner: zeus-os",
         "authority: derived",
         "generated: true",
-        "generator: jinwang-jarvis",
+        "generator: zeus-os",
         "refresh_policy: overwrite",
         f"operational_source_of_truth: {wiki_operational_source(config)}",
         "---",
@@ -439,10 +439,10 @@ def _write_memory_section(note_path: Path, *, config: PipelineConfig, generated_
         "subtype: generated-memory-shard",
         "tags: [email, automation, memory, query]",
         "sources: []",
-        "owner: jarvis",
+        "owner: zeus-os",
         "authority: derived",
         "generated: true",
-        "generator: jinwang-jarvis",
+        "generator: zeus-os",
         "refresh_policy: overwrite",
         f"operational_source_of_truth: {wiki_operational_source(config)}",
         "---",
@@ -495,32 +495,32 @@ def _write_memory_notes(config: PipelineConfig, briefing_payload: dict, generate
     index_path.parent.mkdir(parents=True, exist_ok=True)
     index_lines = [
         "---",
-        "title: Jinwang Jarvis Memory Index",
+        "title: ZeusOS Memory Index",
         f"created: {generated_at[:10]}",
         f"updated: {generated_at[:10]}",
         "type: query",
         "subtype: generated-memory-shard",
         "tags: [email, automation, memory, query]",
         "sources: []",
-        "owner: jarvis",
+        "owner: zeus-os",
         "authority: derived",
         "generated: true",
-        "generator: jinwang-jarvis",
+        "generator: zeus-os",
         "refresh_policy: overwrite",
         f"operational_source_of_truth: {wiki_operational_source(config)}",
         "---",
         "",
-        "# Jinwang Jarvis Memory Index",
+        "# ZeusOS Memory Index",
         "",
         "이 메모 묶음은 최근/지속/신규 중요 메일과 추천 일정 후보를 계층적으로 저장해, 이후 대화에서 빠르게 탐색하기 위한 장기 기억 레이어다.",
         "",
         "## Sections",
-        "- [[queries/jinwang-jarvis-memory/recent-important]]",
-        "- [[queries/jinwang-jarvis-memory/continuing-important]]",
-        "- [[queries/jinwang-jarvis-memory/newly-important]]",
-        "- [[queries/jinwang-jarvis-memory/schedule-recommendations]]",
-        "- [[queries/jinwang-jarvis-memory/sent-mail-memory]]",
-        "- [[queries/jinwang-jarvis-importance-shift-watchlist]]",
+        "- [[queries/zeus-os-memory/recent-important]]",
+        "- [[queries/zeus-os-memory/continuing-important]]",
+        "- [[queries/zeus-os-memory/newly-important]]",
+        "- [[queries/zeus-os-memory/schedule-recommendations]]",
+        "- [[queries/zeus-os-memory/sent-mail-memory]]",
+        "- [[queries/zeus-os-importance-shift-watchlist]]",
     ]
     index_path.write_text("\n".join(index_lines) + "\n", encoding="utf-8")
     note_paths["index"] = index_path

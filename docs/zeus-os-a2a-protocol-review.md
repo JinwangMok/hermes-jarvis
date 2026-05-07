@@ -214,7 +214,7 @@ Do not inline large artifacts into messages. Use references plus hashes.
 Add module boundaries like:
 
 ```text
-src/jinwang_jarvis/zeus_os/a2a/
+src/zeus_os/zeus_os/a2a/
   models.py       # Pydantic/dataclass schemas for supported AgentCard/Message/Task/Artifact subset
   mapping.py      # DB <-> A2A projection functions
   ingress.py      # validate A2A requests, write canonical DB commands/events

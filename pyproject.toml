@@ -13,6 +13,10 @@ dependencies = [
   "requests>=2.31",
 ]
 
+[project.scripts]
+zeus-os = "zeus_os.cli:main"
+jinwang-jarvis = "jinwang_jarvis.cli:main"
+
 [tool.setuptools]
 package-dir = {"" = "src"}
 

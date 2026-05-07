@@ -1,17 +1,17 @@
-# Hermes Jarvis Productization Guide
+# Hermes ZeusOS Productization Guide
 
-This guide explains how to turn Hermes Jarvis into a **wiki-backed personal mail assistant** that a fresh Hermes user can reproduce.
+This guide explains how to turn Hermes ZeusOS into a **wiki-backed personal mail assistant** that a fresh Hermes user can reproduce.
 
 Target outcome:
 - new mail is pulled into a local DB + wiki-backed memory layer
 - thread / participant / project context keeps evolving over time
 - a daily morning briefing is delivered to Discord at 08:00 KST
 - daily/weekly informational mail is summarized together with action mail
-- the same project can later expand to watch external sources and behave more like a true Jarvis assistant
+- the same project can later expand to watch external sources and behave more like a true ZeusOS assistant
 
 ## 1. Durable storage
 
-Jarvis is local-first. The important state lives on disk:
+ZeusOS is local-first. The important state lives on disk:
 - SQLite DB: `state/personal_intel.db`
 - checkpoints: `state/checkpoints.json`
 - wiki notes: `wiki/queries/...`
@@ -31,7 +31,7 @@ That means reboot does **not** erase your memory layer as long as the filesystem
 
 ## 3. Gmail / Himalaya prerequisite
 
-Jarvis assumes mail access already works. The recommended path is:
+ZeusOS assumes mail access already works. The recommended path is:
 - create a Google OAuth client
 - configure Himalaya with your Gmail account(s)
 - verify folder listing and envelope listing
@@ -68,11 +68,11 @@ Recommended:
 ## 5. First full run
 
 ```bash
-PYTHONPATH=src python3 -m jinwang_jarvis.cli collect-mail --config config/pipeline.local.yaml
-PYTHONPATH=src python3 -m jinwang_jarvis.cli collect-calendar --config config/pipeline.local.yaml
-PYTHONPATH=src python3 -m jinwang_jarvis.cli classify-messages --config config/pipeline.local.yaml
-PYTHONPATH=src python3 -m jinwang_jarvis.cli collect-knowledge-mail --config config/pipeline.local.yaml
-PYTHONPATH=src python3 -m jinwang_jarvis.cli generate-daily-intelligence --config config/pipeline.local.yaml
+PYTHONPATH=src python3 -m zeus_os.cli collect-mail --config config/pipeline.local.yaml
+PYTHONPATH=src python3 -m zeus_os.cli collect-calendar --config config/pipeline.local.yaml
+PYTHONPATH=src python3 -m zeus_os.cli classify-messages --config config/pipeline.local.yaml
+PYTHONPATH=src python3 -m zeus_os.cli collect-knowledge-mail --config config/pipeline.local.yaml
+PYTHONPATH=src python3 -m zeus_os.cli generate-daily-intelligence --config config/pipeline.local.yaml
 ```
 
 After this, you should have:
@@ -114,7 +114,7 @@ Recommended install:
 
 Or:
 ```bash
-PYTHONPATH=src python3 -m jinwang_jarvis.cli install-systemd --config config/pipeline.local.yaml --poll-minutes 5
+PYTHONPATH=src python3 -m zeus_os.cli install-systemd --config config/pipeline.local.yaml --poll-minutes 5
 ```
 
 ### Important: enable linger
@@ -166,7 +166,7 @@ Recommended sections:
 
 ## 10. Why participant cache matters
 
-To improve thread accuracy over time, Jarvis should accumulate header-level context:
+To improve thread accuracy over time, ZeusOS should accumulate header-level context:
 - `Message-ID`
 - `In-Reply-To`
 - `References`
@@ -181,7 +181,7 @@ That enables:
 
 ## 11. Long-term expansion: watch sources
 
-A true Jarvis-like assistant should eventually combine mail with additional watched sources:
+A true ZeusOS-like assistant should eventually combine mail with additional watched sources:
 - RSS / blogs
 - CFP feeds
 - startup / funding announcements
@@ -198,7 +198,7 @@ Recommended rule:
 The public repo is not just a code dump. It should let a new Hermes user:
 1. connect Gmail/OAuth/Himalaya/wiki/Discord
 2. reproduce a local-first assistant pipeline
-3. operate a mail → memory → briefing → recommendation loop like a personal Jarvis
+3. operate a mail → memory → briefing → recommendation loop like a personal ZeusOS
 
 ## 13. Checklist
 

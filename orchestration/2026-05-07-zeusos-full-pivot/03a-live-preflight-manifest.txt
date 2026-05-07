@@ -1,0 +1,78 @@
+# Stage3A live preflight manifest
+2026-05-07T08:58:47+00:00
+## gateway
+● hermes-gateway.service - Hermes Agent Gateway - Messaging Platform Integration
+     Loaded: loaded (/home/jinwang/.config/systemd/user/hermes-gateway.service; enabled; preset: enabled)
+    Drop-In: /home/jinwang/.config/systemd/user/hermes-gateway.service.d
+             └─stop-grace.conf
+     Active: active (running) since Wed 2026-05-06 12:43:53 UTC; 20h ago
+   Main PID: 3742339 (python)
+      Tasks: 22 (limit: 19090)
+     Memory: 5.5G (peak: 8.7G)
+        CPU: 1h 38min 59.767s
+     CGroup: /user.slice/user-1000.slice/user@1000.service/app.slice/hermes-gateway.service
+             ├─3742339 /home/jinwang/.hermes/hermes-agent/venv/bin/python -m hermes_cli.main gateway run --replace
+             ├─3893403 /home/jinwang/.hermes/hermes-agent/venv/bin/python /tmp/hermes_sandbox_2qhcqqw2/script.py
+             ├─3893408 /usr/bin/bash -c "source /tmp/hermes-snap-9ca93e24e927.sh >/dev/null 2>&1 || true\nbuiltin cd -- /home/jinwang/workspace/jinwang-jarvis || exit 126\neval '\nset -euo pipefail\nREPO=/home/jinwang/workspace/jinwang-jarvis\nART=\"\$REPO/orchestration/2026-05-07-zeusos-full-pivot/03a-live-preflight-manifest.txt\"\n{\n  echo '\\''# Stage3A live preflight manifest'\\''\n  date -Is\n  echo '\\''## gateway'\\''\n  systemctl --user --no-pager status hermes-gateway.service | sed -n '\\''1,25p'\\'' || true\n  echo '\\''## jarvis/zeus timers'\\''\n  systemctl --user --no-pager list-unit-files '\\''*jarvis*'\\'' '\\''*zeus-os*'\\'' || true\n  systemctl --user --no-pager list-timers '\\''*jarvis*'\\'' '\\''*zeus-os*'\\'' || true\n  echo '\\''## repo zeus health unit files'\\''\n  sed -n '\\''1,120p'\\'' \"\$REPO/systemd/zeus-os-hermes-health.service\"\n  sed -n '\\''1,120p'\\'' \"\$REPO/systemd/zeus-os-hermes-health.timer\"\n  echo '\\''## hermes plugin links'\\''\n  find /home/jinwang/.hermes/plugins -maxdepth 1 -type l -o -type d | xargs -r ls -ld\n  echo '\\''## passive health'\\''\n  cd \"\$REPO\" && PYTHONPATH=src python3 -m zeus_os.cli hermes-health-check --config config/pipeline.local.yaml --skip-discord-api-check --no-restart --json || true\n} > \"\$ART\"\ncat \"\$ART\" | sed -n '\\''1,220p'\\''\n'\n__hermes_ec=\$?\nexport -p > /tmp/hermes-snap-9ca93e24e927.sh 2>/dev/null || true\npwd -P > /tmp/hermes-cwd-9ca93e24e927.txt 2>/dev/null || true\nprintf '\\n__HERMES_CWD_9ca93e24e927__%s__HERMES_CWD_9ca93e24e927__\\n' \"\$(pwd -P)\"\nexit \$__hermes_ec"
+             ├─3893411 systemctl --user --no-pager status hermes-gateway.service
+             └─3893412 sed -n 1,25p
+
+May 07 08:58:28 openbox python[3742339]:   ✓ [1/2] Final Stage2 MoA/review after repo-local  (389.12s)
+May 07 08:58:28 openbox python[3742339]:   ✓ [2/2] Adversarial final Stage2 gate. Read-only  (195.85s)
+May 07 08:58:28 openbox python[3742339]:   ✓ [1/2] Final Stage2 gate re-review after full s  (352.14s)
+May 07 08:58:28 openbox python[3742339]:   ✓ [2/2] Adversarial final-final Stage2 review. R  (112.95s)
+May 07 08:58:28 openbox python[3742339]:   ✓ [1/2] Final-final Stage2 gate after plugin/env  (337.75s)
+May 07 08:58:28 openbox python[3742339]:   ⟳ compacting context…
+May 07 08:58:28 openbox python[3742339]: ⚠ Compression summary failed: peer closed connection without sending complete message body (incomplete chunked read). Inserted a fallback context marker.
+May 07 08:58:28 openbox python[3742339]: ⚠️  Session compressed 2 times — accuracy may degrade. Consider /new to start fresh.
+May 07 08:58:28 openbox python[3742339]:   ✓ [1/2] Stage3 planning review. Read-only. Deter  (131.56s)
+## jarvis/zeus timers
+UNIT FILE                            STATE    PRESET
+jinwang-jarvis-cycle.service         static   -
+jinwang-jarvis-hermes-health.service static   -
+jinwang-jarvis-weekly-review.service static   -
+zeus-os-cycle.service                static   -
+zeus-os-weekly-review.service        static   -
+jinwang-jarvis-cycle.timer           disabled enabled
+jinwang-jarvis-hermes-health.timer   enabled  enabled
+jinwang-jarvis-weekly-review.timer   disabled enabled
+zeus-os-cycle.timer                  disabled enabled
+zeus-os-weekly-review.timer          disabled enabled
+
+10 unit files listed.
+NEXT                        LEFT LAST                              PASSED UNIT                               ACTIVATES
+Thu 2026-05-07 08:59:32 UTC  44s Thu 2026-05-07 08:54:32 UTC 4min 15s ago jinwang-jarvis-hermes-health.timer jinwang-jarvis-hermes-health.service
+
+1 timers listed.
+Pass --all to see loaded but inactive timers, too.
+## repo zeus health unit files
+[Unit]
+Description=Check Hermes gateway + ZeusOS cron health and alert Discord
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/jinwang/workspace/jinwang-jarvis
+Environment=PATH=/home/jinwang/.hermes/hermes-agent/venv/bin:/home/jinwang/.hermes/hermes-agent/node_modules/.bin:/home/jinwang/.local/bin:/home/jinwang/.local/share/fnm/node-versions/v24.14.1/installation/bin:/home/jinwang/.cargo/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/snap/bin
+Environment=HERMES_HOME=/home/jinwang/.hermes
+Environment=ZEUSOS_HEALTH_DISCORD_CHANNEL=1496014213276241922
+EnvironmentFile=-/home/jinwang/.hermes/.env
+ExecStart=/bin/bash -lc 'cd /home/jinwang/workspace/jinwang-jarvis && PYTHONPATH=src python3 -m zeus_os.cli hermes-health-check --config config/pipeline.local.yaml --discord-alert --restart --stale-minutes 15 --readiness-timeout-seconds 45'
+[Unit]
+Description=Run Hermes/ZeusOS health check every 5 minutes
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=5min
+Persistent=true
+Unit=zeus-os-hermes-health.service
+
+[Install]
+WantedBy=timers.target
+## hermes plugin links
+drwxrwxr-x 3 jinwang jinwang 4096 May  4 04:04 /home/jinwang/.hermes/plugins
+lrwxrwxrwx 1 jinwang jinwang   66 May  2 14:09 /home/jinwang/.hermes/plugins/hermes_hooo_gateway -> /home/jinwang/workspace/jinwang-jarvis/plugins/hermes_hooo_gateway
+lrwxrwxrwx 1 jinwang jinwang   81 May  4 04:04 /home/jinwang/.hermes/plugins/hermes_jarvis_styled_voice_gateway -> /home/jinwang/workspace/jinwang-jarvis/plugins/hermes_jarvis_styled_voice_gateway
+drwxrwxr-x 3 jinwang jinwang 4096 Apr 27 00:48 /home/jinwang/.hermes/plugins/jinwang-delivery-gate
+## passive health

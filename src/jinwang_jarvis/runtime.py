@@ -26,13 +26,15 @@ from .review import generate_weekly_review
 from .watch import run_watch_cycle as run_external_watch_cycle
 
 
-CYCLE_SERVICE_NAME = "jinwang-jarvis-cycle.service"
-CYCLE_TIMER_NAME = "jinwang-jarvis-cycle.timer"
-WEEKLY_SERVICE_NAME = "jinwang-jarvis-weekly-review.service"
-WEEKLY_TIMER_NAME = "jinwang-jarvis-weekly-review.timer"
+CYCLE_SERVICE_NAME = "zeus-os-cycle.service"
+CYCLE_TIMER_NAME = "zeus-os-cycle.timer"
+WEEKLY_SERVICE_NAME = "zeus-os-weekly-review.service"
+WEEKLY_TIMER_NAME = "zeus-os-weekly-review.timer"
 HERMES_GATEWAY_SERVICE_NAME = "hermes-gateway.service"
-HERMES_HEALTH_SERVICE_NAME = "jinwang-jarvis-hermes-health.service"
-HERMES_HEALTH_TIMER_NAME = "jinwang-jarvis-hermes-health.timer"
+HERMES_HEALTH_SERVICE_NAME = "zeus-os-hermes-health.service"
+HERMES_HEALTH_TIMER_NAME = "zeus-os-hermes-health.timer"
+LEGACY_HERMES_HEALTH_SERVICE_NAME = "jinwang-jarvis-hermes-health.service"
+LEGACY_HERMES_HEALTH_TIMER_NAME = "jinwang-jarvis-hermes-health.timer"
 DEFAULT_POLL_MINUTES = 5
 DEFAULT_HEALTH_MINUTES = 5
 DEFAULT_STALE_MINUTES = 15
@@ -100,11 +102,11 @@ def _service_path(*prefixes: Path | str) -> str:
 
 def build_systemd_unit_texts(config: PipelineConfig, *, poll_minutes: int = DEFAULT_POLL_MINUTES) -> dict[str, str]:
     workspace = config.workspace_root
-    command_prefix = f"cd {workspace} && PYTHONPATH=src {_python_exec()} -m jinwang_jarvis.cli"
+    command_prefix = f"cd {workspace} && PYTHONPATH=src {_python_exec()} -m zeus_os.cli"
     config_arg = _config_arg(config)
     service_path = _service_path()
     cycle_service = f"""[Unit]
-Description=Jinwang Jarvis pipeline polling cycle
+Description=ZeusOS pipeline polling cycle
 After=network-online.target
 Wants=network-online.target
 
@@ -115,7 +117,7 @@ Environment=PATH={service_path}
 ExecStart=/bin/bash -lc '{command_prefix} run-cycle --config {config_arg}'
 """
     cycle_timer = f"""[Unit]
-Description=Run Jinwang Jarvis pipeline every {poll_minutes} minutes
+Description=Run ZeusOS pipeline every {poll_minutes} minutes
 
 [Timer]
 OnBootSec=3min
@@ -127,7 +129,7 @@ Unit={CYCLE_SERVICE_NAME}
 WantedBy=timers.target
 """
     weekly_service = f"""[Unit]
-Description=Jinwang Jarvis weekly review
+Description=ZeusOS weekly review
 After=network-online.target
 Wants=network-online.target
 
@@ -138,12 +140,12 @@ Environment=PATH={service_path}
 ExecStart=/bin/bash -lc '{command_prefix} weekly-review --config {config_arg}'
 """
     weekly_timer = """[Unit]
-Description=Run Jinwang Jarvis weekly review on Sunday evening
+Description=Run ZeusOS weekly review on Sunday evening
 
 [Timer]
 OnCalendar=Sun *-*-* 20:00:00
 Persistent=true
-Unit=jinwang-jarvis-weekly-review.service
+Unit=zeus-os-weekly-review.service
 
 [Install]
 WantedBy=timers.target
@@ -172,9 +174,9 @@ def build_hermes_standby_unit_texts(
     discord_channel: str = "",
     stale_minutes: int = DEFAULT_STALE_MINUTES,
 ) -> dict[str, str]:
-    """Render repo-managed user units for Hermes+Jarvis always-on standby.
+    """Render repo-managed user units for Hermes+ZeusOS always-on standby.
 
-    Hermes cron jobs run inside the gateway process, so the Jarvis 24/7
+    Hermes cron jobs run inside the gateway process, so the ZeusOS 24/7
     contract is anchored on a resilient Hermes gateway service plus an
     independent health timer that can alert Discord when that chain breaks.
     """
@@ -187,7 +189,7 @@ def build_hermes_standby_unit_texts(
     python_exec = shlex.quote(_python_exec())
     home = Path.home()
     health_command = (
-        f"cd {quoted_workspace} && PYTHONPATH=src {python_exec} -m jinwang_jarvis.cli "
+        f"cd {quoted_workspace} && PYTHONPATH=src {python_exec} -m zeus_os.cli "
         f"hermes-health-check --config {quoted_config_arg} --discord-alert --restart "
         f"--stale-minutes {int(stale_minutes)} "
         f"--readiness-timeout-seconds {DEFAULT_READINESS_TIMEOUT_SECONDS}"
@@ -222,7 +224,7 @@ StandardError=journal
 WantedBy=default.target
 """
     health_service = f"""[Unit]
-Description=Check Hermes gateway + Jarvis cron health and alert Discord
+Description=Check Hermes gateway + ZeusOS cron health and alert Discord
 After=network-online.target
 Wants=network-online.target
 
@@ -231,12 +233,12 @@ Type=oneshot
 WorkingDirectory={workspace}
 Environment=PATH={service_path}
 Environment=HERMES_HOME={home}/.hermes
-Environment=JARVIS_HEALTH_DISCORD_CHANNEL={channel}
+Environment=ZEUSOS_HEALTH_DISCORD_CHANNEL={channel}
 EnvironmentFile=-{home}/.hermes/.env
 ExecStart=/bin/bash -lc '{health_command}'
 """
     health_timer = f"""[Unit]
-Description=Run Hermes/Jarvis health check every {health_minutes} minutes
+Description=Run Hermes/ZeusOS health check every {health_minutes} minutes
 
 [Timer]
 OnBootSec=5min
@@ -392,7 +394,7 @@ def _check_discord_bot_identity(*, bot_token: str = "") -> dict[str, Any]:
         return {"ok": False, "reason": "missing DISCORD_BOT_TOKEN"}
     req = request.Request(
         "https://discord.com/api/v10/users/@me",
-        headers={"Authorization": f"Bot {token}", "User-Agent": "jinwang-jarvis-health-check/0.1"},
+        headers={"Authorization": f"Bot {token}", "User-Agent": "zeus-os-health-check/0.1"},
     )
     try:
         with request.urlopen(req, timeout=10) as response:
@@ -462,7 +464,12 @@ def _wait_for_gateway_readiness(
 
 
 def send_discord_bot_message(message: str, *, channel_id: str = "", bot_token: str = "") -> dict[str, Any]:
-    channel_id = channel_id or os.environ.get("JARVIS_HEALTH_DISCORD_CHANNEL", "") or os.environ.get("DISCORD_HOME_CHANNEL", "")
+    channel_id = (
+        channel_id
+        or os.environ.get("ZEUSOS_HEALTH_DISCORD_CHANNEL", "")
+        or os.environ.get("JARVIS_HEALTH_DISCORD_CHANNEL", "")
+        or os.environ.get("DISCORD_HOME_CHANNEL", "")
+    )
     bot_token = bot_token or os.environ.get("DISCORD_BOT_TOKEN", "")
     if not channel_id or not bot_token:
         return {"sent": False, "reason": "missing DISCORD_BOT_TOKEN or channel"}
@@ -474,7 +481,7 @@ def send_discord_bot_message(message: str, *, channel_id: str = "", bot_token: s
         headers={
             "Authorization": f"Bot {bot_token}",
             "Content-Type": "application/json",
-            "User-Agent": "jinwang-jarvis-health-check/0.1",
+            "User-Agent": "zeus-os-health-check/0.1",
         },
         method="POST",
     )
@@ -582,7 +589,7 @@ def check_hermes_jarvis_health(
 
     if discord_alert and issues:
         channel = discord_channel or _discord_channel_from_config(config)
-        message = "🚨 Jinwang Jarvis health alert\n" + "\n".join(f"- {issue}" for issue in issues)
+        message = "🚨 ZeusOS health alert\n" + "\n".join(f"- {issue}" for issue in issues)
         if actions:
             message += "\nActions:\n" + "\n".join(f"- {action}" for action in actions)
         result["discord"] = send_discord_bot_message(message, channel_id=channel)
@@ -623,6 +630,14 @@ def install_hermes_standby_units(
     if installed_paths:
         subprocess.run(["systemctl", "--user", "daemon-reload"], check=True)
         if enable:
+            subprocess.run([
+                "systemctl",
+                "--user",
+                "disable",
+                "--now",
+                LEGACY_HERMES_HEALTH_TIMER_NAME,
+                LEGACY_HERMES_HEALTH_SERVICE_NAME,
+            ], check=False)
             subprocess.run(["systemctl", "--user", "enable", "--now", HERMES_HEALTH_TIMER_NAME], check=True)
             if install_gateway:
                 subprocess.run(["systemctl", "--user", "enable", HERMES_GATEWAY_SERVICE_NAME], check=True)

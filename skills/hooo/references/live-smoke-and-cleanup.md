@@ -7,7 +7,7 @@ Use this when finishing a `/hooo`/Houroboros Discord bridge task after gateway/p
 1. If the origin is already a Discord thread, create a **sibling** thread under the parent channel; do not bind the new run to the origin thread.
 2. Start the run with the parent channel and source origin preserved:
    ```bash
-   PYTHONPATH=src python3 -m jinwang_jarvis.cli hooo start \
+   PYTHONPATH=src python3 -m zeus_os.cli hooo start \
      --config config/pipeline.local.yaml \
      --goal "live smoke: ..." \
      --origin-platform discord \
@@ -18,7 +18,7 @@ Use this when finishing a `/hooo`/Houroboros Discord bridge task after gateway/p
    ```
 3. Mark the created live thread:
    ```bash
-   PYTHONPATH=src python3 -m jinwang_jarvis.cli hooo mark-thread-created \
+   PYTHONPATH=src python3 -m zeus_os.cli hooo mark-thread-created \
      --config config/pipeline.local.yaml \
      --run-id "$RUN_ID" \
      --thread-id "$NEW_THREAD_ID" \
@@ -32,14 +32,14 @@ Use this when finishing a `/hooo`/Houroboros Discord bridge task after gateway/p
 
 ## Caveat language
 
-Say explicitly: live smoke validates Discord thread side effect plus Jarvis card/reducer/seed path. A physical human Discord UI button click is separate if the available tooling cannot impersonate a user click. Do not overclaim deterministic placeholder execution as real task completion.
+Say explicitly: live smoke validates Discord thread side effect plus ZeusOS card/reducer/seed path. A physical human Discord UI button click is separate if the available tooling cannot impersonate a user click. Do not overclaim deterministic placeholder execution as real task completion.
 
 ## Post-task verification
 
 Run at least:
 
 ```bash
-PYTHONPATH=src python -m compileall -q src/jinwang_jarvis plugins/hermes_hooo_gateway tests/test_houroboros.py tests/test_hooo_gateway_plugin.py
+PYTHONPATH=src python -m compileall -q src/zeus_os plugins/hermes_hooo_gateway tests/test_houroboros.py tests/test_hooo_gateway_plugin.py
 PYTHONPATH=src pytest -q tests/test_houroboros.py tests/test_hooo_gateway_plugin.py tests/test_hermes_skill_context.py tests/test_hermes_skill_search.py
 PYTHONPATH=src pytest -q
 ```
@@ -68,7 +68,7 @@ When several workstreams are mixed, split commits by concern rather than making 
 - Unrelated reader-facing report quality fixes: report generator/linter/tests.
 - Safe restart bundle: recovery scripts, preflight snapshots, restart safety-belt skill changes.
 
-After committing, re-run targeted HOOO/skill tests and confirm both Jarvis and safe-restart-bundle worktrees are clean.
+After committing, re-run targeted HOOO/skill tests and confirm both ZeusOS and safe-restart-bundle worktrees are clean.
 
 ## Post-restart continuation / final push closeout
 
@@ -77,7 +77,7 @@ If the gateway/session reset interrupts the finalization turn, resume from live 
 1. Re-read recent Discord messages and session summaries to recover the exact requested scope, especially mixed HOOO + watch-source / information-source work.
 2. Inspect the live repo first:
    ```bash
-   cd /home/jinwang/workspace/jinwang-jarvis
+   cd /home/jinwang/workspace/zeus-os
    git branch --show-current
    git status --short --branch
    git log --oneline -8 --decorate
@@ -86,11 +86,11 @@ If the gateway/session reset interrupts the finalization turn, resume from live 
    git diff --stat
    git ls-files --others --exclude-standard | sed -n '1,120p'
    ```
-3. For Jinwang's Jarvis repo, verify both remotes when the intent was “commit/push”:
+3. For Jinwang's ZeusOS repo, verify both remotes when the intent was “commit/push”:
    - `origin` may already be up to date while `public` is still behind.
    - Push `public main` explicitly when `git status` says `main...public/main [ahead N]`.
    - Final invariant should be `HEAD = origin/main = public/main` and a clean worktree.
-4. Re-run at least the relevant targeted tests, then the full Jarvis suite when the changes include workflow/runtime/report/source code:
+4. Re-run at least the relevant targeted tests, then the full ZeusOS suite when the changes include workflow/runtime/report/source code:
    ```bash
    PYTHONPATH=src pytest -q tests/test_watch.py tests/test_hooo_gateway_plugin.py tests/test_houroboros.py
    PYTHONPATH=src pytest -q

@@ -1,6 +1,6 @@
 # News Center + Podcast Pipeline
 
-Status: implemented in Jarvis, no Hermes source/config changes required.
+Status: implemented in ZeusOS, no Hermes source/config changes required.
 
 ## Purpose
 
@@ -17,7 +17,7 @@ The output is intentionally reader-facing. It avoids internal labels such as “
 Collect and write News Center artifacts plus wiki memory shards:
 
 ```bash
-PYTHONPATH=src python3 -m jinwang_jarvis.cli generate-news-center \
+PYTHONPATH=src python3 -m zeus_os.cli generate-news-center \
   --config config/pipeline.local.yaml \
   --per-source-limit 2
 ```
@@ -25,7 +25,7 @@ PYTHONPATH=src python3 -m jinwang_jarvis.cli generate-news-center \
 Generate the unified daily hot-issues report. This is now the single user-facing daily report surface: News Center and Personal Opportunity Radar artifacts are inputs, and opportunity items appear only inside `## 개인 기회/공고 검토` with the evidence gate applied.
 
 ```bash
-PYTHONPATH=src python3 -m jinwang_jarvis.cli generate-unified-daily-report \
+PYTHONPATH=src python3 -m zeus_os.cli generate-unified-daily-report \
   --config config/pipeline.local.yaml \
   --date YYYY-MM-DD
 ```
@@ -35,7 +35,7 @@ The command writes `/home/jinwang/wiki/reports/hot-issues/daily/YYYY-MM-DD.md`, 
 Legacy append flow, kept for compatibility with older operators:
 
 ```bash
-PYTHONPATH=src python3 -m jinwang_jarvis.cli append-news-center-to-daily-report \
+PYTHONPATH=src python3 -m zeus_os.cli append-news-center-to-daily-report \
   --daily-report /home/jinwang/wiki/reports/hot-issues/daily/YYYY-MM-DD.md \
   --news-markdown data/news-center/news-center-YYYYMMDDTHHMMSS+ZZZZ.md
 ```
@@ -43,7 +43,7 @@ PYTHONPATH=src python3 -m jinwang_jarvis.cli append-news-center-to-daily-report 
 Generate a TTS-ready podcast script:
 
 ```bash
-PYTHONPATH=src python3 -m jinwang_jarvis.cli generate-podcast-script \
+PYTHONPATH=src python3 -m zeus_os.cli generate-podcast-script \
   --daily-report /home/jinwang/wiki/reports/hot-issues/daily/YYYY-MM-DD.md \
   --output-path data/reports/daily-hot-issues-YYYY-MM-DD-podcast-script.md \
   --max-items 10
@@ -77,4 +77,4 @@ The collector stores metadata, titles, short RSS/HTML excerpts, source URL, sour
 
 ## TTS handoff
 
-Jarvis now produces a clean podcast script without raw URLs. The delivery layer can pass this script into its configured TTS provider. This repository does not modify Hermes cron or gateway settings.
+ZeusOS now produces a clean podcast script without raw URLs. The delivery layer can pass this script into its configured TTS provider. This repository does not modify Hermes cron or gateway settings.

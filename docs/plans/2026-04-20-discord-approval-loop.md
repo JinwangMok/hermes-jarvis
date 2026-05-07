@@ -2,11 +2,11 @@
 
 > **For Hermes:** Use subagent-driven-development skill to implement this plan task-by-task.
 
-**Goal:** Add a natural-language Jarvis briefing/approval loop that can ask in Discord whether proposed events should be added to Calendar, and extend backfill handling to support incremental 3-month growth (9m, 12m, ... 36m) without one-shot bulk expansion.
+**Goal:** Add a natural-language ZeusOS briefing/approval loop that can ask in Discord whether proposed events should be added to Calendar, and extend backfill handling to support incremental 3-month growth (9m, 12m, ... 36m) without one-shot bulk expansion.
 
 **Architecture:** Keep operational truth in SQLite/artifacts. Add a briefing module that reads proposal/mail state and emits Discord-ready natural-language summaries plus machine-readable pending approvals. Extend the feedback path so an explicit allow decision can optionally create a Google Calendar event via the Hermes-managed Google Workspace wrapper. Extend backfill window parsing so arbitrary `Nm` windows work and add a helper to determine the next 3-month step.
 
-**Tech Stack:** Python 3, sqlite3, existing Jarvis CLI, Google Workspace wrapper script, pytest.
+**Tech Stack:** Python 3, sqlite3, existing ZeusOS CLI, Google Workspace wrapper script, pytest.
 
 ---
 
@@ -26,7 +26,7 @@ Run: `pytest -q tests/test_feedback_review_backfill.py tests/test_cli.py`
 Expected: FAIL because dynamic month parsing / helper command does not exist yet.
 
 **Step 3: Implement minimal code**
-- Add reusable month-window parsing in `src/jinwang_jarvis/backfill.py`.
+- Add reusable month-window parsing in `src/zeus_os/backfill.py`.
 - Add CLI surface for incremental next-step execution.
 
 **Step 4: Run tests to verify pass**
@@ -67,8 +67,8 @@ Expected: PASS.
 **Files:**
 - Modify: `tests/test_feedback_review_backfill.py`
 - Modify: `tests/test_cli.py`
-- Modify: `src/jinwang_jarvis/feedback.py`
-- Modify: `src/jinwang_jarvis/cli.py`
+- Modify: `src/zeus_os/feedback.py`
+- Modify: `src/zeus_os/cli.py`
 
 **Step 1: Write failing tests**
 - Add a test that `record_proposal_feedback(..., decision="allow", create_calendar_event=True, runner=fake_runner)` calls the Google wrapper and writes the returned event metadata into the feedback artifact.
@@ -88,12 +88,12 @@ Run: `pytest -q tests/test_feedback_review_backfill.py tests/test_cli.py`
 Expected: PASS.
 
 ### Task 4: Wire briefing generation into CLI/runtime/docs
-**Objective:** Make the feature usable from Jarvis and capture the Discord target channel in config/docs.
+**Objective:** Make the feature usable from ZeusOS and capture the Discord target channel in config/docs.
 
 **Files:**
-- Modify: `src/jinwang_jarvis/config.py`
-- Modify: `src/jinwang_jarvis/cli.py`
-- Modify: `src/jinwang_jarvis/runtime.py`
+- Modify: `src/zeus_os/config.py`
+- Modify: `src/zeus_os/cli.py`
+- Modify: `src/zeus_os/runtime.py`
 - Modify: `config/pipeline.yaml`
 - Modify: `docs/playbooks.md`
 - Modify: `docs/schema.md`
@@ -126,18 +126,18 @@ Run: `pytest -q`
 Expected: full suite passes.
 
 **Step 2: Generate live briefing**
-Run: `PYTHONPATH=src python3 -m jinwang_jarvis.cli generate-briefing --config config/pipeline.yaml`
+Run: `PYTHONPATH=src python3 -m zeus_os.cli generate-briefing --config config/pipeline.yaml`
 Expected: JSON output with briefing artifact path and pending approval count.
 
 **Step 3: Run next staged backfill only**
-Run: `PYTHONPATH=src python3 -m jinwang_jarvis.cli backfill-next --config config/pipeline.yaml --max-months 36`
+Run: `PYTHONPATH=src python3 -m zeus_os.cli backfill-next --config config/pipeline.yaml --max-months 36`
 Expected: only 9m runs now because 6m is already present.
 
 **Step 4: Reclassify/regenerate after the 9m step**
 Run:
-- `PYTHONPATH=src python3 -m jinwang_jarvis.cli classify-messages --config config/pipeline.yaml`
-- `PYTHONPATH=src python3 -m jinwang_jarvis.cli generate-proposals --config config/pipeline.yaml`
-- `PYTHONPATH=src python3 -m jinwang_jarvis.cli generate-briefing --config config/pipeline.yaml`
+- `PYTHONPATH=src python3 -m zeus_os.cli classify-messages --config config/pipeline.yaml`
+- `PYTHONPATH=src python3 -m zeus_os.cli generate-proposals --config config/pipeline.yaml`
+- `PYTHONPATH=src python3 -m zeus_os.cli generate-briefing --config config/pipeline.yaml`
 
 **Step 5: Verify results**
 - Inspect candidate counts.

@@ -4,7 +4,7 @@
 Package Discord voice-channel quality improvements as an external workspace repo so the upstream Hermes checkout stays clean while the same repo also owns the stronger local STT runtime used by Discord voice.
 
 ## Source-untouched Hermes scope
-This Jarvis-vendored skill must not patch Hermes source files. It provides the local STT runtime, client, service files, and config snippets that upstream Hermes can call through supported configuration surfaces.
+This ZeusOS-vendored skill must not patch Hermes source files. It provides the local STT runtime, client, service files, and config snippets that upstream Hermes can call through supported configuration surfaces.
 
 ## Repo-owned runtime additions
 This repo now also owns the local STT runtime pieces:

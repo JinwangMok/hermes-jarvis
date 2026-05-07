@@ -2,11 +2,11 @@
 
 > **For Hermes:** Use subagent-driven-development skill to implement this plan task-by-task.
 
-**Goal:** Add a separate external hot-issue tracker to `jinwang-jarvis` that monitors AI/Cloud hot issues and major-company blog/news updates on an hourly cycle, uses `gpt-5.4` or `gpt-5.5` as the issue-judgment model, tracks whether each signal becomes more or less important over time, and reports only genuinely rising/important issues to the existing Discord channel.
+**Goal:** Add a separate external hot-issue tracker to `zeus-os` that monitors AI/Cloud hot issues and major-company blog/news updates on an hourly cycle, uses `gpt-5.4` or `gpt-5.5` as the issue-judgment model, tracks whether each signal becomes more or less important over time, and reports only genuinely rising/important issues to the existing Discord channel.
 
 **Architecture:** Keep this system fully separate from the mail lane. Add a dedicated `external_watch` pipeline backed by SQLite tables and lightweight fetchers. Collect raw signals from stable public sources first, normalize them, map them into durable **topics/themes** and evolving **issue stories**, compute hour-over-hour momentum deltas, then ask `gpt-5.4`/`gpt-5.5` to judge whether the issue is truly important. Official company posts are first-class hot-issue signals by themselves. Community reaction to those official posts is tracked as a separate reaction layer, not conflated with the original issue event.
 
-**Tech Stack:** Python, SQLite, existing Jarvis CLI/runtime/config, RSS/API fetchers, cron jobs, and Codex GPT-5.4 / GPT-5.5 for final issue adjudication.
+**Tech Stack:** Python, SQLite, existing ZeusOS CLI/runtime/config, RSS/API fetchers, cron jobs, and Codex GPT-5.4 / GPT-5.5 for final issue adjudication.
 
 ---
 
@@ -161,7 +161,7 @@ Recommended jobs:
 
 ## 5. Data model
 
-Add these tables in `src/jinwang_jarvis/bootstrap.py`.
+Add these tables in `src/zeus_os/bootstrap.py`.
 
 ### 5.1 `watch_sources`
 One row per official blog/feed/community source.
@@ -392,7 +392,7 @@ These are classification labels, not alert units.
 - `tsmc`
 
 ### 8.3 Keyword logic
-Implement transparent rule maps in `src/jinwang_jarvis/watch.py`.
+Implement transparent rule maps in `src/zeus_os/watch.py`.
 
 Examples:
 - `claude`, `opus`, `sonnet`, `haiku` -> `anthropic`
@@ -543,11 +543,11 @@ Once per day:
 ## 13. Wiki/report outputs
 
 Add a separate watch namespace:
-- `queries/jinwang-jarvis-watch/index.md`
-- `queries/jinwang-jarvis-watch/hourly/latest-hot-issues.md`
-- `queries/jinwang-jarvis-watch/daily/daily-YYYY-MM-DD.md`
-- `queries/jinwang-jarvis-watch/companies/<company>.md`
-- `queries/jinwang-jarvis-watch/issues/<issue-key>.md`
+- `queries/zeus-os-watch/index.md`
+- `queries/zeus-os-watch/hourly/latest-hot-issues.md`
+- `queries/zeus-os-watch/daily/daily-YYYY-MM-DD.md`
+- `queries/zeus-os-watch/companies/<company>.md`
+- `queries/zeus-os-watch/issues/<issue-key>.md`
 
 Important note:
 - `issues/<issue-key>.md` is the natural place to show the time evolution of a real issue story.
@@ -555,16 +555,16 @@ Important note:
 ## 14. Code organization
 
 ### New files
-- `src/jinwang_jarvis/watch.py`
+- `src/zeus_os/watch.py`
 - `tests/test_watch.py`
 - `tests/test_watch_cli.py`
 - `docs/plans/2026-04-23-hot-issue-company-watch.md`
 
 ### Modify
-- `src/jinwang_jarvis/bootstrap.py`
-- `src/jinwang_jarvis/config.py`
-- `src/jinwang_jarvis/cli.py`
-- `src/jinwang_jarvis/runtime.py`
+- `src/zeus_os/bootstrap.py`
+- `src/zeus_os/config.py`
+- `src/zeus_os/cli.py`
+- `src/zeus_os/runtime.py`
 - `tests/test_config.py`
 - `tests/test_runtime.py`
 - `README.md`
@@ -667,13 +667,13 @@ Add tests for:
 Run from repo root:
 
 ```bash
-cd /home/jinwang/workspace/jinwang-jarvis
+cd /home/jinwang/workspace/zeus-os
 PYTHONPATH=src pytest -q tests/test_watch.py tests/test_watch_cli.py tests/test_config.py tests/test_runtime.py
-PYTHONPATH=src python3 -m jinwang_jarvis.cli sync-watch-sources --config config/pipeline.local.yaml
-PYTHONPATH=src python3 -m jinwang_jarvis.cli collect-watch-signals --config config/pipeline.local.yaml
-PYTHONPATH=src python3 -m jinwang_jarvis.cli build-watch-stories --config config/pipeline.local.yaml
-PYTHONPATH=src python3 -m jinwang_jarvis.cli judge-watch-issues --config config/pipeline.local.yaml
-PYTHONPATH=src python3 -m jinwang_jarvis.cli generate-watch-report --config config/pipeline.local.yaml --report-kind hourly-hot-issues
+PYTHONPATH=src python3 -m zeus_os.cli sync-watch-sources --config config/pipeline.local.yaml
+PYTHONPATH=src python3 -m zeus_os.cli collect-watch-signals --config config/pipeline.local.yaml
+PYTHONPATH=src python3 -m zeus_os.cli build-watch-stories --config config/pipeline.local.yaml
+PYTHONPATH=src python3 -m zeus_os.cli judge-watch-issues --config config/pipeline.local.yaml
+PYTHONPATH=src python3 -m zeus_os.cli generate-watch-report --config config/pipeline.local.yaml --report-kind hourly-hot-issues
 ```
 
 Live verification expectations:

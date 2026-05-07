@@ -1,6 +1,6 @@
 # Watch source health telemetry
 
-Jarvis records per-source collection health for the external watch-source lane after every `collect-watch-signals` run. The telemetry is Jarvis-owned state/artifact data and does not touch Hermes, cron, systemd, wiki raw files, or external services beyond the normal source fetches.
+ZeusOS records per-source collection health for the external watch-source lane after every `collect-watch-signals` run. The telemetry is ZeusOS-owned state/artifact data and does not touch Hermes, cron, systemd, wiki raw files, or external services beyond the normal source fetches.
 
 ## Persistence
 

@@ -8,7 +8,7 @@ def test_load_pipeline_config_exposes_reproducible_workspace_metadata():
 
     config = load_pipeline_config(config_path)
 
-    assert config.project_name == "jinwang-jarvis"
+    assert config.project_name == "zeus-os"
     assert config.workspace_root == Path("/home/jinwang/workspace/jinwang-jarvis")
     assert config.wiki_root == Path("/home/jinwang/workspace/jinwang-jarvis/wiki")
     assert config.database_path == Path("/home/jinwang/workspace/jinwang-jarvis/state/personal_intel.db")

@@ -13,7 +13,7 @@ from typing import Iterable
 class WikiGovernance:
     """Runtime view of Jinwang's LLM Wiki governance layer.
 
-    jinwang-jarvis treats the wiki as a dynamic knowledge substrate for Hermes:
+    zeus-os treats the wiki as a dynamic knowledge substrate for Hermes:
     operational data stays in SQLite/artifacts, generated wiki pages are derived
     views, and only promoted/curated facts become durable entity/concept/query
     knowledge.
@@ -164,10 +164,10 @@ def render_frontmatter(
     tags: list[str],
     sources: list[str] | None = None,
     subtype: str | None = None,
-    owner: str = "jarvis",
+    owner: str = "zeus-os",
     authority: str = "derived",
     generated: bool = True,
-    generator: str = "jinwang-jarvis",
+    generator: str = "zeus-os",
     refresh_policy: str = "overwrite",
     operational_source_of_truth: str | None = None,
     aliases: list[str] | None = None,
@@ -221,10 +221,10 @@ def render_generated_report_frontmatter(
         page_type="query",
         subtype=subtype,
         tags=tags,
-        owner="jarvis",
+        owner="zeus-os",
         authority=authority,
         generated=True,
-        generator="jinwang-jarvis",
+        generator="zeus-os",
         refresh_policy=refresh_policy,
         operational_source_of_truth=operational_source_of_truth,
         summary=summary,
@@ -254,11 +254,11 @@ def run_wiki_lint_if_available(wiki_root: Path) -> dict[str, object] | None:
 
 
 def wiki_operational_source(config: object) -> str:
-    """Return the configured operational source behind Jarvis-generated wiki views."""
+    """Return the configured operational source behind ZeusOS-generated wiki views."""
     database_path = getattr(config, "database_path", None)
     if database_path is not None:
         return str(database_path)
     workspace_root = getattr(config, "workspace_root", None)
     if workspace_root is not None:
         return str(Path(workspace_root) / "state" / "personal_intel.db")
-    return "jinwang-jarvis configured SQLite database/artifacts"
+    return "zeus-os configured SQLite database/artifacts"

@@ -2,21 +2,21 @@
 
 **Status:** final implementation contract after MoA review
 **Date:** 2026-05-05
-**Owner:** Jarvis / Zeus OS sidecar; Hermes remains upstream/source-untouched
+**Owner:** ZeusOS / Zeus OS sidecar; Hermes remains upstream/source-untouched
 **Supersedes:** `docs/plans/2026-05-05-zeus-os-replatform-implementation-plan.md` as the implementation contract. Supporting rationale remains in `docs/zeus-os-agent-runtime-design.md` and `docs/zeus-os-a2a-protocol-review.md`.
 
 ## 1. Executive decision
 
-Reframe `jinwang-jarvis` as **Zeus OS**, a Jarvis-owned personal Agent OS/control plane. Hermes and Jarvis stay separated:
+Reframe `zeus-os` as **Zeus OS**, a ZeusOS-owned personal Agent OS/control plane. Hermes and ZeusOS stay separated:
 
 - **Hermes:** upstream runtime, gateway, tool execution environment, existing Discord connection.
-- **Jarvis / Zeus OS:** local canonical multi-agent control plane, state, artifacts, orchestration, workers, approvals, projections, operator guides, and optional Discord/A2A adapters.
+- **ZeusOS / Zeus OS:** local canonical multi-agent control plane, state, artifacts, orchestration, workers, approvals, projections, operator guides, and optional Discord/A2A adapters.
 
-No Hermes core edits are allowed. Jarvis may provide Hermes plugins and sidecars.
+No Hermes core edits are allowed. ZeusOS may provide Hermes plugins and sidecars.
 
 ## 2. Non-negotiable invariants
 
-1. **Hermes source untouched.** Any integration lives in `jinwang-jarvis` modules/plugins/systemd templates.
+1. **Hermes source untouched.** Any integration lives in `zeus-os` modules/plugins/systemd templates.
 2. **SQLite + artifacts are canonical.** Discord, A2A, markdown, and dashboards are projections.
 3. **One Discord bot for MVP.** Personas are DB `agent_cards`, not separate bot accounts. Fake `@Agent` mentions are forbidden.
 4. **A2A is compatibility/projection/edge transport.** It is not the internal source of truth or unbounded internal chat bus.
@@ -202,22 +202,22 @@ Run safety checks on:
 
 ## 10. CLI contract
 
-Use one top-level Zeus subparser inside the existing Jarvis CLI. Implementation should delegate parser construction/execution to `src/jinwang_jarvis/zeus_os/cli.py`.
+Use one top-level Zeus subparser inside the existing ZeusOS CLI. Implementation should delegate parser construction/execution to `src/zeus_os/zeus_os/cli.py`.
 
 Canonical command vocabulary:
 
 ```bash
-python -m jinwang_jarvis.cli zeus init
-python -m jinwang_jarvis.cli zeus doctor
-python -m jinwang_jarvis.cli zeus task submit --title ... --goal ...
-python -m jinwang_jarvis.cli zeus task status <task_id> [--ops]
-python -m jinwang_jarvis.cli zeus task replay <task_id>
-python -m jinwang_jarvis.cli zeus task export <task_id>
-python -m jinwang_jarvis.cli zeus agent list|show|add|enable|disable|retire
-python -m jinwang_jarvis.cli zeus queue list|recover
-python -m jinwang_jarvis.cli zeus worker list|drain
-python -m jinwang_jarvis.cli zeus orchestrator --once
-python -m jinwang_jarvis.cli zeus worker run --kind deterministic --once
+python -m zeus_os.cli zeus init
+python -m zeus_os.cli zeus doctor
+python -m zeus_os.cli zeus task submit --title ... --goal ...
+python -m zeus_os.cli zeus task status <task_id> [--ops]
+python -m zeus_os.cli zeus task replay <task_id>
+python -m zeus_os.cli zeus task export <task_id>
+python -m zeus_os.cli zeus agent list|show|add|enable|disable|retire
+python -m zeus_os.cli zeus queue list|recover
+python -m zeus_os.cli zeus worker list|drain
+python -m zeus_os.cli zeus orchestrator --once
+python -m zeus_os.cli zeus worker run --kind deterministic --once
 ```
 
 Optional standalone `zeus` console script may come later.
@@ -262,7 +262,7 @@ Approval card example:
 작업: Zeus OS schema tests 추가
 요청자: Engineer
 범위:
-- paths: src/jinwang_jarvis/zeus_os/*, tests/test_zeus_*.py
+- paths: src/zeus_os/zeus_os/*, tests/test_zeus_*.py
 - commands: PYTHONPATH=src pytest -q tests/test_zeus_*.py
 만료: <timestamp>
 [이 범위 승인] [거절] [범위 줄여서 다시 요청]
@@ -346,7 +346,7 @@ Create/update:
 
 Create:
 
-- `src/jinwang_jarvis/zeus_os/__init__.py`
+- `src/zeus_os/zeus_os/__init__.py`
 - `ids.py`, `schema.py`, `store.py`, `events.py`, `safety.py`, `artifacts.py`
 - tests: `test_zeus_schema.py`, `test_zeus_events.py`, `test_zeus_safety.py`, `test_zeus_artifacts.py`
 
@@ -356,7 +356,7 @@ Create:
 
 - `queue.py`, `cli.py`
 - tests: `test_zeus_queue.py`, `test_zeus_cli.py`
-- integrate nested `zeus` subparser in existing `src/jinwang_jarvis/cli.py`
+- integrate nested `zeus` subparser in existing `src/zeus_os/cli.py`
 
 ### Phase D — orchestrator/deterministic worker/doctor
 
@@ -428,7 +428,7 @@ Full feasible suite:
 
 ```bash
 PYTHONPATH=src pytest -q
-python -m compileall -q src/jinwang_jarvis tests
+python -m compileall -q src/zeus_os tests
 ```
 
 Security checks:
@@ -462,7 +462,7 @@ Minimum permissions: send messages, read message history, create public threads,
 
 Before any live gateway/systemd action:
 
-- verify Jarvis-owned Hermes gateway recovery arm is present.
+- verify ZeusOS-owned Hermes gateway recovery arm is present.
 - capture service status and current unit/env.
 - document rollback command.
 - require scoped human approval.

@@ -43,7 +43,7 @@ hermes:
 reproducibility:
   packaging: pyproject
   config_format: yaml
-  project_name: jinwang-jarvis
+  project_name: zeus-os
 """.format(root=root.as_posix(), sender_map=(root / 'sender-map.md').as_posix())
 
 

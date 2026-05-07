@@ -1,6 +1,6 @@
 # HOOO proposal UX evolve hardening — 2026-05-03
 
-Use this reference when hardening or reviewing Jarvis HOOO proposal-driven interview UX.
+Use this reference when hardening or reviewing ZeusOS HOOO proposal-driven interview UX.
 
 ## Context
 
@@ -52,7 +52,7 @@ Regression to keep:
 
 - Start run.
 - Click `other_opinion` on the `scope` card.
-- Send plain text such as `Only touch Jarvis-owned runtime and tests`.
+- Send plain text such as `Only touch ZeusOS-owned runtime and tests`.
 - Assert `decisions.scope` equals that text, `resolved == ['scope']`, `unresolved == ['acceptance', 'constraint', 'executor', 'permission']`, `ambiguity_score == 0.8`, and `seed_ready is False`.
 
 ## Verification pattern
@@ -60,7 +60,7 @@ Regression to keep:
 For this class of HOOO runtime changes, run:
 
 ```bash
-python -m compileall -q src/jinwang_jarvis tests
+python -m compileall -q src/zeus_os tests
 PYTHONPATH=src pytest -q tests/test_houroboros.py tests/test_hooo_gateway_plugin.py
 PYTHONPATH=src pytest -q tests/test_houroboros.py tests/test_hooo_gateway_plugin.py tests/test_cli.py tests/test_runtime.py
 PYTHONPATH=src pytest -q

@@ -1,6 +1,6 @@
 ---
 name: styled-voice
-description: Create speech in the user's style using Jarvis stored sample profiles or explicit audio references with the direct VoxCPM backend at 10.40.40.40:9100. Trigger via /styled-voice in Discord.
+description: Create speech in the user's style using ZeusOS stored sample profiles or explicit audio references with the direct VoxCPM backend at 10.40.40.40:9100. Trigger via /styled-voice in Discord.
 version: 1.1.0
 author: Hermes Agent
 license: MIT
@@ -13,7 +13,7 @@ metadata:
 
 Use this skill when the user invokes `/styled-voice` and wants speech generated from a stored voice/style sample profile.
 
-Jinwang-specific Jarvis UX: natural-language Discord requests like `교수님 목소리로 아래 문장 음성 생성해줘` are handled by the Jarvis-owned `hermes-jarvis-styled-voice-gateway` plugin, which maps them to the stored `jongwon/default` profile without modifying Hermes core. The plugin lives in `/home/jinwang/workspace/jinwang-jarvis/plugins/hermes_jarvis_styled_voice_gateway` and is symlinked into `~/.hermes/plugins` when enabled.
+Jinwang-specific ZeusOS UX: natural-language Discord requests like `교수님 목소리로 아래 문장 음성 생성해줘` are handled by the ZeusOS-owned `hermes-zeus-os-styled-voice-gateway` plugin, which maps them to the stored `jongwon/default` profile without modifying Hermes core. The plugin lives in `/home/jinwang/workspace/zeus-os/plugins/hermes_zeus-os_styled_voice_gateway` and is symlinked into `~/.hermes/plugins` when enabled.
 
 ## Goal
 
@@ -26,18 +26,18 @@ Generate new audio in a selected voice/style by sending stored local audio sampl
 
 This external skill does **not** patch Hermes runtime.
 
-Only use audio file paths from the Jarvis styled-voice sample library, explicit operator-supplied paths, or URLs that Hermes already exposes in the message context. Do **not** assume hidden local cache paths are available, and do **not** guess undocumented Hermes internals.
+Only use audio file paths from the ZeusOS styled-voice sample library, explicit operator-supplied paths, or URLs that Hermes already exposes in the message context. Do **not** assume hidden local cache paths are available, and do **not** guess undocumented Hermes internals.
 
 If the request does not contain reusable attachment paths or URLs, use the stored sample profile instead. If that profile has no samples, ask the operator to add samples first.
 
-## Jarvis sample library
+## ZeusOS sample library
 
-Jarvis separates **sample upload/storage time** from **voice generation time**.
+ZeusOS separates **sample upload/storage time** from **voice generation time**.
 
 Default root:
 
 ```text
-/home/jinwang/workspace/jinwang-jarvis/data/styled-voice-samples
+/home/jinwang/workspace/zeus-os/data/styled-voice-samples
 ```
 
 Layout:
@@ -52,14 +52,14 @@ Profile shorthand:
 - `jongwon` → `jongwon/default`
 - `jongwon/calm` → `jongwon/calm`
 
-Manage samples through Jarvis:
+Manage samples through ZeusOS:
 
 ```bash
-cd /home/jinwang/workspace/jinwang-jarvis
-PYTHONPATH=src python3 -m jinwang_jarvis.cli styled-voice-samples init --profile default --profile jongwon
-PYTHONPATH=src python3 -m jinwang_jarvis.cli styled-voice-samples add --profile jongwon --audio /abs/path/sample.wav
-PYTHONPATH=src python3 -m jinwang_jarvis.cli styled-voice-samples list
-PYTHONPATH=src python3 -m jinwang_jarvis.cli styled-voice-samples refs --profile jongwon
+cd /home/jinwang/workspace/zeus-os
+PYTHONPATH=src python3 -m zeus_os.cli styled-voice-samples init --profile default --profile jongwon
+PYTHONPATH=src python3 -m zeus_os.cli styled-voice-samples add --profile jongwon --audio /abs/path/sample.wav
+PYTHONPATH=src python3 -m zeus_os.cli styled-voice-samples list
+PYTHONPATH=src python3 -m zeus_os.cli styled-voice-samples refs --profile jongwon
 ```
 
 Generation with a stored profile:
@@ -152,7 +152,7 @@ If the user does **not** provide an exact transcript, do **not** guess one from 
 
 Before calling the backend:
 
-1. Resolve `--voice` / profile to stored sample audio under the Jarvis sample library, unless explicit `--reference-audio` paths are supplied.
+1. Resolve `--voice` / profile to stored sample audio under the ZeusOS sample library, unless explicit `--reference-audio` paths are supplied.
 2. Verify each referenced local file exists before using it.
 3. If no reusable audio references are available, ask the operator to add samples with `styled-voice-samples add`.
 4. If the synthesis text is empty, ask the user what sentence to generate.

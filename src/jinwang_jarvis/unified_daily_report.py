@@ -320,8 +320,8 @@ def _news_source_content(item: dict[str, object]) -> str:
 
 
 def _default_news_body_fetcher(url: str) -> str:
-    req = urllib.request.Request(url, headers={"User-Agent": "jinwang-jarvis-unified-daily-report/0.1"})
-    with urllib.request.urlopen(req, timeout=12) as response:  # noqa: S310 - public article URLs from Jarvis news artifacts
+    req = urllib.request.Request(url, headers={"User-Agent": "zeus-os-unified-daily-report/0.1"})
+    with urllib.request.urlopen(req, timeout=12) as response:  # noqa: S310 - public article URLs from ZeusOS news artifacts
         raw = response.read(2_000_000)
         charset = response.headers.get_content_charset() or "utf-8"
     try:
@@ -473,8 +473,12 @@ def _source_content_fact(summary: str) -> str:
 
 def _grounded_why(summary: str) -> str:
     subject = _brief_subject(summary)
-    if "성장률" in summary or "경제" in summary:
-        return f"성장률 전망 하향은 {subject}라는 판단 변화를 뜻하므로 예산·R&D·기업 투자 판단의 전제치를 낮춰 잡아야 합니다."
+    if "성장률" in summary:
+        return f"성장률 전망 하향은 {subject}라는 판단 변화를 뜻하므로 예산·R&D·기업 투자 판단의 전제치를 재점검하게 만듭니다."
+    if re.search(r"소비자물가|유류세|석유|고유가|매점매석|물가", summary):
+        return f"{subject}라는 변화는 생활물가와 에너지 비용 전제가 바뀌고 있음을 보여주므로 예산·조달·기업 비용 리스크 확인이 필요합니다."
+    if re.search(r"재생원료|종량제|추경|국고보조|설비", summary):
+        return f"{subject}라는 변화는 환경 규제와 생산설비 지원 조건이 함께 움직이는 사안이라 관련 기업·지자체·조달 정책 확인이 필요합니다."
     if "Kubernetes" in summary or "CNCF" in summary or "클러스터" in summary:
         return f"{subject}라는 변화는 클러스터 운영·보안·플랫폼 설계에서 바로 검토할 기술 부채와 채택 리스크를 만듭니다."
     if "논문" in summary or "모델" in summary or "AI" in summary:
@@ -483,8 +487,12 @@ def _grounded_why(summary: str) -> str:
 
 
 def _grounded_action(source: str, summary: str) -> str:
-    if "성장률" in summary or "경제" in summary:
+    if "성장률" in summary:
         return f"{source} 원문에서 성장률 조정 폭, 전망 변경 근거, 다음 발표·수정 시점을 확인합니다."
+    if re.search(r"소비자물가|유류세|석유|고유가|매점매석|물가", summary):
+        return f"{source} 원문에서 적용 기간, 대상 품목, 가격·세제 조치, 다음 정부 발표 시점을 확인합니다."
+    if re.search(r"재생원료|종량제|추경|국고보조|설비", summary):
+        return f"{source} 원문에서 의무비율 적용 시점, 지원 예산, 보조 조건, 조달 인센티브 여부를 확인합니다."
     if "Kubernetes" in summary or "CNCF" in summary:
         return f"{source} 원문에서 제안한 아키텍처, 적용 버전, 보안/운영 전제, 관련 프로젝트 링크를 확인합니다."
     if "논문" in summary or "모델" in summary or "AI" in summary:
@@ -605,11 +613,11 @@ def compose_unified_daily_report(
         f"updated: {report_date}",
         "type: query",
         "subtype: generated-daily-report",
-        "tags: [jarvis, intelligence, report, daily, hot-issues]",
-        "owner: jarvis",
+        "tags: [zeus-os, intelligence, report, daily, hot-issues]",
+        "owner: zeus-os",
         "authority: derived",
         "generated: true",
-        "generator: jinwang-jarvis-unified-daily-report",
+        "generator: zeus-os-unified-daily-report",
         "refresh_policy: overwrite",
         "summary: Unified daily hot-issues report; opportunity radar merged into the report surface",
         "---",

@@ -1,7 +1,7 @@
-# Jinwang Jarvis MVP Execution Spec
+# ZeusOS MVP Execution Spec
 
 ## Document role
-This file is the execution contract for completing the remaining MVP features of `jinwang-jarvis` end-to-end.
+This file is the execution contract for completing the remaining MVP features of `zeus-os` end-to-end.
 
 ## Goal
 Finish the personal mail/calendar intelligence MVP so it can: collect mail + calendar data, classify messages, generate recommendation-only proposals and digests, record allow/reject feedback, run progressive backfill windows, and produce a weekly review artifact.

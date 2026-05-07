@@ -36,8 +36,8 @@ from .wiki_semantic_lint import lint_wiki_semantics
 from .zeus_os.cli import handle_zeus, populate_zeus_subparsers
 
 
-def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="jinwang-jarvis")
+def build_parser(prog: str = "zeus-os") -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(prog=prog)
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     bootstrap_parser = subparsers.add_parser("bootstrap", help="Initialize workspace directories and SQLite schema")
@@ -67,7 +67,7 @@ def build_parser() -> argparse.ArgumentParser:
     digest_parser = subparsers.add_parser("generate-digest", help="Generate a markdown digest from current pipeline state")
     digest_parser.add_argument("--config", required=True, help="Path to pipeline.yaml")
 
-    briefing_parser = subparsers.add_parser("generate-briefing", help="Generate a natural-language Jarvis briefing artifact for Discord delivery")
+    briefing_parser = subparsers.add_parser("generate-briefing", help="Generate a natural-language ZeusOS briefing artifact for Discord delivery")
     briefing_parser.add_argument("--config", required=True, help="Path to pipeline.yaml")
 
     knowledge_parser = subparsers.add_parser("synthesize-knowledge", help="Generate a rolling watchlist and optional wiki synthesis from the latest proposal artifact")
@@ -77,7 +77,7 @@ def build_parser() -> argparse.ArgumentParser:
     wiki_search_index_parser = subparsers.add_parser("wiki-search-index", help="Rebuild operational wiki/search FTS sidecar tables")
     wiki_search_index_parser.add_argument("--config", required=True, help="Path to pipeline.yaml")
 
-    wiki_search_parser = subparsers.add_parser("wiki-search", help="Search operational Jarvis FTS sidecar tables")
+    wiki_search_parser = subparsers.add_parser("wiki-search", help="Search operational ZeusOS FTS sidecar tables")
     wiki_search_parser.add_argument("--config", required=True, help="Path to pipeline.yaml")
     wiki_search_parser.add_argument("--query", required=True, help="FTS search query")
     wiki_search_parser.add_argument("--limit", type=int, default=10, help="Maximum result rows")
@@ -172,7 +172,7 @@ def build_parser() -> argparse.ArgumentParser:
     install_parser.add_argument("--poll-minutes", type=int, default=5, help="Polling interval in minutes")
     install_parser.add_argument("--no-enable", action="store_true", help="Only write units and daemon-reload; do not enable timers")
 
-    standby_parser = subparsers.add_parser("install-standby-systemd", help="Write/install Hermes+Jarvis always-on standby units and health-check timer")
+    standby_parser = subparsers.add_parser("install-standby-systemd", help="Write/install Hermes+ZeusOS always-on standby units and health-check timer")
     standby_parser.add_argument("--config", required=True, help="Path to pipeline.yaml")
     standby_parser.add_argument("--health-minutes", type=int, default=5, help="Health-check interval in minutes")
     standby_parser.add_argument("--stale-minutes", type=int, default=15, help="Alert when an enabled Hermes cron job is this many minutes overdue")
@@ -181,7 +181,7 @@ def build_parser() -> argparse.ArgumentParser:
     standby_parser.add_argument("--workspace-only", action="store_true", help="Only render units under the repo systemd/ directory; do not touch ~/.config/systemd/user")
     standby_parser.add_argument("--install-gateway", action="store_true", help="Also install the repo-rendered hermes-gateway.service with Restart=always")
 
-    health_parser = subparsers.add_parser("hermes-health-check", help="Check Hermes gateway + Jarvis cron health and optionally alert Discord")
+    health_parser = subparsers.add_parser("hermes-health-check", help="Check Hermes gateway + ZeusOS cron health and optionally alert Discord")
     health_parser.add_argument("--config", required=True, help="Path to pipeline.yaml")
     health_parser.add_argument("--stale-minutes", type=int, default=15, help="Alert when an enabled Hermes cron job is this many minutes overdue")
     health_parser.add_argument("--discord-alert", action="store_true", help="Send Discord alert when health issues are detected")
@@ -190,7 +190,7 @@ def build_parser() -> argparse.ArgumentParser:
     health_parser.add_argument("--readiness-timeout-seconds", type=int, default=45, help="Wait this long for Discord gateway readiness before alerting/restarting")
     health_parser.add_argument("--skip-discord-api-check", action="store_true", help="Skip the non-mutating Discord bot identity API check")
 
-    customization_parser = subparsers.add_parser("hermes-customization-check", help="Passively inspect the Hermes agent + jinwang-jarvis customization contract")
+    customization_parser = subparsers.add_parser("hermes-customization-check", help="Passively inspect the Hermes agent + zeus-os customization contract")
     customization_parser.add_argument("--hermes-home", default=str(Path.home() / ".hermes"), help="Hermes home directory")
     customization_parser.add_argument("--hermes-agent-dir", default=str(Path.home() / ".hermes/hermes-agent"), help="Hermes agent checkout directory")
     customization_parser.add_argument("--hermes-config", default="", help="Hermes config.yaml path; defaults to <hermes-home>/config.yaml")
@@ -200,24 +200,24 @@ def build_parser() -> argparse.ArgumentParser:
     lifecycle_parser.add_argument("--hermes-home", default=str(Path.home() / ".hermes"), help="Hermes home directory")
     lifecycle_parser.add_argument("--hermes-config", default="", help="Hermes config.yaml path; defaults to <hermes-home>/config.yaml")
     lifecycle_parser.add_argument("--no-external-dirs", action="store_true", help="Only scan ~/.hermes/skills; skip skills.external_dirs")
-    lifecycle_parser.add_argument("--telemetry-path", default="state/hermes-skill-usage.json", help="Jarvis telemetry sidecar JSON path")
+    lifecycle_parser.add_argument("--telemetry-path", default="state/hermes-skill-usage.json", help="ZeusOS telemetry sidecar JSON path")
     lifecycle_parser.add_argument("--stale-after-days", type=int, default=30, help="Age threshold for stale review")
     lifecycle_parser.add_argument("--archive-after-days", type=int, default=90, help="Age threshold for archive candidates")
     lifecycle_parser.add_argument("--negative-claim-ttl-days", type=int, default=14, help="TTL before old negative/environment-dependent claims need revalidation")
 
-    skill_search_index_parser = subparsers.add_parser("hermes-skill-search-index", help="Build the Jarvis-owned Hermes skill retrieval FTS sidecar")
+    skill_search_index_parser = subparsers.add_parser("hermes-skill-search-index", help="Build the ZeusOS-owned Hermes skill retrieval FTS sidecar")
     skill_search_index_parser.add_argument("--db", default=str(DEFAULT_SKILL_SEARCH_DB), help="SQLite sidecar path")
     skill_search_index_parser.add_argument("--hermes-home", default=str(Path.home() / ".hermes"), help="Hermes home directory")
     skill_search_index_parser.add_argument("--hermes-config", default="", help="Hermes config.yaml path for skills.external_dirs")
     skill_search_index_parser.add_argument("--skill-root", action="append", default=None, help="Explicit skill root to scan; repeatable and overrides defaults")
-    skill_search_index_parser.add_argument("--telemetry-path", default="state/hermes-skill-usage.json", help="Jarvis telemetry sidecar JSON path; use empty string to disable")
+    skill_search_index_parser.add_argument("--telemetry-path", default="state/hermes-skill-usage.json", help="ZeusOS telemetry sidecar JSON path; use empty string to disable")
 
-    skill_search_parser = subparsers.add_parser("hermes-skill-search", help="Search the Jarvis-owned Hermes skill retrieval sidecar")
+    skill_search_parser = subparsers.add_parser("hermes-skill-search", help="Search the ZeusOS-owned Hermes skill retrieval sidecar")
     skill_search_parser.add_argument("--db", default=str(DEFAULT_SKILL_SEARCH_DB), help="SQLite sidecar path")
     skill_search_parser.add_argument("--query", required=True, help="Skill search query")
     skill_search_parser.add_argument("--top-k", type=int, default=5, help="Maximum result rows")
     skill_search_parser.add_argument("--include-archived", action="store_true", help="Include archived skills with penalties")
-    skill_search_parser.add_argument("--search-log-path", default="", help="Optional Jarvis-owned JSONL search log path")
+    skill_search_parser.add_argument("--search-log-path", default="", help="Optional ZeusOS-owned JSONL search log path")
     skill_search_parser.add_argument("--selected-skill", default="", help="Optional selected skill name to include in the search log")
     skill_search_parser.add_argument("--clicked-skill", default="", help="Optional clicked skill name to include in the search log")
     skill_search_parser.add_argument("--format", choices=("json", "table", "names-only"), default="json", help="Output format")
@@ -235,7 +235,7 @@ def build_parser() -> argparse.ArgumentParser:
     skill_context_parser.add_argument("--budget", type=int, default=2000, help="Approximate token budget")
     skill_context_parser.add_argument("--format", choices=("json", "table", "names-only"), default="json", help="Output format")
 
-    telemetry_parser = subparsers.add_parser("hermes-skill-telemetry", help="Record Jarvis-owned Hermes skill lifecycle telemetry without modifying Hermes source")
+    telemetry_parser = subparsers.add_parser("hermes-skill-telemetry", help="Record ZeusOS-owned Hermes skill lifecycle telemetry without modifying Hermes source")
     telemetry_subparsers = telemetry_parser.add_subparsers(dest="telemetry_command", required=True)
     telemetry_record_parser = telemetry_subparsers.add_parser("record", help="Record a viewed/used/successful_apply/patched event for a skill")
     telemetry_record_parser.add_argument("--skill", default="", help="Skill name or directory basename")
@@ -243,12 +243,12 @@ def build_parser() -> argparse.ArgumentParser:
     telemetry_record_parser.add_argument("--event", required=True, choices=("viewed", "used", "successful_apply", "patched"), help="Telemetry event kind")
     telemetry_record_parser.add_argument("--hermes-home", default=str(Path.home() / ".hermes"), help="Hermes home directory")
     telemetry_record_parser.add_argument("--hermes-config", default="", help="Hermes config.yaml path; defaults to <hermes-home>/config.yaml")
-    telemetry_record_parser.add_argument("--telemetry-path", default="state/hermes-skill-usage.json", help="Jarvis telemetry sidecar JSON path")
+    telemetry_record_parser.add_argument("--telemetry-path", default="state/hermes-skill-usage.json", help="ZeusOS telemetry sidecar JSON path")
     telemetry_record_parser.add_argument("--no-external-dirs", action="store_true", help="Only scan ~/.hermes/skills; skip skills.external_dirs")
-    telemetry_record_parser.add_argument("--pinned", action="store_true", help="Mark the skill as pinned in Jarvis telemetry")
-    telemetry_record_parser.add_argument("--unpinned", action="store_true", help="Mark the skill as not pinned in Jarvis telemetry")
+    telemetry_record_parser.add_argument("--pinned", action="store_true", help="Mark the skill as pinned in ZeusOS telemetry")
+    telemetry_record_parser.add_argument("--unpinned", action="store_true", help="Mark the skill as not pinned in ZeusOS telemetry")
 
-    samples_parser = subparsers.add_parser("styled-voice-samples", help="Manage the Jarvis styled-voice sample library")
+    samples_parser = subparsers.add_parser("styled-voice-samples", help="Manage the ZeusOS styled-voice sample library")
     samples_subparsers = samples_parser.add_subparsers(dest="sample_command", required=True)
 
     samples_init_parser = samples_subparsers.add_parser("init", help="Create the sample library and default profile directories")
@@ -272,7 +272,7 @@ def build_parser() -> argparse.ArgumentParser:
     samples_refs_parser.add_argument("--library-dir", default="", help="Sample library root; defaults to data/styled-voice-samples")
     samples_refs_parser.add_argument("--profile", default="default", help="Profile, e.g. default, jongwon, jongwon/calm")
 
-    houroboros_parser = subparsers.add_parser("houroboros", aliases=["hooo"], help="Run the Jarvis-native Houroboros workflow harness")
+    houroboros_parser = subparsers.add_parser("houroboros", aliases=["hooo"], help="Run the ZeusOS-native Houroboros workflow harness")
     houroboros_subparsers = houroboros_parser.add_subparsers(dest="houroboros_command", required=True)
 
     houroboros_start_parser = houroboros_subparsers.add_parser("start", help="Start an interview-backed Houroboros run")
@@ -282,7 +282,7 @@ def build_parser() -> argparse.ArgumentParser:
     houroboros_start_parser.add_argument("--origin-channel-id", default="", help="Optional origin channel ID")
     houroboros_start_parser.add_argument("--origin-thread-id", default="", help="Optional origin thread ID")
     houroboros_start_parser.add_argument("--origin-message-id", default="", help="Optional origin Discord message ID")
-    houroboros_start_parser.add_argument("--auto-open-thread", action="store_true", help="Request Discord thread creation through the safe Jarvis handoff adapter")
+    houroboros_start_parser.add_argument("--auto-open-thread", action="store_true", help="Request Discord thread creation through the safe ZeusOS handoff adapter")
     houroboros_start_parser.add_argument("--thread-name", default="", help="Optional Discord thread name for the handoff request")
 
     houroboros_mark_thread_parser = houroboros_subparsers.add_parser("mark-thread-created", help="Mark a pending Discord thread handoff as created")
@@ -299,7 +299,7 @@ def build_parser() -> argparse.ArgumentParser:
     houroboros_turn_parser.add_argument("--run-id", required=True, help="Houroboros run ID")
     houroboros_turn_parser.add_argument("--message", required=True, help="Interview message to append")
 
-    houroboros_interact_parser = houroboros_subparsers.add_parser("interact", help="Safely reduce a Discord button interaction into the Jarvis state machine")
+    houroboros_interact_parser = houroboros_subparsers.add_parser("interact", help="Safely reduce a Discord button interaction into the ZeusOS state machine")
     houroboros_interact_parser.add_argument("--config", required=True, help="Path to pipeline.yaml")
     houroboros_interact_parser.add_argument("--run-id", required=True, help="Houroboros run ID")
     houroboros_interact_parser.add_argument(
@@ -328,8 +328,8 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main(argv: Sequence[str] | None = None) -> int:
-    parser = build_parser()
+def main(argv: Sequence[str] | None = None, *, prog: str = "zeus-os") -> int:
+    parser = build_parser(prog=prog)
     args = parser.parse_args(list(argv) if argv is not None else None)
 
     if args.command == "bootstrap":

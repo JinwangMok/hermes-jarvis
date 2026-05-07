@@ -5,7 +5,7 @@ from jinwang_jarvis.wiki_semantic_lint import lint_wiki_semantics
 
 def test_lint_wiki_semantics_reports_generated_and_durable_issues(tmp_path: Path):
     wiki = tmp_path / "wiki"
-    generated = wiki / "queries" / "jinwang-jarvis-report.md"
+    generated = wiki / "queries" / "zeus-os-report.md"
     generated.parent.mkdir(parents=True)
     generated.write_text(
         """---

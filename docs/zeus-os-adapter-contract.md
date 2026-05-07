@@ -109,7 +109,7 @@ A profile split is useful when a capability should have separate context, sessio
 | Profile | Role | Gateway stance |
 |---|---|---|
 | `default` / Boramae | Main human-facing orchestrator | Existing gateway remains primary |
-| `jarvis` | Mail/calendar/news/report specialist | Candidate separate gateway after dry-run validation |
+| `zeus-os` | Mail/calendar/news/report specialist | Candidate separate gateway after dry-run validation |
 | `karvis` | Research/paper/Playbox specialist | Later candidate |
 | `contractor` | OpenCode/Claude/Codex handoff controller | Later candidate; may be CLI/tmux-only |
 | `voice` | Discord voice/STT/TTS specialist | Later candidate, especially if voice runtime diverges |
@@ -236,6 +236,6 @@ This contract does not require:
 - moving external repos into ZeusOS;
 - replacing Hermes;
 - creating multiple Discord bot identities;
-- changing current `jinwang_jarvis` imports;
+- changing current `zeus_os` imports;
 - changing active systemd units;
 - moving generated wiki paths.

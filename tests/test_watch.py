@@ -134,7 +134,7 @@ hermes:
 reproducibility:
   packaging: pyproject
   config_format: yaml
-  project_name: jinwang-jarvis
+  project_name: zeus-os
 watch:
   enabled: true
   snapshot_dir: data/watch

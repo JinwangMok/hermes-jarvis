@@ -5,8 +5,8 @@ This repository may be maintained in two GitHub destinations:
 - public open-source repo: `public`
 
 Current intended mapping:
-- `origin` → `JinwangMok/jinwang-jarvis` (private)
-- `public` → `JinwangMok/hermes-jarvis` (public)
+- `origin` → `JinwangMok/zeus-os` (private)
+- `public` → `JinwangMok/hermes-zeus-os` (public)
 
 ## Goal
 Keep the private repo usable for real personal deployment while publishing a sanitized, reusable version to the public repo.

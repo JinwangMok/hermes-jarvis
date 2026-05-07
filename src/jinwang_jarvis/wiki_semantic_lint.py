@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-GENERATED_PREFIXES = ("reports/", "queries/jinwang-jarvis-", "queries/external-hot-issues/")
+GENERATED_PREFIXES = ("reports/", "queries/zeus-os-", "queries/external-hot-issues/")
 DURABLE_PREFIXES = ("entities/", "concepts/", "comparisons/")
 GENERATED_REQUIRED_KEYS = ("generated", "authority", "refresh_policy", "operational_source_of_truth")
 CANONICAL_PHRASES_RE = re.compile(r"source of truth|canonical|확정 사실", re.IGNORECASE)
@@ -58,7 +58,7 @@ def _is_generated_path(rel_path: str) -> bool:
 def _is_durable_path(rel_path: str) -> bool:
     if rel_path.startswith(DURABLE_PREFIXES):
         return True
-    return rel_path.startswith("queries/") and not rel_path.startswith(("queries/jinwang-jarvis-", "queries/external-hot-issues/"))
+    return rel_path.startswith("queries/") and not rel_path.startswith(("queries/zeus-os-", "queries/external-hot-issues/"))
 
 
 def _has_non_homepage_url(text: str) -> bool:

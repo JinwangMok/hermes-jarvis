@@ -1,20 +1,20 @@
 # ZeusOS
 
-ZeusOS is the product/control-plane identity for the existing `jinwang-jarvis` repository. It combines a local Agent OS control plane with the Jarvis personal-intelligence capability pack.
+ZeusOS is the product/control-plane identity for the existing `zeus-os` repository. It combines a local Agent OS control plane with the ZeusOS personal-intelligence capability pack.
 
 Compatibility-first naming during the transition:
 
 - **ZeusOS**: product/control-plane and Agent OS identity.
-- **Jarvis**: personal-intelligence capability pack for mail, calendar, briefings, hot issues, opportunity radar, HOOO/Houroboros, and related workflows.
-- **`jinwang-jarvis` / `jinwang_jarvis`**: existing repository, distribution, CLI, and Python import compatibility surfaces. They are intentionally not renamed yet.
+- **ZeusOS**: personal-intelligence capability pack for mail, calendar, briefings, hot issues, opportunity radar, HOOO/Houroboros, and related workflows.
+- **`zeus-os` / `zeus_os`**: existing repository, distribution, CLI, and Python import compatibility surfaces. They are intentionally not renamed yet.
 - **Hermes**: source-untouched gateway/runtime/tool host. ZeusOS integrates through plugins, sidecars, and CLI boundaries rather than Hermes core patches.
-- **Hermes profiles**: optional operational split for reducing context pollution and gateway queue contention. First candidate is a separate `jarvis` profile for mail/calendar/news/report work; profiles are not security sandboxes.
+- **Hermes profiles**: optional operational split for reducing context pollution and gateway queue contention. First candidate is a separate `zeus-os` profile for mail/calendar/news/report work; profiles are not security sandboxes.
 - **Portable browser recipes**: thin browser-harness helpers, URL/selector patterns, and `SKILL.md` playbooks can become reusable ZeusOS artifacts when registered with provenance; they do not patch Hermes or replace canonical SQLite/artifact state.
 - **External repos such as K-Skill**: independent capability providers integrated through adapter contracts, not vendored into ZeusOS core.
 
 For the migration contract, see `docs/zeus-os-rebrand-migration.md`. For external capability boundaries, see `docs/zeus-os-adapter-contract.md`.
 
-Hermes Jarvis helps you turn mail and calendar activity into a short action-oriented briefing.
+Hermes ZeusOS helps you turn mail and calendar activity into a short action-oriented briefing.
 
 ## Who this is for
 - people who want a compact summary of what needs attention now
@@ -34,7 +34,7 @@ It is for people who want to quickly see:
 
 ## Example output
 ```text
-Jarvis Briefing
+ZeusOS Briefing
 
 - Needs attention now:
   - Reply to project review request
@@ -72,8 +72,8 @@ You can use this as a lightweight personal operations summary, or feed it into a
 If you just want to see it working once:
 
 ```bash
-git clone https://github.com/JinwangMok/hermes-jarvis.git
-cd hermes-jarvis
+git clone https://github.com/JinwangMok/hermes-zeus-os.git
+cd hermes-zeus-os
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -e .
@@ -91,19 +91,19 @@ Then edit `config/pipeline.local.yaml` and set:
 Then run:
 
 ```bash
-PYTHONPATH=src python3 -m jinwang_jarvis.cli collect-mail --config config/pipeline.local.yaml
-PYTHONPATH=src python3 -m jinwang_jarvis.cli collect-calendar --config config/pipeline.local.yaml
-PYTHONPATH=src python3 -m jinwang_jarvis.cli classify-messages --config config/pipeline.local.yaml
-PYTHONPATH=src python3 -m jinwang_jarvis.cli generate-proposals --config config/pipeline.local.yaml
-PYTHONPATH=src python3 -m jinwang_jarvis.cli generate-briefing --config config/pipeline.local.yaml
+PYTHONPATH=src python3 -m zeus_os.cli collect-mail --config config/pipeline.local.yaml
+PYTHONPATH=src python3 -m zeus_os.cli collect-calendar --config config/pipeline.local.yaml
+PYTHONPATH=src python3 -m zeus_os.cli classify-messages --config config/pipeline.local.yaml
+PYTHONPATH=src python3 -m zeus_os.cli generate-proposals --config config/pipeline.local.yaml
+PYTHONPATH=src python3 -m zeus_os.cli generate-briefing --config config/pipeline.local.yaml
 ```
 
 That is enough to produce your first briefing artifact.
 
 ## Quick start
 ```bash
-git clone https://github.com/JinwangMok/hermes-jarvis.git
-cd hermes-jarvis
+git clone https://github.com/JinwangMok/hermes-zeus-os.git
+cd hermes-zeus-os
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -e .
@@ -126,17 +126,17 @@ Point `classification.sender_map_path` to `config/sender-map.md` if you want sen
 
 ## Run the pipeline
 ```bash
-PYTHONPATH=src python3 -m jinwang_jarvis.cli collect-mail --config config/pipeline.local.yaml
-PYTHONPATH=src python3 -m jinwang_jarvis.cli collect-calendar --config config/pipeline.local.yaml
-PYTHONPATH=src python3 -m jinwang_jarvis.cli classify-messages --config config/pipeline.local.yaml
-PYTHONPATH=src python3 -m jinwang_jarvis.cli generate-proposals --config config/pipeline.local.yaml
-PYTHONPATH=src python3 -m jinwang_jarvis.cli generate-briefing --config config/pipeline.local.yaml
+PYTHONPATH=src python3 -m zeus_os.cli collect-mail --config config/pipeline.local.yaml
+PYTHONPATH=src python3 -m zeus_os.cli collect-calendar --config config/pipeline.local.yaml
+PYTHONPATH=src python3 -m zeus_os.cli classify-messages --config config/pipeline.local.yaml
+PYTHONPATH=src python3 -m zeus_os.cli generate-proposals --config config/pipeline.local.yaml
+PYTHONPATH=src python3 -m zeus_os.cli generate-briefing --config config/pipeline.local.yaml
 ```
 
 ## Record a decision
 Reject a proposal:
 ```bash
-PYTHONPATH=src python3 -m jinwang_jarvis.cli record-feedback \
+PYTHONPATH=src python3 -m zeus_os.cli record-feedback \
   --config config/pipeline.local.yaml \
   --proposal-id <proposal_id> \
   --decision reject \
@@ -146,7 +146,7 @@ PYTHONPATH=src python3 -m jinwang_jarvis.cli record-feedback \
 
 Approve and create a calendar event:
 ```bash
-PYTHONPATH=src python3 -m jinwang_jarvis.cli record-feedback \
+PYTHONPATH=src python3 -m zeus_os.cli record-feedback \
   --config config/pipeline.local.yaml \
   --proposal-id <proposal_id> \
   --decision allow \
@@ -161,7 +161,7 @@ sudo loginctl enable-linger $USER
 ```
 
 Use the 5-minute polling loop for collection/state refresh, then add a separate 08:00 KST morning digest schedule for Discord delivery.
-See `docs/productized-jarvis.en.md` / `docs/productized-jarvis.ko.md` for the full productized workflow.
+See `docs/productized-zeus-os.en.md` / `docs/productized-zeus-os.ko.md` for the full productized workflow.
 
 For today’s hot-issues PDF pipeline, use `generate-unified-daily-report` as the single daily report composer. Personal Opportunity Radar daily user-facing output is deprecated; its artifacts feed the `개인 기회/공고 검토` section inside 오늘의 핫이슈 and must not imply an item is actionable unless official URL, deadline/window, eligibility, and support contents are all present.
 
@@ -169,20 +169,20 @@ For today’s hot-issues PDF pipeline, use `generate-unified-daily-report` as th
 Rebuild the local operational search sidecars after collecting mail/knowledge/watch data:
 
 ```bash
-PYTHONPATH=src python3 -m jinwang_jarvis.cli wiki-search-index --config config/pipeline.local.yaml
+PYTHONPATH=src python3 -m zeus_os.cli wiki-search-index --config config/pipeline.local.yaml
 ```
 
 `wiki-search-index` rewrites only the four SQLite FTS sidecar tables and is safe to rerun. Search those sidecars with JSON output:
 
 ```bash
-PYTHONPATH=src python3 -m jinwang_jarvis.cli wiki-search --config config/pipeline.local.yaml --query "jongwon" --limit 10
+PYTHONPATH=src python3 -m zeus_os.cli wiki-search --config config/pipeline.local.yaml --query "jongwon" --limit 10
 ```
 
 Run the read-only wiki boundary/evidence checker with either config or an explicit wiki root:
 
 ```bash
-PYTHONPATH=src python3 -m jinwang_jarvis.cli wiki-semantic-lint --config config/pipeline.local.yaml
-PYTHONPATH=src python3 -m jinwang_jarvis.cli wiki-semantic-lint --wiki-root /home/jinwang/wiki
+PYTHONPATH=src python3 -m zeus_os.cli wiki-semantic-lint --config config/pipeline.local.yaml
+PYTHONPATH=src python3 -m zeus_os.cli wiki-semantic-lint --wiki-root /home/jinwang/wiki
 ```
 
 `wiki-semantic-lint` reports generated/canonical/evidence issues as JSON only; it does not edit wiki files, queues, indexes, or logs.
@@ -190,13 +190,13 @@ PYTHONPATH=src python3 -m jinwang_jarvis.cli wiki-semantic-lint --wiki-root /hom
 ## Notes
 - Keep personal values in `config/pipeline.local.yaml`.
 - Keep `config/sender-map.md` private.
-- The Python module path is still `jinwang_jarvis` for compatibility.
+- The Python module path is still `zeus_os` for compatibility.
 
 ## Docs
 - English guide: `docs/public-guide.en.md`
 - 한국어 가이드: `docs/public-guide.ko.md`
-- Productized setup (EN): `docs/productized-jarvis.en.md`
-- 제품화 가이드 (KO): `docs/productized-jarvis.ko.md`
+- Productized setup (EN): `docs/productized-zeus-os.en.md`
+- 제품화 가이드 (KO): `docs/productized-zeus-os.ko.md`
 - Public/private sync notes: `docs/public-sync.md`
 
 ## FAQ

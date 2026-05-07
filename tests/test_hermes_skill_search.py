@@ -145,14 +145,14 @@ def test_usage_recency_and_count_are_scoring_inputs(tmp_path: Path) -> None:
     root = tmp_path / "skills"
     old = root / "old-helper"
     recent = root / "recent-helper"
-    _write_skill(old, description="Jarvis helper", body="Jarvis helper search.")
-    _write_skill(recent, description="Jarvis helper", body="Jarvis helper search.")
+    _write_skill(old, description="ZeusOS helper", body="ZeusOS helper search.")
+    _write_skill(recent, description="ZeusOS helper", body="ZeusOS helper search.")
     (old / ".usage.json").write_text(json.dumps({"use_count": 1, "last_used_at": "2025-01-01T00:00:00+00:00"}), encoding="utf-8")
     (recent / ".usage.json").write_text(json.dumps({"use_count": 5, "last_used_at": "2026-04-29T00:00:00+00:00"}), encoding="utf-8")
     db_path = tmp_path / "skills.sqlite"
 
     build_skill_search_index(db_path, skill_roots=[root])
-    result = search_skills(db_path, "jarvis helper", top_k=2, now=datetime(2026, 4, 30, tzinfo=timezone.utc))
+    result = search_skills(db_path, "zeus os helper", top_k=2, now=datetime(2026, 4, 30, tzinfo=timezone.utc))
 
     assert result["rows"][0]["name"] == "recent-helper"
     assert result["rows"][0]["use_count"] == 5
@@ -162,8 +162,8 @@ def test_jarvis_central_telemetry_merges_into_search_index(tmp_path: Path) -> No
     root = tmp_path / "skills"
     regular = root / "regular-helper"
     central = root / "central-helper"
-    _write_skill(regular, description="Jarvis telemetry helper", body="Jarvis telemetry helper search.")
-    _write_skill(central, description="Jarvis telemetry helper", body="Jarvis telemetry helper search.")
+    _write_skill(regular, description="ZeusOS telemetry helper", body="ZeusOS telemetry helper search.")
+    _write_skill(central, description="ZeusOS telemetry helper", body="ZeusOS telemetry helper search.")
     telemetry_path = tmp_path / "state" / "hermes-skill-usage.json"
     telemetry_path.parent.mkdir(parents=True)
     telemetry_path.write_text(
@@ -183,7 +183,7 @@ def test_jarvis_central_telemetry_merges_into_search_index(tmp_path: Path) -> No
     db_path = tmp_path / "skills.sqlite"
 
     index = build_skill_search_index(db_path, skill_roots=[root], telemetry_path=telemetry_path)
-    result = search_skills(db_path, "jarvis telemetry helper", top_k=2, now=datetime(2026, 4, 30, tzinfo=timezone.utc))
+    result = search_skills(db_path, "zeus os telemetry helper", top_k=2, now=datetime(2026, 4, 30, tzinfo=timezone.utc))
 
     assert index["telemetry_path"] == str(telemetry_path)
     assert result["rows"][0]["name"] == "central-helper"
@@ -214,7 +214,7 @@ def test_search_logging_is_opt_in_and_metadata_only(tmp_path: Path) -> None:
 def test_eval_metrics_and_exact_name_path_boosts(tmp_path: Path) -> None:
     root = tmp_path / "skills"
     _write_skill(root / "hermes-jinwang-customization", description="Hermes Jinwang customization contract", body="Preserve customization checks.")
-    _write_skill(root / "jinwang-jarvis", description="Jarvis source untouched sidecar", body="Source untouched Jarvis skill retrieval context budget.")
+    _write_skill(root / "zeus-os", description="ZeusOS source untouched sidecar", body="Source untouched ZeusOS skill retrieval context budget.")
     _write_skill(root / "opencode", description="OpenCode agent workflow", body="OpenCode tmux ultrawork ulw orchestration.")
     _write_skill(root / "jinwang-opencode-tmux-team", description="OpenCode tmux team", body="tmux team panes for ulw work.")
     db_path = tmp_path / "skills.sqlite"

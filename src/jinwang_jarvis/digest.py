@@ -64,7 +64,7 @@ def generate_digest(config: PipelineConfig, proposal_result: dict | None = None,
         notable_messages = _load_notable_messages(conn)
 
     lines = [
-        f"# Jarvis Digest — {moment.isoformat()}",
+        f"# ZeusOS Digest — {moment.isoformat()}",
         "",
         "## Pipeline summary",
         f"- total labels tracked: {sum(count for _, count in label_counts)}",

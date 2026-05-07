@@ -95,7 +95,7 @@ def test_cli_exposes_passive_lifecycle_audit(tmp_path: Path, capsys) -> None:
 
 def test_audit_hermes_skill_lifecycle_includes_jarvis_external_dirs_from_config(tmp_path: Path) -> None:
     hermes_home = tmp_path / "hermes"
-    external_skills = tmp_path / "jinwang-jarvis" / "skills"
+    external_skills = tmp_path / "zeus-os" / "skills"
     _write_skill(external_skills / "jarvis-owned")
     (hermes_home / "config.yaml").parent.mkdir(parents=True, exist_ok=True)
     (hermes_home / "config.yaml").write_text(

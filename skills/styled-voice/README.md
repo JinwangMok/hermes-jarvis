@@ -12,7 +12,7 @@ That means you can keep using the upstream Hermes codebase as-is without maintai
 ## What it does
 
 - uses direct VoxCPM endpoint: `http://10.40.40.40:9100/v1/audio/speech`
-- uses stored Jarvis sample-library profiles such as `default`, `jongwon`, or `jongwon/calm`
+- uses stored ZeusOS sample-library profiles such as `default`, `jongwon`, or `jongwon/calm`
 - handles ugly real-world Discord cache artifacts by normalizing audio with `ffmpeg` when needed
 - retries automatically with normalized WAV inputs if direct upload fails or looks suspicious
 - surfaces backend errors more clearly when the response is non-audio or upstream fails
@@ -67,7 +67,7 @@ What `install.sh` does:
 
 The current install flow does **not** patch Hermes runtime.
 
-That means `/styled-voice` uses stored Jarvis sample-library profiles or explicit operator-supplied file paths. It must **not** rely on hidden local cache-path injection from patched gateway code.
+That means `/styled-voice` uses stored ZeusOS sample-library profiles or explicit operator-supplied file paths. It must **not** rely on hidden local cache-path injection from patched gateway code.
 
 ## Discord-first usage
 
@@ -184,7 +184,7 @@ Otherwise, default to reference-only mode.
 - direct backend is used on purpose; nginx `/tts/...` was unhealthy during validation
 - nginx/front-door health should be debugged separately from the skill contract itself
 - `vllm` and `voxcpm` resource coexistence needs explicit operational checks; see `references/operations.md`
-- keep private/runtime sample audio under Jarvis `data/styled-voice-samples/`; do not commit samples
+- keep private/runtime sample audio under ZeusOS `data/styled-voice-samples/`; do not commit samples
 
 ## Related docs
 

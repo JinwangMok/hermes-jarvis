@@ -1,5 +1,5 @@
 [Unit]
-Description=Jinwang Jarvis weekly review
+Description=ZeusOS weekly review
 After=network-online.target
 Wants=network-online.target
 
@@ -7,4 +7,4 @@ Wants=network-online.target
 Type=oneshot
 WorkingDirectory=/home/jinwang/workspace/jinwang-jarvis
 Environment=PATH=/home/jinwang/.local/bin:/home/jinwang/.bun/bin:/home/jinwang/.local/bin:/run/user/1000/fnm_multishells/1623427_1777001961481/bin:/home/jinwang/.local/share/fnm:/home/jinwang/.opencode/bin:/home/jinwang/.local/bin:/home/jinwang/.cargo/bin:/home/jinwang/.bun/bin:/home/jinwang/.local/bin:/home/jinwang/.local/bin:/run/user/1000/fnm_multishells/1623330_1777001950976/bin:/home/jinwang/.local/share/fnm:/home/jinwang/.opencode/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin
-ExecStart=/bin/bash -lc 'cd /home/jinwang/workspace/jinwang-jarvis && PYTHONPATH=src python3 -m jinwang_jarvis.cli weekly-review --config config/pipeline.local.yaml'
+ExecStart=/bin/bash -lc 'cd /home/jinwang/workspace/jinwang-jarvis && PYTHONPATH=src python3 -m zeus_os.cli weekly-review --config config/pipeline.local.yaml'

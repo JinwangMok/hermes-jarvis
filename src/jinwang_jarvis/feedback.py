@@ -73,7 +73,7 @@ def _create_calendar_event(config: PipelineConfig, proposal: dict, runner: Calla
         "calendar",
         "create",
         "--summary",
-        proposal.get("title") or "Jarvis proposal",
+        proposal.get("title") or "ZeusOS proposal",
         "--start",
         start_ts,
         "--end",

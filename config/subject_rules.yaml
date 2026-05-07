@@ -1,4 +1,4 @@
-# Optional subject suppression / promotion patterns for jinwang-jarvis
+# Optional subject suppression / promotion patterns for zeus-os
 # suppress:
 #   - pattern: "security alert"
 #     labels: [security-routine]

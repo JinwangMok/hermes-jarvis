@@ -1,4 +1,4 @@
-# Cron plan for jinwang-jarvis
+# Cron plan for zeus-os
 
 ## Planned jobs
 - `pi_collect_mail.py` — hourly
@@ -10,56 +10,56 @@
 
 ## Bootstrap command
 ```bash
-cd /home/jinwang/workspace/jinwang-jarvis
-PYTHONPATH=src python3 -m jinwang_jarvis.cli bootstrap --config config/pipeline.yaml
+cd /home/jinwang/workspace/zeus-os
+PYTHONPATH=src python3 -m zeus_os.cli bootstrap --config config/pipeline.yaml
 ```
 
 ## Mail collection command
 ```bash
-cd /home/jinwang/workspace/jinwang-jarvis
-PYTHONPATH=src python3 -m jinwang_jarvis.cli collect-mail --config config/pipeline.yaml
+cd /home/jinwang/workspace/zeus-os
+PYTHONPATH=src python3 -m zeus_os.cli collect-mail --config config/pipeline.yaml
 ```
 
 ## Calendar collection command
 ```bash
-cd /home/jinwang/workspace/jinwang-jarvis
-PYTHONPATH=src python3 -m jinwang_jarvis.cli collect-calendar --config config/pipeline.yaml
+cd /home/jinwang/workspace/zeus-os
+PYTHONPATH=src python3 -m zeus_os.cli collect-calendar --config config/pipeline.yaml
 ```
 
 ## Classification command
 ```bash
-cd /home/jinwang/workspace/jinwang-jarvis
-PYTHONPATH=src python3 -m jinwang_jarvis.cli classify-messages --config config/pipeline.yaml
+cd /home/jinwang/workspace/zeus-os
+PYTHONPATH=src python3 -m zeus_os.cli classify-messages --config config/pipeline.yaml
 ```
 
 ## Proposal + digest command
 ```bash
-cd /home/jinwang/workspace/jinwang-jarvis
-PYTHONPATH=src python3 -m jinwang_jarvis.cli generate-proposals --config config/pipeline.yaml
+cd /home/jinwang/workspace/zeus-os
+PYTHONPATH=src python3 -m zeus_os.cli generate-proposals --config config/pipeline.yaml
 ```
 
 This also refreshes:
 - watchlist artifact under `data/watchlists/`
-- rolling wiki synthesis note at `/home/jinwang/wiki/queries/jinwang-jarvis-importance-shift-watchlist.md`
+- rolling wiki synthesis note at `/home/jinwang/wiki/queries/zeus-os-importance-shift-watchlist.md`
 - latest natural-language briefing artifact under `data/briefings/`
-- hierarchical memory notes under `/home/jinwang/wiki/queries/jinwang-jarvis-memory/`
+- hierarchical memory notes under `/home/jinwang/wiki/queries/zeus-os-memory/`
 
 ## Briefing command
 ```bash
-cd /home/jinwang/workspace/jinwang-jarvis
-PYTHONPATH=src python3 -m jinwang_jarvis.cli generate-briefing --config config/pipeline.yaml
+cd /home/jinwang/workspace/zeus-os
+PYTHONPATH=src python3 -m zeus_os.cli generate-briefing --config config/pipeline.yaml
 ```
 
 ## Knowledge synthesis command
 ```bash
-cd /home/jinwang/workspace/jinwang-jarvis
-PYTHONPATH=src python3 -m jinwang_jarvis.cli synthesize-knowledge --config config/pipeline.yaml
+cd /home/jinwang/workspace/zeus-os
+PYTHONPATH=src python3 -m zeus_os.cli synthesize-knowledge --config config/pipeline.yaml
 ```
 
 ## Feedback command
 ```bash
-cd /home/jinwang/workspace/jinwang-jarvis
-PYTHONPATH=src python3 -m jinwang_jarvis.cli record-feedback \
+cd /home/jinwang/workspace/zeus-os
+PYTHONPATH=src python3 -m zeus_os.cli record-feedback \
   --config config/pipeline.yaml \
   --proposal-id <proposal_id> \
   --decision reject \
@@ -71,27 +71,27 @@ The command also regenerates the latest briefing artifact so the next Discord re
 
 ## Weekly review command
 ```bash
-cd /home/jinwang/workspace/jinwang-jarvis
-PYTHONPATH=src python3 -m jinwang_jarvis.cli weekly-review --config config/pipeline.yaml
+cd /home/jinwang/workspace/zeus-os
+PYTHONPATH=src python3 -m zeus_os.cli weekly-review --config config/pipeline.yaml
 ```
 
 ## Install systemd timers
 ```bash
-cd /home/jinwang/workspace/jinwang-jarvis
-PYTHONPATH=src python3 -m jinwang_jarvis.cli install-systemd --config config/pipeline.yaml --poll-minutes 5
+cd /home/jinwang/workspace/zeus-os
+PYTHONPATH=src python3 -m zeus_os.cli install-systemd --config config/pipeline.yaml --poll-minutes 5
 sudo loginctl enable-linger $USER
 ```
 
 This writes user units to `~/.config/systemd/user/` and mirrors them under `systemd/` inside the workspace.
 If you want timers to continue after reboot **without an interactive login**, `loginctl enable-linger` is strongly recommended.
 
-## Hermes + Jarvis 24/7 standby units
-Current OpenBox operation runs Jarvis scheduled work through Hermes cron inside `hermes-gateway.service`, not through the older standalone `jinwang-jarvis-cycle.*` timers.
+## Hermes + ZeusOS 24/7 standby units
+Current OpenBox operation runs ZeusOS scheduled work through Hermes cron inside `hermes-gateway.service`, not through the older standalone `zeus-os-cycle.*` timers.
 For this model, render the repo-managed standby units:
 
 ```bash
-cd /home/jinwang/workspace/jinwang-jarvis
-PYTHONPATH=src python3 -m jinwang_jarvis.cli install-standby-systemd \
+cd /home/jinwang/workspace/zeus-os
+PYTHONPATH=src python3 -m zeus_os.cli install-standby-systemd \
   --config config/pipeline.local.yaml \
   --health-minutes 5 \
   --stale-minutes 15 \
@@ -100,13 +100,13 @@ PYTHONPATH=src python3 -m jinwang_jarvis.cli install-standby-systemd \
 
 This writes these reproducible unit files under `systemd/`:
 - `hermes-gateway.service` — gateway service template with `Restart=always`, `RestartSec=30`, and the Hermes venv path.
-- `jinwang-jarvis-hermes-health.service` — checks `hermes-gateway.service` and Hermes cron `jobs.json`; restarts the gateway if inactive/failed; sends Discord alerts when unhealthy.
-- `jinwang-jarvis-hermes-health.timer` — every 5 minutes, `Persistent=true`, starts 5 minutes after boot.
+- `zeus-os-hermes-health.service` — checks `hermes-gateway.service` and Hermes cron `jobs.json`; restarts the gateway if inactive/failed; sends Discord alerts when unhealthy.
+- `zeus-os-hermes-health.timer` — every 5 minutes, `Persistent=true`, starts 5 minutes after boot.
 
 To install the health watchdog live without replacing the existing gateway unit:
 
 ```bash
-PYTHONPATH=src python3 -m jinwang_jarvis.cli install-standby-systemd \
+PYTHONPATH=src python3 -m zeus_os.cli install-standby-systemd \
   --config config/pipeline.local.yaml \
   --health-minutes 5 \
   --stale-minutes 15
@@ -118,7 +118,7 @@ Health alerts use `DISCORD_BOT_TOKEN` from `~/.hermes/.env` and the channel from
 Manual health check:
 
 ```bash
-PYTHONPATH=src python3 -m jinwang_jarvis.cli hermes-health-check \
+PYTHONPATH=src python3 -m zeus_os.cli hermes-health-check \
   --config config/pipeline.local.yaml \
   --discord-alert \
   --restart
@@ -126,9 +126,9 @@ PYTHONPATH=src python3 -m jinwang_jarvis.cli hermes-health-check \
 
 ## Backfill command
 ```bash
-cd /home/jinwang/workspace/jinwang-jarvis
-PYTHONPATH=src python3 -m jinwang_jarvis.cli backfill --config config/pipeline.yaml
-PYTHONPATH=src python3 -m jinwang_jarvis.cli backfill-next --config config/pipeline.yaml --max-months 36
+cd /home/jinwang/workspace/zeus-os
+PYTHONPATH=src python3 -m zeus_os.cli backfill --config config/pipeline.yaml
+PYTHONPATH=src python3 -m zeus_os.cli backfill-next --config config/pipeline.yaml --max-months 36
 ```
 
 ## Polling principle
@@ -147,4 +147,4 @@ Recommended digest steps:
 - `generate-daily-intelligence`
 - deliver a human-facing morning summary to Discord
 
-See `docs/productized-jarvis.en.md` / `docs/productized-jarvis.ko.md` for the end-to-end productized setup.
+See `docs/productized-zeus-os.en.md` / `docs/productized-zeus-os.ko.md` for the end-to-end productized setup.

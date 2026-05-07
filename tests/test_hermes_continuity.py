@@ -6,7 +6,7 @@ from jinwang_jarvis.hermes_continuity import check_hermes_customizations
 def test_check_hermes_customizations_reports_two_component_contract(tmp_path: Path, monkeypatch):
     hermes_home = tmp_path / "hermes"
     hermes_agent = hermes_home / "hermes-agent"
-    jarvis_skills = tmp_path / "jinwang-jarvis" / "skills"
+    jarvis_skills = tmp_path / "zeus-os" / "skills"
     (hermes_agent / "gateway").mkdir(parents=True)
     (hermes_agent / "hermes_cli").mkdir(parents=True)
     jarvis_skills.mkdir(parents=True)
@@ -30,7 +30,7 @@ def test_check_hermes_customizations_reports_two_component_contract(tmp_path: Pa
 
     result = check_hermes_customizations(hermes_home=hermes_home, hermes_agent_dir=hermes_agent)
 
-    assert result["contract"] == "Hermes agent + jinwang-jarvis"
+    assert result["contract"] == "Hermes agent + zeus-os"
     assert result["capabilities"]["styled_voice"]["checks"]["source_untouched_mode"]["ok"] is True
     assert "Hidden Discord attachment cache" in result["capabilities"]["styled_voice"]["checks"]["source_untouched_mode"]["limitation"]
     assert result["capabilities"]["styled_voice"]["checks"]["backend_health"]["skipped"] is True

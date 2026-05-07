@@ -35,7 +35,7 @@ reports/news-center/categories/{politics,economy,society,it-science,world}.md
 generated: true
 authority: generated
 canonical: false
-generator: jinwang-jarvis-personal-radar
+generator: zeus-os-personal-radar
 operational_source_of_truth: state/personal_intel.db
 allowed_use: triage_only
 promotion_policy: source-linked compressed facts only

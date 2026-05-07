@@ -46,7 +46,7 @@ hermes:
 reproducibility:
   packaging: pyproject
   config_format: yaml
-  project_name: jinwang-jarvis
+  project_name: zeus-os
 """.format(root=root.as_posix())
 
 
@@ -61,7 +61,7 @@ def _payload(capsys):
 
 
 def _make_seed_ready(workflow: HouroborosWorkflow, run_id: str) -> None:
-    workflow.turn(run_id, "Scope: Jarvis-owned deterministic workflow")
+    workflow.turn(run_id, "Scope: ZeusOS-owned deterministic workflow")
     workflow.turn(run_id, "Acceptance: writes deterministic artifacts")
     workflow.turn(run_id, "Constraint: no Hermes source mutation")
     workflow.turn(run_id, "Executor: deterministic-placeholder")
@@ -271,7 +271,7 @@ def test_houroboros_cli_namespace_emits_json_and_exports(tmp_path: Path, capsys)
         "--config",
         str(config_file),
         "--goal",
-        "Ship Jarvis-native workflow",
+        "Ship ZeusOS-native workflow",
         "--origin-platform",
         "discord",
         "--origin-channel-id",
@@ -307,7 +307,7 @@ def test_houroboros_cli_namespace_emits_json_and_exports(tmp_path: Path, capsys)
 
     assert main(["houroboros", "export", "--config", str(config_file), "--run-id", run_id]) == 0
     exported = _payload(capsys)
-    assert exported["run"]["goal"] == "Ship Jarvis-native workflow"
+    assert exported["run"]["goal"] == "Ship ZeusOS-native workflow"
 
 
 def test_houroboros_cli_hooo_alias_pending_thread_and_mark_created(tmp_path: Path, capsys):
@@ -442,7 +442,7 @@ def test_houroboros_interview_choices_reduce_ambiguity_and_seed_records_decision
     started = workflow.start(goal="Implement interactive HOOO", origin_platform="discord", origin_channel_id="parent")
     run_id = started["run_id"]
 
-    workflow.turn(run_id, "Scope: Jarvis-owned HOOO only")
+    workflow.turn(run_id, "Scope: ZeusOS-owned HOOO only")
     workflow.turn(run_id, "Acceptance: Discord card is emitted")
     workflow.turn(run_id, "Constraint: Hermes source remains untouched")
     workflow.turn(run_id, "Executor: claude-code handoff, no direct gateway restart")
@@ -570,9 +570,9 @@ def test_houroboros_other_opinion_plain_reply_resolves_only_pending_dimension(tm
     other = next(component for component in card["card"]["components"] if component["action"] == "other_opinion")
     workflow.handle_interaction(run_id, custom_id=other["custom_id"], origin_channel_id="parent")
 
-    status = workflow.turn(run_id, "Only touch Jarvis-owned runtime and tests")
+    status = workflow.turn(run_id, "Only touch ZeusOS-owned runtime and tests")
 
-    assert status["interview_state"]["decisions"]["scope"] == "Only touch Jarvis-owned runtime and tests"
+    assert status["interview_state"]["decisions"]["scope"] == "Only touch ZeusOS-owned runtime and tests"
     assert "pending_freeform_dimension" not in status["interview_state"]
     assert status["interview_state"]["resolved"] == ["scope"]
     assert status["interview_state"]["unresolved"] == ["acceptance", "constraint", "executor", "permission"]

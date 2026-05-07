@@ -1,6 +1,6 @@
-# Hermes Jarvis Setup Guide
+# Hermes ZeusOS Setup Guide
 
-Hermes Jarvis gives you a short briefing from your mail and calendar data.
+Hermes ZeusOS gives you a short briefing from your mail and calendar data.
 
 Use it if you want to answer these questions quickly:
 - What needs attention now?
@@ -16,8 +16,8 @@ Use it if you want to answer these questions quickly:
 
 ## 1. Clone and install
 ```bash
-git clone https://github.com/JinwangMok/hermes-jarvis.git
-cd hermes-jarvis
+git clone https://github.com/JinwangMok/hermes-zeus-os.git
+cd hermes-zeus-os
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -e .
@@ -52,17 +52,17 @@ Example format:
 
 ## 5. Run the main steps
 ```bash
-PYTHONPATH=src python3 -m jinwang_jarvis.cli collect-mail --config config/pipeline.local.yaml
-PYTHONPATH=src python3 -m jinwang_jarvis.cli collect-calendar --config config/pipeline.local.yaml
-PYTHONPATH=src python3 -m jinwang_jarvis.cli classify-messages --config config/pipeline.local.yaml
-PYTHONPATH=src python3 -m jinwang_jarvis.cli generate-proposals --config config/pipeline.local.yaml
-PYTHONPATH=src python3 -m jinwang_jarvis.cli generate-briefing --config config/pipeline.local.yaml
+PYTHONPATH=src python3 -m zeus_os.cli collect-mail --config config/pipeline.local.yaml
+PYTHONPATH=src python3 -m zeus_os.cli collect-calendar --config config/pipeline.local.yaml
+PYTHONPATH=src python3 -m zeus_os.cli classify-messages --config config/pipeline.local.yaml
+PYTHONPATH=src python3 -m zeus_os.cli generate-proposals --config config/pipeline.local.yaml
+PYTHONPATH=src python3 -m zeus_os.cli generate-briefing --config config/pipeline.local.yaml
 ```
 
 ## 6. Approve or reject a proposal
 Reject:
 ```bash
-PYTHONPATH=src python3 -m jinwang_jarvis.cli record-feedback \
+PYTHONPATH=src python3 -m zeus_os.cli record-feedback \
   --config config/pipeline.local.yaml \
   --proposal-id <proposal_id> \
   --decision reject \
@@ -72,7 +72,7 @@ PYTHONPATH=src python3 -m jinwang_jarvis.cli record-feedback \
 
 Approve and create a calendar event:
 ```bash
-PYTHONPATH=src python3 -m jinwang_jarvis.cli record-feedback \
+PYTHONPATH=src python3 -m zeus_os.cli record-feedback \
   --config config/pipeline.local.yaml \
   --proposal-id <proposal_id> \
   --decision allow \
@@ -93,9 +93,9 @@ Recommended operations model:
 ## 8. Full productized guide (Gmail / All Mail / Discord / wiki intelligence)
 For the higher-level assistant workflow (knowledge lane, wiki intelligence, participant cache, thread/project notes, Discord morning briefing), follow:
 
-- `docs/productized-jarvis.en.md`
+- `docs/productized-zeus-os.en.md`
 
 ## Practical notes
 - Keep personal values in `config/pipeline.local.yaml`.
 - Keep `config/sender-map.md` out of version control.
-- The module path is still `jinwang_jarvis` for compatibility.
+- The module path is still `zeus_os` for compatibility.

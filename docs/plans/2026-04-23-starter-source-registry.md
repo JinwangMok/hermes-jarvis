@@ -1,6 +1,6 @@
 # Starter Source Registry Design for AI/Cloud Hot-Issue Tracker
 
-> 목적: `jinwang-jarvis` 외부 핫이슈 트래커의 v1 starter source registry를 실제 접근 테스트 기반으로 정의한다.
+> 목적: `zeus-os` 외부 핫이슈 트래커의 v1 starter source registry를 실제 접근 테스트 기반으로 정의한다.
 
 ## 1. 설계 원칙
 

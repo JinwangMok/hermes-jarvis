@@ -15,14 +15,15 @@ def default_sample_library_dir(workspace_root: Path | str | None = None) -> Path
     """Return the default styled-voice sample library path.
 
     Precedence:
-    1. `JARVIS_STYLED_VOICE_SAMPLE_DIR` explicit override.
-    2. `JARVIS_WORKSPACE_ROOT` or supplied workspace root.
+    1. `ZEUSOS_STYLED_VOICE_SAMPLE_DIR` explicit override.
+    2. `JARVIS_STYLED_VOICE_SAMPLE_DIR` compatibility override.
+    3. `ZEUSOS_WORKSPACE_ROOT`, then `JARVIS_WORKSPACE_ROOT`, or supplied workspace root.
     3. Current working directory, keeping local CLI use repo-relative.
     """
-    explicit = os.environ.get("JARVIS_STYLED_VOICE_SAMPLE_DIR")
+    explicit = os.environ.get("ZEUSOS_STYLED_VOICE_SAMPLE_DIR") or os.environ.get("JARVIS_STYLED_VOICE_SAMPLE_DIR")
     if explicit:
         return Path(explicit).expanduser()
-    root = Path(workspace_root or os.environ.get("JARVIS_WORKSPACE_ROOT") or Path.cwd()).expanduser()
+    root = Path(workspace_root or os.environ.get("ZEUSOS_WORKSPACE_ROOT") or os.environ.get("JARVIS_WORKSPACE_ROOT") or Path.cwd()).expanduser()
     return root / DEFAULT_SAMPLE_LIBRARY_RELATIVE_DIR
 
 

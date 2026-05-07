@@ -1,0 +1,10 @@
+[Unit]
+Description=Run ZeusOS weekly review on Sunday evening
+
+[Timer]
+OnCalendar=Sun *-*-* 20:00:00
+Persistent=true
+Unit=zeus-os-weekly-review.service
+
+[Install]
+WantedBy=timers.target

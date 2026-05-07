@@ -1,13 +1,13 @@
 # Zeus OS Usage Guide
 
-Zeus OS is the Jarvis-owned Agent OS control plane. It provides deterministic, stdlib-only multi-agent orchestration with SQLite WAL as the canonical store.
+Zeus OS is the ZeusOS-owned Agent OS control plane. It provides deterministic, stdlib-only multi-agent orchestration with SQLite WAL as the canonical store.
 
 ## Quick Start
 
 ### Initialize Zeus OS
 
 ```bash
-python -m jinwang_jarvis.cli zeus init
+python -m zeus_os.cli zeus init
 ```
 
 This creates the SQLite schema with WAL mode, foreign keys, and seeds 13 default agent cards including Painter.
@@ -15,25 +15,25 @@ This creates the SQLite schema with WAL mode, foreign keys, and seeds 13 default
 ### Submit a Task
 
 ```bash
-python -m jinwang_jarvis.cli zeus task submit --title "Implement feature X" --goal "Add user authentication"
+python -m zeus_os.cli zeus task submit --title "Implement feature X" --goal "Add user authentication"
 ```
 
 ### Check Task Status
 
 ```bash
-python -m jinwang_jarvis.cli zeus task status <task_id>
+python -m zeus_os.cli zeus task status <task_id>
 ```
 
 ### Replay Task Events
 
 ```bash
-python -m jinwang_jarvis.cli zeus task replay <task_id>
+python -m zeus_os.cli zeus task replay <task_id>
 ```
 
 ### Export Task to JSONL
 
 ```bash
-python -m jinwang_jarvis.cli zeus task export <task_id> --output data/exports/task.jsonl
+python -m zeus_os.cli zeus task export <task_id> --output data/exports/task.jsonl
 ```
 
 ## Agent Management
@@ -41,13 +41,13 @@ python -m jinwang_jarvis.cli zeus task export <task_id> --output data/exports/ta
 ### List Agents
 
 ```bash
-python -m jinwang_jarvis.cli zeus agent list
+python -m zeus_os.cli zeus agent list
 ```
 
 ### Show Agent Details
 
 ```bash
-python -m jinwang_jarvis.cli zeus agent show painter
+python -m zeus_os.cli zeus agent show painter
 ```
 
 ## Boardroom Sessions
@@ -55,13 +55,13 @@ python -m jinwang_jarvis.cli zeus agent show painter
 ### Create a Session
 
 ```bash
-python -m jinwang_jarvis.cli zeus boardroom create --title "Design review"
+python -m zeus_os.cli zeus boardroom create --title "Design review"
 ```
 
 ### Advance Rounds
 
 ```bash
-python -m jinwang_jarvis.cli zeus boardroom advance <session_id>
+python -m zeus_os.cli zeus boardroom advance <session_id>
 ```
 
 Sessions enforce `max_rounds`. When exceeded, the session auto-closes.
@@ -71,19 +71,19 @@ Sessions enforce `max_rounds`. When exceeded, the session auto-closes.
 ### List Queue State
 
 ```bash
-python -m jinwang_jarvis.cli zeus queue list
+python -m zeus_os.cli zeus queue list
 ```
 
 ### Recover Expired Leases
 
 ```bash
-python -m jinwang_jarvis.cli zeus queue recover
+python -m zeus_os.cli zeus queue recover
 ```
 
 ### Run a Deterministic Worker
 
 ```bash
-python -m jinwang_jarvis.cli zeus worker run --kind deterministic --once
+python -m zeus_os.cli zeus worker run --kind deterministic --once
 ```
 
 ## Painter Workflow
@@ -91,7 +91,7 @@ python -m jinwang_jarvis.cli zeus worker run --kind deterministic --once
 ### Run Painter (Deterministic Fake Images)
 
 ```bash
-python -m jinwang_jarvis.cli zeus painter run <task_id> --purpose "Blog header" --prompt "A serene mountain landscape" --style "Minimalist"
+python -m zeus_os.cli zeus painter run <task_id> --purpose "Blog header" --prompt "A serene mountain landscape" --style "Minimalist"
 ```
 
 This creates `brief.md`, `prompt.md`, and `image.json` artifacts. Live image generation is gated behind approval.
@@ -101,13 +101,13 @@ This creates `brief.md`, `prompt.md`, and `image.json` artifacts. Live image gen
 ### View A2A Task Projection
 
 ```bash
-python -m jinwang_jarvis.cli zeus a2a task <task_id>
+python -m zeus_os.cli zeus a2a task <task_id>
 ```
 
 ### View A2A Agent Card
 
 ```bash
-python -m jinwang_jarvis.cli zeus a2a agent <agent_id>
+python -m zeus_os.cli zeus a2a agent <agent_id>
 ```
 
 ## Health Checks
@@ -115,7 +115,7 @@ python -m jinwang_jarvis.cli zeus a2a agent <agent_id>
 ### Run Doctor
 
 ```bash
-python -m jinwang_jarvis.cli zeus doctor
+python -m zeus_os.cli zeus doctor
 ```
 
 Doctor reports: DB health, WAL mode, artifact integrity, queue state, expired leases, stale workers, dead letters, pending approvals, projection lag, and secret scans.

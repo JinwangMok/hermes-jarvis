@@ -66,7 +66,7 @@ hermes:
 reproducibility:
   packaging: pyproject
   config_format: yaml
-  project_name: jinwang-jarvis
+  project_name: zeus-os
 """.format(root=root.as_posix(), wiki=(root / 'wiki').as_posix()),
         encoding="utf-8",
     )
@@ -449,7 +449,7 @@ def test_collect_knowledge_mail_and_generate_daily_intelligence(tmp_path: Path):
     assert report_result["index_path"].exists()
     wiki_text = report_result["wiki_note_path"].read_text(encoding="utf-8")
     assert "generated: true" in wiki_text
-    assert "generator: jinwang-jarvis" in wiki_text
+    assert "generator: zeus-os" in wiki_text
     assert "authority: derived" in wiki_text
     assert f"operational_source_of_truth: {config.database_path}" in wiki_text
     assert report_result["wiki_governance"]["generated_report_contract"].endswith("generated-report-contract.md")
@@ -550,7 +550,7 @@ def test_generate_daily_intelligence_promotes_jongwon_and_smartx_flow_notes(tmp_
     assert "Priority flows" in index_text
     assert "jongwon-smartx-flow" in index_text
 
-    flow_note = config.wiki_root / "queries/jinwang-jarvis-intelligence/priority/jongwon-smartx-flow.md"
+    flow_note = config.wiki_root / "queries/zeus-os-intelligence/priority/jongwon-smartx-flow.md"
     assert flow_note.exists()
     flow_text = flow_note.read_text(encoding="utf-8")
     assert "jongwon@smartx.kr" in flow_text
@@ -716,17 +716,17 @@ def test_generate_daily_intelligence_creates_dedicated_jongwon_smartx_lane_notes
     assert "next-day-mail-todos" in index_text
     assert "important-mail-recommendations" in index_text
 
-    direct_note = config.wiki_root / "queries/jinwang-jarvis-intelligence/priority/jongwon-direct-actions.md"
-    weekly_note = config.wiki_root / "queries/jinwang-jarvis-intelligence/priority/smartx-weekly-briefing.md"
-    phase_note = config.wiki_root / "queries/jinwang-jarvis-intelligence/priority/jongwon-phase-map.md"
-    context_note = config.wiki_root / "queries/jinwang-jarvis-intelligence/priority/jongwon-context-cases.md"
-    chain_note = config.wiki_root / "queries/jinwang-jarvis-intelligence/priority/interaction-chain-status.md"
-    advisor_action_note = config.wiki_root / "queries/jinwang-jarvis-intelligence/priority/advisor-action-status.md"
-    education_note = config.wiki_root / "queries/jinwang-jarvis-intelligence/priority/education-teaching-memory.md"
-    project_note = config.wiki_root / "queries/jinwang-jarvis-intelligence/priority/project-work-items.md"
-    recent_action_note = config.wiki_root / "queries/jinwang-jarvis-intelligence/priority/recent-action-alerts.md"
-    next_day_todo_note = config.wiki_root / "queries/jinwang-jarvis-intelligence/priority/next-day-mail-todos.md"
-    important_mail_note = config.wiki_root / "queries/jinwang-jarvis-intelligence/priority/important-mail-recommendations.md"
+    direct_note = config.wiki_root / "queries/zeus-os-intelligence/priority/jongwon-direct-actions.md"
+    weekly_note = config.wiki_root / "queries/zeus-os-intelligence/priority/smartx-weekly-briefing.md"
+    phase_note = config.wiki_root / "queries/zeus-os-intelligence/priority/jongwon-phase-map.md"
+    context_note = config.wiki_root / "queries/zeus-os-intelligence/priority/jongwon-context-cases.md"
+    chain_note = config.wiki_root / "queries/zeus-os-intelligence/priority/interaction-chain-status.md"
+    advisor_action_note = config.wiki_root / "queries/zeus-os-intelligence/priority/advisor-action-status.md"
+    education_note = config.wiki_root / "queries/zeus-os-intelligence/priority/education-teaching-memory.md"
+    project_note = config.wiki_root / "queries/zeus-os-intelligence/priority/project-work-items.md"
+    recent_action_note = config.wiki_root / "queries/zeus-os-intelligence/priority/recent-action-alerts.md"
+    next_day_todo_note = config.wiki_root / "queries/zeus-os-intelligence/priority/next-day-mail-todos.md"
+    important_mail_note = config.wiki_root / "queries/zeus-os-intelligence/priority/important-mail-recommendations.md"
     assert direct_note.exists()
     assert weekly_note.exists()
     assert phase_note.exists()

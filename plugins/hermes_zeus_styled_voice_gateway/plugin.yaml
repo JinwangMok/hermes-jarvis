@@ -1,0 +1,5 @@
+name: hermes-zeus-styled-voice-gateway
+version: 0.1.0
+description: Discord natural-language trigger for ZeusOS-owned styled voice generation
+provides_hooks:
+  - pre_gateway_dispatch

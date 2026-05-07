@@ -1,0 +1,10 @@
+[Unit]
+Description=Jinwang Jarvis weekly review
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/tmp/pytest-of-jinwang/pytest-267/test_cli_run_cycle_and_install0
+Environment=PATH=/home/jinwang/.local/bin:/home/jinwang/.local/bin:/home/jinwang/.hermes/hermes-agent/venv/bin:/home/jinwang/.hermes/hermes-agent/node_modules/.bin:/home/jinwang/.local/share/fnm/node-versions/v24.14.1/installation/bin:/home/jinwang/.local/bin:/home/jinwang/.cargo/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/snap/bin
+ExecStart=/bin/bash -lc 'cd /tmp/pytest-of-jinwang/pytest-267/test_cli_run_cycle_and_install0 && PYTHONPATH=src python3 -m jinwang_jarvis.cli weekly-review --config pipeline.yaml'

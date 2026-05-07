@@ -1,7 +1,7 @@
 # Personal Intelligence Radar — Requirement Coverage and Risk Gate
 
 Date: 2026-04-26 UTC
-Owner: Jinwang Jarvis
+Owner: ZeusOS
 
 ## Scoring Method
 

@@ -1,0 +1,11 @@
+[Unit]
+Description=Run ZeusOS pipeline every 10 minutes
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=10min
+Persistent=true
+Unit=zeus-os-cycle.service
+
+[Install]
+WantedBy=timers.target

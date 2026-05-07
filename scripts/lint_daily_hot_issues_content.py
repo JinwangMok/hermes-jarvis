@@ -18,7 +18,7 @@ BANNED_PATTERNS = [
     (re.compile(r"\b(advisory|canonical|deduped|fetch(?:ed)?|watch lane|action_required|registry|source audit)\b", re.I), "remove internal pipeline jargon from reader-facing PDF"),
     (re.compile(r"신호"), "do not use vague '신호'; say 발표/보도/공고/변화/검증 전 참고"),
     (re.compile(r"약신호|전략 잔존"), "replace analyst shorthand with reader-facing explanation"),
-    (re.compile(r"Jinwang 관점|Hermes/Jarvis류|Hermes/Jarvis식"), "use reader-facing wording, not internal personalization labels"),
+    (re.compile(r"Jinwang 관점|Hermes/Jarvis류|Hermes/Jarvis식|Hermes/ZeusOS류|Hermes/ZeusOS식"), "use reader-facing wording, not internal personalization labels"),
     (re.compile(r"낮춘 기준"), "do not say the quality/selection criterion was lowered; say '확장 기준' or explain inclusion scope"),
     (re.compile(r"검증 전 후보"), "do not promote unverified watch candidates into reader-facing main issues"),
     (re.compile(r"(?:분류\s*:|열기\s*:|중요도\s*\d|모멘텀\s*\d|momentum\s*[0-9.]+|importance\s*[0-9.]+)", re.I), "remove internal scoring/debug metadata from reader-facing PDF"),
@@ -28,7 +28,7 @@ REQUIRED_ISSUE_FIELDS = ["출처 성격", "확인된 사실", "왜 중요한가"
 ISSUE_CARD_SECTIONS = {"주요 이슈", "뉴스 카테고리별 브리핑", "내부 운영", "운영 메모"}
 MIN_SOURCE_URLS = 1
 SOURCE_TYPE_PATTERN = re.compile(r"(?:^|\n)\s*-?\s*출처 성격\s*:\s*(공식 발표|공식 블로그|공식 공고|보도|커뮤니티 소개|개인 게시물 주장|분석/칼럼|GitHub 공개 프로젝트|내부 운영 변경|검증 전 후보)\s*[.。]?\s*(?:\n|$)")
-INTERNAL_OPS_PATTERN = re.compile(r"\bJarvis\b|운영 보강|GitHub 변경|커밋|푸시|자동 확인|모니터링 경로|내부 설정")
+INTERNAL_OPS_PATTERN = re.compile(r"\bZeusOS\b|운영 보강|GitHub 변경|커밋|푸시|자동 확인|모니터링 경로|내부 설정")
 OPPORTUNITY_PATTERN = re.compile(r"(공고|지원사업|신청|접수|마감|자격|eligibility|deadline|IRIS|복지로|청년|정부 ?사업)", re.I)
 OPPORTUNITY_REQUIRED_TERMS = [
     (re.compile(r"(공식 공고|공고 URL|notice URL|상세 URL|첨부파일|RFP)", re.I), "official notice URL/detail"),
@@ -153,7 +153,7 @@ def lint_text(text: str) -> list[str]:
             explicitly_internal = bool(re.search(r"(?:^|\n)\s*-?\s*출처 성격\s*:\s*내부 운영 변경\s*[.。]?\s*(?:\n|$)", block))
             if not (in_internal_section and explicitly_internal):
                 errors.append(f"issue '{title}' appears to mix internal ops into main hot issues; move to an internal ops appendix")
-            if title.startswith("Jarvis") or title.startswith("Hermes"):
+            if title.startswith("ZeusOS") or title.startswith("Hermes"):
                 errors.append(f"issue '{title}' is an internal ops item, not a reader-facing external hot issue")
         url_count = len(re.findall(r"https?://", block))
         if url_count < MIN_SOURCE_URLS and "신청 가능한 공고 없음" not in block:

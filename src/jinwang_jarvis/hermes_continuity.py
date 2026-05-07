@@ -28,7 +28,7 @@ class HermesCapability:
 CAPABILITIES: tuple[HermesCapability, ...] = (
     HermesCapability(
         name="styled_voice",
-        description="Jarvis-hosted styled-voice skill backed by VoxCPM, without Hermes source patches",
+        description="ZeusOS-hosted styled-voice skill backed by VoxCPM, without Hermes source patches",
         required_skill="styled-voice",
         required_external_dir_hint="styled-voice",
         health_url=DEFAULT_VOXCPM_HEALTH_URL,
@@ -107,7 +107,7 @@ def check_hermes_customizations(
     hermes_config_path: Path | str | None = None,
     include_network: bool = False,
 ) -> dict:
-    """Inspect the two-component Hermes+Jarvis customization contract.
+    """Inspect the two-component Hermes+ZeusOS customization contract.
 
     This is intentionally passive: no file writes, no restart, no patch apply.
     Secrets from Hermes config are never returned; only presence/paths/statuses.
@@ -163,7 +163,7 @@ def check_hermes_customizations(
                 bool(matching_dirs) or f"/{capability.required_skill}" in skill_commands,
                 capability.required_external_dir_hint,
                 matches=matching_dirs,
-                note="direct external repo path is optional when the skill is served from a consolidated Jarvis skill root",
+                note="direct external repo path is optional when the skill is served from a consolidated ZeusOS skill root",
             )
         if capability.required_skill:
             cmd = f"/{capability.required_skill}"
@@ -172,12 +172,12 @@ def check_hermes_customizations(
                 cmd in discord_commands,
                 cmd,
                 advisory=True,
-                note="Discord /skill option exposure is not required for source-untouched Jarvis hosting; direct skill invocation or explicit file/URL inputs may still work.",
+                note="Discord /skill option exposure is not required for source-untouched ZeusOS hosting; direct skill invocation or explicit file/URL inputs may still work.",
             )
         if capability.name == "styled_voice":
             c_checks["source_untouched_mode"] = _status(
                 True,
-                "Hermes source is not patched; Jarvis only hosts/verifies the skill",
+                "Hermes source is not patched; ZeusOS only hosts/verifies the skill",
                 limitation="Hidden Discord attachment cache handoff cannot be guaranteed unless Hermes exposes attachment paths/URLs in the skill request context.",
             )
         if capability.health_url:
@@ -195,7 +195,7 @@ def check_hermes_customizations(
     overall_ok = all(check.get("ok") for check in checks.values()) and all(cap.get("ok") for cap in capabilities.values())
     return {
         "ok": overall_ok,
-        "contract": "Hermes agent + jinwang-jarvis",
+        "contract": "Hermes agent + zeus-os",
         "hermes_home": str(hermes_home),
         "hermes_agent_dir": str(hermes_agent_dir),
         "hermes_config_path": str(hermes_config_path),

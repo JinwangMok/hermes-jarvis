@@ -2,14 +2,14 @@
 
 **Date:** 2026-05-05
 **Author:** external senior backend / agent-runtime review
-**Scope:** migrate Jarvis from Python CLI + SQLite + `data/` artifacts into a multi-agent Zeus OS boardroom runtime while keeping Hermes upstream/source untouched.
+**Scope:** migrate ZeusOS from Python CLI + SQLite + `data/` artifacts into a multi-agent Zeus OS boardroom runtime while keeping Hermes upstream/source untouched.
 
 ## Executive recommendation
 
-Build Zeus OS as a Jarvis-owned sidecar runtime, not as Hermes core changes and not as a Discord-first bot network. The canonical source of truth should be:
+Build Zeus OS as a ZeusOS-owned sidecar runtime, not as Hermes core changes and not as a Discord-first bot network. The canonical source of truth should be:
 
 ```text
-Hermes Discord gateway / Jarvis plugin
+Hermes Discord gateway / ZeusOS plugin
   -> enqueue-only interface commands and button callbacks
   -> state/zeus_os.db SQLite WAL blackboard + append-only event log
   -> zeus-orchestrator daemon: leases tasks, decomposes, assigns, gates approvals
@@ -18,7 +18,7 @@ Hermes Discord gateway / Jarvis plugin
   -> Discord threads/cards as projections only
 ```
 
-The repo already has the right primitives to evolve incrementally: `pyproject.toml`, `src/jinwang_jarvis/cli.py`, SQLite-backed modules, artifact directories under `data/`, deterministic HOOO/Houroboros workflow (`src/jinwang_jarvis/houroboros.py`), tests, and Hermes Discord plugins under `plugins/`. Reuse those patterns.
+The repo already has the right primitives to evolve incrementally: `pyproject.toml`, `src/zeus_os/cli.py`, SQLite-backed modules, artifact directories under `data/`, deterministic HOOO/Houroboros workflow (`src/zeus_os/houroboros.py`), tests, and Hermes Discord plugins under `plugins/`. Reuse those patterns.
 
 ## Personas: processes, DB agent cards, or Discord bots?
 
@@ -28,7 +28,7 @@ Use **DB agent cards as the identity layer**, **worker processes as execution ca
 |---|---|---|
 | Persona / role such as Chair, PM, Researcher, Engineer, Critic, Scribe, Painter | `agent_cards` row with role, capabilities, prompt/config metadata | Durable, inspectable, A2A-projectable, independent of process restarts. |
 | Running executor | `worker_agents` row plus OS process/tmux/session metadata | A role may have zero, one, or many workers; workers can die/restart without losing persona identity. |
-| Discord presence | Usually one Boardroom/Jarvis bot rendering cards; optional named webhooks later | Multiple Discord bots make auth, rate limits, recovery, and source-of-truth confusing. Use Discord names/avatar projection only after the DB model is stable. |
+| Discord presence | Usually one Boardroom/ZeusOS bot rendering cards; optional named webhooks later | Multiple Discord bots make auth, rate limits, recovery, and source-of-truth confusing. Use Discord names/avatar projection only after the DB model is stable. |
 
 So: personas are **not primarily processes** and **not primarily Discord bots**. They are DB cards; processes lease work for those cards.
 
@@ -77,13 +77,13 @@ Implementation backlog additions:
 3. **Append-only event log:** Every state mutation emits a `task_events` row with per-task sequence. Mutable tables are current-state indexes, not the audit trail.
 4. **Artifacts are files:** Store large prompts, outputs, reports, diffs, screenshots, handoff JSON, and minutes in `data/zeus/tasks/<task_id>/...`; DB stores URI, hash, size, and metadata.
 5. **Approval before side effects:** Any external side effect, repo mutation, gateway/systemd action, credential access, Discord configuration change, or costly long-running tool requires explicit gate approval.
-6. **Hermes source untouched:** Zeus OS lives in Jarvis repo modules/plugins/systemd units and calls Hermes as an external runtime/subprocess where needed.
+6. **Hermes source untouched:** Zeus OS lives in ZeusOS repo modules/plugins/systemd units and calls Hermes as an external runtime/subprocess where needed.
 7. **Deterministic first:** Every core flow has a fake/stub worker path before using real LLM/tool adapters.
 
 ## Proposed module and file layout
 
 ```text
-src/jinwang_jarvis/zeus_os/
+src/zeus_os/zeus_os/
   __init__.py
   schema.py            # migrations/bootstrap, PRAGMAs, schema version
   store.py             # transactional repository methods
@@ -496,13 +496,13 @@ Every operation that mutates state must follow:
 Add CLI commands:
 
 ```bash
-PYTHONPATH=src python -m jinwang_jarvis.cli zeus bootstrap --config config/pipeline.yaml
-PYTHONPATH=src python -m jinwang_jarvis.cli zeus enqueue --goal "..." --origin-platform cli
-PYTHONPATH=src python -m jinwang_jarvis.cli zeus orchestrator --config config/pipeline.yaml --once
-PYTHONPATH=src python -m jinwang_jarvis.cli zeus worker --kind deterministic --config config/pipeline.yaml --once
-PYTHONPATH=src python -m jinwang_jarvis.cli zeus status --task-id ... --format markdown
-PYTHONPATH=src python -m jinwang_jarvis.cli zeus replay --task-id ... --format json
-PYTHONPATH=src python -m jinwang_jarvis.cli zeus export --session-id ... --format markdown
+PYTHONPATH=src python -m zeus_os.cli zeus bootstrap --config config/pipeline.yaml
+PYTHONPATH=src python -m zeus_os.cli zeus enqueue --goal "..." --origin-platform cli
+PYTHONPATH=src python -m zeus_os.cli zeus orchestrator --config config/pipeline.yaml --once
+PYTHONPATH=src python -m zeus_os.cli zeus worker --kind deterministic --config config/pipeline.yaml --once
+PYTHONPATH=src python -m zeus_os.cli zeus status --task-id ... --format markdown
+PYTHONPATH=src python -m zeus_os.cli zeus replay --task-id ... --format json
+PYTHONPATH=src python -m zeus_os.cli zeus export --session-id ... --format markdown
 ```
 
 ### Startup
@@ -605,7 +605,7 @@ The Discord plugin should live in `plugins/hermes_zeus_gateway/` and enforce:
 
 - Every approval stores `scope_json`: paths, commands, external endpoints, duration, budget, and max attempts.
 - Workers check approval row before side effects and append `approval.checked` event.
-- Use path allowlists rooted at `/home/jinwang/workspace/jinwang-jarvis`; never assume `/workspace/...`.
+- Use path allowlists rooted at `/home/jinwang/workspace/zeus-os`; never assume `/workspace/...`.
 - Redact token-like strings before storing messages/artifacts.
 - Generated-image artifacts must retain prompt/style provenance, safety decision, and alt text; never store private/source images or likeness inputs outside approved artifact scope.
 
@@ -621,7 +621,7 @@ Acceptance:
 
 Tasks:
 
-1. Read `src/jinwang_jarvis/cli.py`, `runtime.py`, `houroboros.py`, existing plugins/tests.
+1. Read `src/zeus_os/cli.py`, `runtime.py`, `houroboros.py`, existing plugins/tests.
 2. Confirm artifact roots: `state/`, `data/`, `data/houroboros/`.
 3. Define Zeus invariants and acceptance criteria.
 
@@ -830,9 +830,9 @@ E2E scenario:
 
 ## Immediate next implementation steps
 
-1. Create `src/jinwang_jarvis/zeus_os/schema.py` with migration bootstrap and tests.
+1. Create `src/zeus_os/zeus_os/schema.py` with migration bootstrap and tests.
 2. Create `store.py`, `events.py`, `queue.py` with transactional helpers and queue tests.
-3. Wire `zeus bootstrap/enqueue/status/replay` into `src/jinwang_jarvis/cli.py`.
+3. Wire `zeus bootstrap/enqueue/status/replay` into `src/zeus_os/cli.py`.
 4. Implement `orchestrator --once` and deterministic `worker --once`.
 5. Seed a `painter` agent card with visual capabilities and add deterministic Painter artifacts (`brief.md`, `prompt.md`, `style.md`, `review.md`) to the worker fixture path.
 6. Add an approved `image_generation` worker adapter boundary for `gpt-image-2` that consumes Painter/OpenCode artifacts and registers `image.png`/variants with prompt/style provenance.

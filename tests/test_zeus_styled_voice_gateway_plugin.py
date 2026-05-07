@@ -7,11 +7,12 @@ import sys
 from pathlib import Path
 
 
-PLUGIN_PATH = Path(__file__).resolve().parents[1] / "plugins" / "hermes_jarvis_styled_voice_gateway" / "__init__.py"
+PLUGIN_PATH = Path(__file__).resolve().parents[1] / "plugins" / "hermes_zeus_styled_voice_gateway" / "__init__.py"
+PLUGIN_DIR = PLUGIN_PATH.parent
 
 
 def load_plugin():
-    spec = importlib.util.spec_from_file_location("hermes_jarvis_styled_voice_gateway_under_test", PLUGIN_PATH)
+    spec = importlib.util.spec_from_file_location("hermes_zeus_styled_voice_gateway_under_test", PLUGIN_PATH)
     assert spec and spec.loader
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module
@@ -25,6 +26,13 @@ def test_parse_professor_voice_request_from_multiline_korean_command():
     assert request is not None
     assert request.voice == "jongwon"
     assert request.text == "안녕하세요. 오늘 회의를 시작하겠습니다."
+
+
+def test_plugin_manifest_uses_unique_zeus_identity():
+    text = (PLUGIN_DIR / "plugin.yaml").read_text(encoding="utf-8")
+
+    assert "name: hermes-zeus-styled-voice-gateway" in text
+    assert "jarvis" not in text.lower()
 
 
 def test_parse_professor_voice_request_from_inline_command():
@@ -84,7 +92,7 @@ def test_pre_gateway_dispatch_intercepts_authorized_discord_request(monkeypatch)
 
     result = plugin._pre_gateway_dispatch(event, None)
 
-    assert result == {"action": "skip", "reason": "jarvis_styled_voice_gateway"}
+    assert result == {"action": "skip", "reason": "zeusos_styled_voice_gateway"}
 
 
 def test_run_styled_voice_helper_reads_output_ogg(monkeypatch, tmp_path):

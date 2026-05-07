@@ -256,10 +256,10 @@ def audit_hermes_skill_lifecycle(
     negative_claim_ttl_days: int = DEFAULT_NEGATIVE_CLAIM_TTL_DAYS,
     telemetry_path: Path | str | None = DEFAULT_TELEMETRY_PATH,
 ) -> dict[str, Any]:
-    """Passively audit Hermes skill lifecycle health from Jarvis.
+    """Passively audit Hermes skill lifecycle health from ZeusOS.
 
     This intentionally does not mutate Hermes skills, .usage.json files, or archives.
-    It gives Jarvis a source-untouched control surface until upstream Curator is
+    It gives ZeusOS a source-untouched control surface until upstream Curator is
     available in the local Hermes checkout.
     """
     hermes_home = Path(hermes_home).expanduser()
@@ -337,7 +337,7 @@ def audit_hermes_skill_lifecycle(
     entries.sort(key=lambda item: (item["state"] != "archived", item["recommended_action"], item["name"]))
     return {
         "ok": True,
-        "contract": "Hermes agent + jinwang-jarvis",
+        "contract": "Hermes agent + zeus-os",
         "mode": "passive_source_untouched_skill_lifecycle_audit",
         "generated_at": now.isoformat(),
         "hermes_home": str(hermes_home),

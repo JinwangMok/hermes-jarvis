@@ -30,4 +30,4 @@ for patch_path in "${patches[@]}"; do
   echo "Applied patch: $patch_name"
 done
 
-echo "Jarvis-managed Hermes patch application complete. Gateway was not restarted."
+echo "ZeusOS-managed Hermes patch application complete. Gateway was not restarted."

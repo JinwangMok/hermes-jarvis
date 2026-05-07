@@ -264,7 +264,7 @@ def _render_message_text(
     advisor_calendar_triggers: list[dict],
 ) -> str:
     lines = [
-        f"# Jarvis 브리핑 — {generated_at.astimezone().strftime('%Y-%m-%d %H:%M')}",
+        f"# ZeusOS 브리핑 — {generated_at.astimezone().strftime('%Y-%m-%d %H:%M')}",
         f"보고 채널: {target_channel}",
         "",
         "지금 기준으로, 바로 챙겨볼 만한 메일/업무 흐름만 정리했어.",

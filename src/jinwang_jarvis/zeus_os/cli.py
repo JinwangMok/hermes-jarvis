@@ -15,7 +15,7 @@ def populate_zeus_subparsers(subparsers: argparse._SubParsersAction) -> None:
     """Populate a Zeus OS subparser tree.
 
     This is the single source of truth for Zeus CLI command shape. The
-    top-level `jinwang-jarvis zeus ...` command and the standalone Zeus parser
+    top-level `zeus-os zeus ...` command and the standalone Zeus parser
     both call this function so new subcommands cannot drift between wrappers.
     """
 
@@ -126,7 +126,7 @@ def populate_zeus_subparsers(subparsers: argparse._SubParsersAction) -> None:
 
 
 def build_zeus_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="jinwang-jarvis zeus")
+    parser = argparse.ArgumentParser(prog="zeus-os zeus")
     subparsers = parser.add_subparsers(dest="zeus_command", required=True)
     populate_zeus_subparsers(subparsers)
     return parser

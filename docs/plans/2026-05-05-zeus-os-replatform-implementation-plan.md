@@ -1,19 +1,19 @@
 # Zeus OS Replatform Implementation Plan
 
-> **For Hermes/Boramae:** Use `subagent-driven-development` or the Jinwang OpenCode tmux team pattern to implement this plan task-by-task. Keep Hermes source untouched. Jarvis is expanded into Zeus OS as a Jarvis-owned sidecar/control-plane runtime.
+> **For Hermes/Boramae:** Use `subagent-driven-development` or the Jinwang OpenCode tmux team pattern to implement this plan task-by-task. Keep Hermes source untouched. ZeusOS is expanded into Zeus OS as a ZeusOS-owned sidecar/control-plane runtime.
 
-**Goal:** Reframe `jinwang-jarvis` as the durable Zeus OS control plane while keeping Hermes as the upstream runtime/gateway/tool host, then implement a verifiable multi-agent boardroom runtime with DB-backed personas, A2A-compatible messaging, Discord reporting, Painter visual workflows, and paranoid verification.
+**Goal:** Reframe `zeus-os` as the durable Zeus OS control plane while keeping Hermes as the upstream runtime/gateway/tool host, then implement a verifiable multi-agent boardroom runtime with DB-backed personas, A2A-compatible messaging, Discord reporting, Painter visual workflows, and paranoid verification.
 
-**Architecture:** Hermes remains the always-on agent/gateway integration surface. Jarvis becomes Zeus OS: the local canonical control plane with SQLite WAL, filesystem artifacts, typed events, queue leases, agent cards, worker adapters, approval gates, and Discord/A2A projections. Discord is a boardroom/reporting UX, not the source of truth.
+**Architecture:** Hermes remains the always-on agent/gateway integration surface. ZeusOS becomes Zeus OS: the local canonical control plane with SQLite WAL, filesystem artifacts, typed events, queue leases, agent cards, worker adapters, approval gates, and Discord/A2A projections. Discord is a boardroom/reporting UX, not the source of truth.
 
-**Tech Stack:** Python package in `src/jinwang_jarvis`, SQLite WAL, filesystem artifacts under `data/zeus`, pytest, existing Jarvis CLI/plugin patterns, optional OpenCode/tmux worker, optional Hermes subprocess worker, future thin A2A HTTP adapter, future DuckDB/Parquet analytics export.
+**Tech Stack:** Python package in `src/zeus_os`, SQLite WAL, filesystem artifacts under `data/zeus`, pytest, existing ZeusOS CLI/plugin patterns, optional OpenCode/tmux worker, optional Hermes subprocess worker, future thin A2A HTTP adapter, future DuckDB/Parquet analytics export.
 
 ---
 
 ## 0. Non-negotiable boundaries
 
-1. **Hermes and Jarvis remain separated.** Hermes core is not modified. Jarvis/ZeusOS owns plugins, sidecars, state, skills, docs, and systemd templates.
-2. **Jarvis is expanded into Zeus OS, not replaced abruptly.** Existing mail/calendar/hot-issue/HOOO features remain valid Jarvis lanes under the broader Zeus OS control-plane model.
+1. **Hermes and ZeusOS remain separated.** Hermes core is not modified. ZeusOS/ZeusOS owns plugins, sidecars, state, skills, docs, and systemd templates.
+2. **ZeusOS is expanded into Zeus OS, not replaced abruptly.** Existing mail/calendar/hot-issue/HOOO features remain valid ZeusOS lanes under the broader Zeus OS control-plane model.
 3. **Canonical state is DB + artifacts.** Discord/webhook/persona messages are projections only.
 4. **One Discord app/bot for MVP.** Personas are `agent_cards`, not separate bot accounts. Named webhooks may be added later only as rendering projection.
 5. **A2A is compatibility/projection/edge transport, not the internal source of truth.** Internal coordination remains typed durable tasks/events/work_orders.
@@ -28,10 +28,10 @@
 ```text
 Hermes Agent
   - upstream runtime/gateway/tool execution environment
-  - receives Discord messages and can load Jarvis-owned plugins
+  - receives Discord messages and can load ZeusOS-owned plugins
   - remains source-untouched
 
-Jarvis -> Zeus OS
+ZeusOS -> Zeus OS
   - local personal Agent OS/control plane
   - owns state/zeus_os.db
   - owns data/zeus/tasks/<task_id>/ artifacts
@@ -147,10 +147,10 @@ Flow:
 **Objective:** Add Zeus OS module skeleton and SQLite migration/bootstrap.
 
 **Files:**
-- Create: `src/jinwang_jarvis/zeus_os/__init__.py`
-- Create: `src/jinwang_jarvis/zeus_os/ids.py`
-- Create: `src/jinwang_jarvis/zeus_os/schema.py`
-- Create: `src/jinwang_jarvis/zeus_os/store.py`
+- Create: `src/zeus_os/zeus_os/__init__.py`
+- Create: `src/zeus_os/zeus_os/ids.py`
+- Create: `src/zeus_os/zeus_os/schema.py`
+- Create: `src/zeus_os/zeus_os/store.py`
 - Create: `tests/test_zeus_schema.py`
 
 **Implementation:**
@@ -170,8 +170,8 @@ Flow:
 **Objective:** Implement durable queue/event primitives.
 
 **Files:**
-- Create: `src/jinwang_jarvis/zeus_os/events.py`
-- Create: `src/jinwang_jarvis/zeus_os/queue.py`
+- Create: `src/zeus_os/zeus_os/events.py`
+- Create: `src/zeus_os/zeus_os/queue.py`
 - Create: `tests/test_zeus_events.py`
 - Create: `tests/test_zeus_queue.py`
 
@@ -193,8 +193,8 @@ Flow:
 **Objective:** Allow Zeus OS to run without Discord or live agents.
 
 **Files:**
-- Create: `src/jinwang_jarvis/zeus_os/cli.py`
-- Modify: `src/jinwang_jarvis/cli.py`
+- Create: `src/zeus_os/zeus_os/cli.py`
+- Modify: `src/zeus_os/cli.py`
 - Create: `tests/test_zeus_cli.py`
 
 **Commands:**
@@ -217,8 +217,8 @@ Flow:
 **Objective:** Implement core boardroom mechanics without LLMs.
 
 **Files:**
-- Create: `src/jinwang_jarvis/zeus_os/orchestrator.py`
-- Create: `src/jinwang_jarvis/zeus_os/workers.py`
+- Create: `src/zeus_os/zeus_os/orchestrator.py`
+- Create: `src/zeus_os/zeus_os/workers.py`
 - Create: `tests/test_zeus_orchestrator.py`
 - Create: `tests/test_zeus_workers.py`
 
@@ -238,7 +238,7 @@ Flow:
 **Objective:** Prevent unsafe work before live adapters.
 
 **Files:**
-- Create: `src/jinwang_jarvis/zeus_os/approvals.py`
+- Create: `src/zeus_os/zeus_os/approvals.py`
 - Create: `tests/test_zeus_approvals.py`
 
 **Implementation:**
@@ -256,7 +256,7 @@ Flow:
 **Objective:** Render boardroom state from DB/events.
 
 **Files:**
-- Create: `src/jinwang_jarvis/zeus_os/projection.py`
+- Create: `src/zeus_os/zeus_os/projection.py`
 - Create: `plugins/hermes_zeus_gateway/__init__.py`
 - Create: `tests/test_zeus_projection.py`
 - Create: `tests/test_zeus_gateway_plugin.py`
@@ -277,7 +277,7 @@ Flow:
 **Objective:** Add real under-the-hood A2A boundary without making A2A canonical.
 
 **Files:**
-- Create: `src/jinwang_jarvis/zeus_os/a2a.py`
+- Create: `src/zeus_os/zeus_os/a2a.py`
 - Create: `tests/test_zeus_a2a.py`
 
 **Implementation:**
@@ -296,8 +296,8 @@ Flow:
 **Objective:** Support purpose-fit image workflows safely.
 
 **Files:**
-- Create: `src/jinwang_jarvis/zeus_os/painter.py`
-- Create: `src/jinwang_jarvis/zeus_os/image_generation.py`
+- Create: `src/zeus_os/zeus_os/painter.py`
+- Create: `src/zeus_os/zeus_os/image_generation.py`
 - Create: `tests/test_zeus_painter.py`
 - Create: `tests/test_zeus_image_generation.py`
 
@@ -316,7 +316,7 @@ Flow:
 **Objective:** Prepare DuckDB/Parquet reporting without making it runtime-critical.
 
 **Files:**
-- Create: `src/jinwang_jarvis/zeus_os/export.py`
+- Create: `src/zeus_os/zeus_os/export.py`
 - Create: `tests/test_zeus_export.py`
 
 **Implementation:**
@@ -345,7 +345,7 @@ Flow:
 
 **Tests:**
 - docs mention Hermes source-untouched.
-- service templates call Jarvis CLI and use safe env file path, no secrets committed.
+- service templates call ZeusOS CLI and use safe env file path, no secrets committed.
 
 ## 7. Verification plan
 
@@ -354,7 +354,7 @@ Required before commit/push:
 ```bash
 PYTHONPATH=src pytest -q tests/test_zeus_schema.py tests/test_zeus_events.py tests/test_zeus_queue.py tests/test_zeus_cli.py tests/test_zeus_orchestrator.py tests/test_zeus_workers.py tests/test_zeus_approvals.py tests/test_zeus_projection.py tests/test_zeus_a2a.py tests/test_zeus_painter.py tests/test_zeus_image_generation.py tests/test_zeus_export.py
 PYTHONPATH=src pytest -q
-python -m compileall -q src/jinwang_jarvis tests
+python -m compileall -q src/zeus_os tests
 ```
 
 Security/static checks:
@@ -397,7 +397,7 @@ Request format:
 Commit only after:
 
 - targeted Zeus tests pass,
-- full feasible Jarvis suite passes or unrelated failures are proven baseline/live-tool-only,
+- full feasible ZeusOS suite passes or unrelated failures are proven baseline/live-tool-only,
 - independent review passes,
 - no secrets detected,
 - generated artifacts that should not be versioned are ignored,

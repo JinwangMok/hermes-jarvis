@@ -49,7 +49,7 @@ def test_card_text_summarizes_latest_state(tmp_path):
                 "dimension": "scope",
                 "label": "Scope",
                 "proposals": [
-                    {"option_id": "a", "label": "Jarvis-owned", "value": "Jarvis-owned runtime/tests only"},
+                    {"option_id": "a", "label": "ZeusOS-owned", "value": "ZeusOS-owned runtime/tests only"},
                     {"option_id": "b", "label": "Seed only", "value": "Seed and plan only"},
                     {"option_id": "c", "label": "Tests only", "value": "Regression tests only"},
                 ],
@@ -60,7 +60,7 @@ def test_card_text_summarizes_latest_state(tmp_path):
     text = plugin._card_text(card)
     assert "hooo-20260502-test" in text
     assert "interviewing" in text
-    assert "Jarvis-owned runtime/tests only" in text
+    assert "ZeusOS-owned runtime/tests only" in text
     assert "Scope: <your value>" in text
     assert "버튼" in text
 

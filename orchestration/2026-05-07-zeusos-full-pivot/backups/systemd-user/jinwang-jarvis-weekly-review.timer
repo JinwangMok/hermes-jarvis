@@ -1,0 +1,10 @@
+[Unit]
+Description=Run Jinwang Jarvis weekly review on Sunday evening
+
+[Timer]
+OnCalendar=Sun *-*-* 20:00:00
+Persistent=true
+Unit=jinwang-jarvis-weekly-review.service
+
+[Install]
+WantedBy=timers.target

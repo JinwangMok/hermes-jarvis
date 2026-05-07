@@ -1,4 +1,4 @@
-# Optional workstream mapping rules for jinwang-jarvis
+# Optional workstream mapping rules for zeus-os
 # - name: e2e
 #   patterns: ["E2E", "Data-Bahn"]
 []

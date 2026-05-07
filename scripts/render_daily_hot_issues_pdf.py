@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Render Jinwang Jarvis daily hot-issues markdown into a polished PDF.
+"""Render ZeusOS daily hot-issues markdown into a polished PDF.
 
 The renderer intentionally stays dependency-light: a small Markdown subset is converted
 into HTML and then rendered with WeasyPrint. The visual language is a reader-first
@@ -20,7 +20,7 @@ CSS = """
 @page {
   size: A4;
   margin: 12mm 11mm 15mm 11mm;
-  @bottom-left { content: "Jinwang Jarvis · 오늘의 핫이슈"; font-size: 7.5pt; color: #64748b; }
+  @bottom-left { content: "ZeusOS · 오늘의 핫이슈"; font-size: 7.5pt; color: #64748b; }
   @bottom-center { content: "독자형 출처 라벨 · 사실/해석 분리"; font-size: 7.2pt; color: #94a3b8; }
   @bottom-right { content: "page " counter(page); font-size: 7.5pt; color: #64748b; }
 }

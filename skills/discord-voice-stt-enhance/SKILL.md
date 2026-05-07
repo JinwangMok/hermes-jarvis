@@ -11,7 +11,7 @@ Use this repo when you want to keep Discord voice-channel STT/TTS runtime infras
 - Local `faster-whisper` HTTP runtime for `large-v3-turbo`
 - Thin `local_command` client for Hermes-to-local-runtime wiring
 - Optional user `systemd` service installation helpers
-- Config-first STT command patch owned by Jarvis, not hand-edited in Hermes
+- Config-first STT command patch owned by ZeusOS, not hand-edited in Hermes
 - Discord PCM energy/VAD gate before STT to reduce hallucinations from silence/noise
 - Config-first OpenAI-compatible TTS patch so `tts.openai.api_key/base_url` works without env vars
 - VoxCPM fallback snippet for `http://10.40.40.40/tts/v1` / `voxcpm2`
@@ -54,7 +54,7 @@ service/install-systemd.sh
 
 ## Operational checkpoint before gateway restart
 When asked to stop before restarting the gateway, the safe stopping point is:
-1. commit and push the Jarvis/external-bundle changes;
+1. commit and push the ZeusOS/external-bundle changes;
 2. run `scripts/verify.sh /home/jinwang/.hermes/hermes-agent` so source-untouched checks pass;
 3. update `~/.hermes/config.yaml` only for the required voice keys, redacting/never printing secrets;
 4. confirm `git -C /home/jinwang/.hermes/hermes-agent status --short --branch` remains clean;

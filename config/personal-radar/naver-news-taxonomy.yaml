@@ -1,5 +1,5 @@
 version: 2026-04-26
-purpose: Naver News and Google News category reference for Jarvis News Center.
+purpose: Naver News and Google News category reference for ZeusOS News Center.
 base_url: https://news.naver.com/
 collection_policy: metadata_and_short_excerpt_no_full_article_storage
 categories:

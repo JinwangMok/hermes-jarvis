@@ -14,13 +14,13 @@ from pathlib import Path
 from typing import Sequence
 
 try:
-    from jinwang_jarvis.styled_voice_samples import DEFAULT_SAMPLE_LIBRARY_DIR, collect_profile_audio, default_sample_library_dir
+    from zeus_os.styled_voice_samples import DEFAULT_SAMPLE_LIBRARY_DIR, collect_profile_audio, default_sample_library_dir
 except Exception:  # pragma: no cover - standalone fallback when PYTHONPATH is not set
     def default_sample_library_dir(workspace_root: Path | str | None = None) -> Path:
-        explicit = os.environ.get("JARVIS_STYLED_VOICE_SAMPLE_DIR")
+        explicit = os.environ.get("ZEUSOS_STYLED_VOICE_SAMPLE_DIR")
         if explicit:
             return Path(explicit).expanduser()
-        root = Path(workspace_root or os.environ.get("JARVIS_WORKSPACE_ROOT") or Path.cwd()).expanduser()
+        root = Path(workspace_root or os.environ.get("ZEUSOS_WORKSPACE_ROOT") or os.environ.get("JARVIS_WORKSPACE_ROOT") or Path.cwd()).expanduser()
         return root / "data/styled-voice-samples"
 
     DEFAULT_SAMPLE_LIBRARY_DIR = default_sample_library_dir()
@@ -297,7 +297,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     if not reference_audio_paths:
         raise SystemExit(
             "No reference audio found. Add samples first, e.g. "
-            "PYTHONPATH=src python3 -m jinwang_jarvis.cli styled-voice-samples add "
+            "PYTHONPATH=src python3 -m zeus_os.cli styled-voice-samples add "
             f"--profile {args.voice} --audio /path/to/sample.wav"
         )
 

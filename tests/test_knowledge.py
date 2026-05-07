@@ -41,7 +41,7 @@ hermes:
 reproducibility:
   packaging: pyproject
   config_format: yaml
-  project_name: jinwang-jarvis
+  project_name: zeus-os
 """.format(root=root.as_posix(), wiki=(root / "wiki").as_posix(), sender_map=(root / "sender-map.md").as_posix())
 
 
@@ -179,7 +179,7 @@ def test_synthesize_knowledge_creates_watchlist_artifact_and_wiki_summary(tmp_pa
     assert "m-watch" in wiki_text
     assert "promotion candidates" in wiki_text.casefold()
     assert "generated: true" in wiki_text
-    assert "generator: jinwang-jarvis" in wiki_text
+    assert "generator: zeus-os" in wiki_text
     assert "authority: derived" in wiki_text
     assert f"operational_source_of_truth: {config.database_path}" in wiki_text
     assert "## Status" in wiki_text
@@ -188,7 +188,7 @@ def test_synthesize_knowledge_creates_watchlist_artifact_and_wiki_summary(tmp_pa
     assert result["wiki_governance"]["generated_report_contract"].endswith("generated-report-contract.md")
 
     index_text = (config.wiki_root / "index.md").read_text(encoding="utf-8")
-    assert "jinwang-jarvis-importance-shift-watchlist" in index_text
+    assert "zeus-os-importance-shift-watchlist" in index_text
 
 
 def test_synthesize_knowledge_skips_feedback_and_past_event_suppressed_items(tmp_path: Path):

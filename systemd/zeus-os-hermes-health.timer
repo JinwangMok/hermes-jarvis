@@ -1,0 +1,11 @@
+[Unit]
+Description=Run Hermes/ZeusOS health check every 5 minutes
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=5min
+Persistent=true
+Unit=zeus-os-hermes-health.service
+
+[Install]
+WantedBy=timers.target

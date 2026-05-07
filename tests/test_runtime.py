@@ -32,7 +32,7 @@ hermes:
 reproducibility:
   packaging: pyproject
   config_format: yaml
-  project_name: jinwang-jarvis
+  project_name: zeus-os
 """.format(root=tmp_path.as_posix(), sender_map=(tmp_path / 'sender-map.md').as_posix()),
         encoding="utf-8",
     )
@@ -104,7 +104,7 @@ hermes:
 reproducibility:
   packaging: pyproject
   config_format: yaml
-  project_name: jinwang-jarvis
+  project_name: zeus-os
 """.format(root=tmp_path.as_posix(), sender_map=(tmp_path / 'sender-map.md').as_posix()),
         encoding="utf-8",
     )
@@ -112,11 +112,11 @@ reproducibility:
     config = load_pipeline_config(config_file)
     units = build_systemd_unit_texts(config, poll_minutes=15)
 
-    assert "Persistent=true" in units["jinwang-jarvis-cycle.timer"]
-    assert "OnUnitActiveSec=15min" in units["jinwang-jarvis-cycle.timer"]
-    assert "run-cycle --config pipeline.yaml" in units["jinwang-jarvis-cycle.service"]
-    assert "Environment=PATH=" in units["jinwang-jarvis-cycle.service"]
-    assert "OnCalendar=Sun *-*-* 20:00:00" in units["jinwang-jarvis-weekly-review.timer"]
+    assert "Persistent=true" in units["zeus-os-cycle.timer"]
+    assert "OnUnitActiveSec=15min" in units["zeus-os-cycle.timer"]
+    assert "run-cycle --config pipeline.yaml" in units["zeus-os-cycle.service"]
+    assert "Environment=PATH=" in units["zeus-os-cycle.service"]
+    assert "OnCalendar=Sun *-*-* 20:00:00" in units["zeus-os-weekly-review.timer"]
 
 
 def test_build_hermes_standby_unit_texts_contains_restart_and_health_alert_contract(tmp_path: Path, monkeypatch):
@@ -147,7 +147,7 @@ hermes:
 reproducibility:
   packaging: pyproject
   config_format: yaml
-  project_name: jinwang-jarvis
+  project_name: zeus-os
 """.format(root=tmp_path.as_posix(), sender_map=(tmp_path / 'sender-map.md').as_posix()),
         encoding="utf-8",
     )
@@ -161,14 +161,14 @@ reproducibility:
     assert "StartLimitBurst=10" in units["hermes-gateway.service"]
     assert "ExecStartPre=-/bin/bash" in units["hermes-gateway.service"]
     assert "scripts/arm-opencode-gateway-recovery.sh systemd-ExecStartPre-hermes-gateway" in units["hermes-gateway.service"]
-    assert "EnvironmentFile=-" in units["jinwang-jarvis-hermes-health.service"]
-    assert ".hermes/.env" in units["jinwang-jarvis-hermes-health.service"]
-    assert "JARVIS_HEALTH_DISCORD_CHANNEL=1496014213276241922" in units["jinwang-jarvis-hermes-health.service"]
-    assert "hermes-health-check" in units["jinwang-jarvis-hermes-health.service"]
-    assert "--discord-alert --restart" in units["jinwang-jarvis-hermes-health.service"]
-    assert "--readiness-timeout-seconds 45" in units["jinwang-jarvis-hermes-health.service"]
-    assert "OnUnitActiveSec=5min" in units["jinwang-jarvis-hermes-health.timer"]
-    assert "Persistent=true" in units["jinwang-jarvis-hermes-health.timer"]
+    assert "EnvironmentFile=-" in units["zeus-os-hermes-health.service"]
+    assert ".hermes/.env" in units["zeus-os-hermes-health.service"]
+    assert "ZEUSOS_HEALTH_DISCORD_CHANNEL=1496014213276241922" in units["zeus-os-hermes-health.service"]
+    assert "hermes-health-check" in units["zeus-os-hermes-health.service"]
+    assert "--discord-alert --restart" in units["zeus-os-hermes-health.service"]
+    assert "--readiness-timeout-seconds 45" in units["zeus-os-hermes-health.service"]
+    assert "OnUnitActiveSec=5min" in units["zeus-os-hermes-health.timer"]
+    assert "Persistent=true" in units["zeus-os-hermes-health.timer"]
 
 
 def test_hermes_health_check_requires_discord_ready_gateway_log(tmp_path: Path, monkeypatch):

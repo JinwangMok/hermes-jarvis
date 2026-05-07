@@ -116,7 +116,7 @@ def build_personal_radar_source_audit(registry_dir: Path) -> dict[str, Any]:
 
 
 def _http_probe(url: str, *, timeout: int = 15) -> dict[str, Any]:
-    headers = {"User-Agent": "Mozilla/5.0 (compatible; JinwangJarvis/1.0)", "Accept-Language": "ko-KR,ko;q=0.9"}
+    headers = {"User-Agent": "Mozilla/5.0 (compatible; ZeusOS/1.0)", "Accept-Language": "ko-KR,ko;q=0.9"}
     try:
         response = requests.get(url, headers=headers, timeout=timeout, allow_redirects=True)
         return {
@@ -135,7 +135,7 @@ def _text_probe(url: str, must_include: tuple[str, ...], *, timeout: int = 25) -
     probe = _http_probe(url, timeout=timeout)
     if not probe.get("ok"):
         return {**probe, "matched_terms": [], "missing_terms": list(must_include)}
-    headers = {"User-Agent": "Mozilla/5.0 (compatible; JinwangJarvis/1.0)", "Accept-Language": "ko-KR,ko;q=0.9"}
+    headers = {"User-Agent": "Mozilla/5.0 (compatible; ZeusOS/1.0)", "Accept-Language": "ko-KR,ko;q=0.9"}
     try:
         text = requests.get(url, headers=headers, timeout=timeout).text
     except Exception as exc:  # pragma: no cover - network dependent
@@ -209,7 +209,7 @@ def render_personal_radar_source_report(audit: dict[str, Any]) -> str:
         "generated: true",
         "authority: generated",
         "canonical: false",
-        "generator: jinwang-jarvis-personal-radar",
+        "generator: zeus-os-personal-radar",
         "allowed_use: triage_only",
         "---",
         "",

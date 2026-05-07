@@ -1,4 +1,4 @@
 #!/usr/bin/env python3
-from jinwang_jarvis.cli import main
+from zeus_os.cli import main
 
 raise SystemExit(main())

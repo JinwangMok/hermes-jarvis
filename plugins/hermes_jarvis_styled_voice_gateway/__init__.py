@@ -1,6 +1,6 @@
-"""Jarvis-owned Discord bridge for natural-language styled voice requests.
+"""ZeusOS-owned Discord bridge for natural-language styled voice requests.
 
-This stays in the Jarvis layer. Hermes remains the gateway/plugin host; Jarvis owns
+This stays in the ZeusOS layer. Hermes remains the gateway/plugin host; ZeusOS owns
 trigger parsing, the `jongwon` profile default, and the VoxCPM helper invocation.
 """
 from __future__ import annotations
@@ -14,9 +14,10 @@ from pathlib import Path
 from typing import Any
 
 PLUGIN_ROOT = Path(__file__).resolve().parent
-JARVIS_ROOT = PLUGIN_ROOT.parents[1]
-SRC_ROOT = JARVIS_ROOT / "src"
-DEFAULT_HELPER = JARVIS_ROOT / "skills" / "styled-voice" / "scripts" / "styled_voice_request.py"
+ZEUSOS_ROOT = PLUGIN_ROOT.parents[1]
+JARVIS_ROOT = ZEUSOS_ROOT  # compatibility alias while plugin package name is migrated later
+SRC_ROOT = ZEUSOS_ROOT / "src"
+DEFAULT_HELPER = ZEUSOS_ROOT / "skills" / "styled-voice" / "scripts" / "styled_voice_request.py"
 if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 
@@ -124,12 +125,12 @@ def _pre_gateway_dispatch(event: Any = None, gateway: Any = None, **_: Any) -> d
     if str(getattr(getattr(source, "platform", None), "value", getattr(source, "platform", ""))) != "discord":
         return None
     if gateway is not None and hasattr(gateway, "_is_user_authorized") and not gateway._is_user_authorized(source):
-        return {"action": "skip", "reason": "unauthorized_jarvis_styled_voice"}
+        return {"action": "skip", "reason": "unauthorized_zeusos_styled_voice"}
     try:
         asyncio.get_running_loop().create_task(_handle_styled_voice_request(event, gateway, request))
     except RuntimeError:
         asyncio.run(_handle_styled_voice_request(event, gateway, request))
-    return {"action": "skip", "reason": "jarvis_styled_voice_gateway"}
+    return {"action": "skip", "reason": "zeusos_styled_voice_gateway"}
 
 
 async def _handle_styled_voice_request(event: Any, gateway: Any, request: StyledVoiceRequest) -> None:
@@ -143,15 +144,15 @@ async def _handle_styled_voice_request(event: Any, gateway: Any, request: Styled
         await _safe_send(adapter, chat_id, "교수님 목소리로 생성할 문장을 같이 보내주세요.")
         return
 
-    await _safe_send(adapter, chat_id, "Jarvis styled-voice: `jongwon/default` 프로필로 음성 생성 중입니다.")
+    await _safe_send(adapter, chat_id, "ZeusOS styled-voice: `jongwon/default` 프로필로 음성 생성 중입니다.")
     result = await _run_styled_voice_helper(request)
     if not result.get("ok"):
-        await _safe_send(adapter, chat_id, f"Jarvis styled-voice 생성 실패: {result.get('error', 'unknown error')}")
+        await _safe_send(adapter, chat_id, f"ZeusOS styled-voice 생성 실패: {result.get('error', 'unknown error')}")
         return
 
     output = Path(str(result["output_ogg"])).expanduser()
     if not output.exists() or output.stat().st_size <= 0:
-        await _safe_send(adapter, chat_id, "Jarvis styled-voice 생성 결과 파일을 확인하지 못했습니다.")
+        await _safe_send(adapter, chat_id, "ZeusOS styled-voice 생성 결과 파일을 확인하지 못했습니다.")
         return
     await _send_discord_file(channel, adapter, chat_id, output, "교수님 목소리 음성 생성 완료")
 
@@ -168,7 +169,7 @@ async def _run_styled_voice_helper(request: StyledVoiceRequest) -> dict[str, Any
         request.text,
         "--style-prompt",
         request.style_prompt,
-        cwd=str(JARVIS_ROOT),
+        cwd=str(ZEUSOS_ROOT),
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
     )

@@ -5,7 +5,7 @@ ROOT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 POLL_MINUTES="${POLL_MINUTES:-5}"
 HEALTH_MINUTES="${HEALTH_MINUTES:-$POLL_MINUTES}"
 STALE_MINUTES="${STALE_MINUTES:-15}"
-CONFIG_PATH="${JARVIS_CONFIG_PATH:-}"
+CONFIG_PATH="${ZEUSOS_CONFIG_PATH:-${JARVIS_CONFIG_PATH:-}}"
 ENABLE=1
 INSTALL_GATEWAY=1
 
@@ -53,7 +53,14 @@ done
 
 cd "$ROOT_DIR"
 python3 "$ROOT_DIR/scripts/patch_google_workspace_wrapper.py"
-CMD=(python3 -m jinwang_jarvis.cli install-standby-systemd --config "$CONFIG_PATH" --health-minutes "$HEALTH_MINUTES" --stale-minutes "$STALE_MINUTES")
+if command -v systemctl >/dev/null 2>&1; then
+  # Prevent duplicate restart-capable health watchdogs during the rename cutover.
+  # The canonical ZeusOS timer is installed/enabled below; legacy health units
+  # must be stopped first so old and new watchdogs never race each other.
+  systemctl --user disable --now jinwang-jarvis-hermes-health.timer jinwang-jarvis-hermes-health.service >/dev/null 2>&1 || true
+  systemctl --user daemon-reload >/dev/null 2>&1 || true
+fi
+CMD=(python3 -m zeus_os.cli install-standby-systemd --config "$CONFIG_PATH" --health-minutes "$HEALTH_MINUTES" --stale-minutes "$STALE_MINUTES")
 if [[ "$ENABLE" != "1" ]]; then
   CMD+=(--no-enable)
 fi
@@ -62,11 +69,12 @@ if [[ "$INSTALL_GATEWAY" == "1" ]]; then
 fi
 PYTHONPATH=src "${CMD[@]}"
 
-# The old Jarvis-owned polling timers are superseded by Hermes cron + the
-# health watchdog. Keep them disabled so bundle reapply cannot resurrect a
-# second scheduler path after Hermes updates.
+# The old ZeusOS-owned polling timers are superseded by Hermes cron + the
+# health watchdog. Keep both legacy compatibility unit names and canonical
+# ZeusOS names disabled so bundle reapply cannot resurrect a second scheduler
+# path during the staged rename window.
 if command -v systemctl >/dev/null 2>&1; then
-  systemctl --user disable --now jinwang-jarvis-cycle.timer jinwang-jarvis-weekly-review.timer >/dev/null 2>&1 || true
-  systemctl --user disable --now jinwang-jarvis-cycle.service jinwang-jarvis-weekly-review.service >/dev/null 2>&1 || true
+  systemctl --user disable --now zeus-os-cycle.timer zeus-os-weekly-review.timer jinwang-jarvis-cycle.timer jinwang-jarvis-weekly-review.timer jinwang-jarvis-hermes-health.timer >/dev/null 2>&1 || true
+  systemctl --user disable --now zeus-os-cycle.service zeus-os-weekly-review.service jinwang-jarvis-cycle.service jinwang-jarvis-weekly-review.service jinwang-jarvis-hermes-health.service >/dev/null 2>&1 || true
   systemctl --user daemon-reload >/dev/null 2>&1 || true
 fi

@@ -165,7 +165,7 @@ config/watch-sources/
 ## 10. 코드 설계 제안
 
 ### 새 파일
-- `src/jinwang_jarvis/watch_sources.py`
+- `src/zeus_os/watch_sources.py`
 - `tests/test_watch_sources.py`
 
 ### 역할

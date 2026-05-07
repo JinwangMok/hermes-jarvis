@@ -582,7 +582,7 @@ hermes:
   integration_mode: boundary-cli
   deliver_channel: discord-origin
 reproducibility:
-  project_name: jinwang-jarvis
+  project_name: zeus-os
 """.strip(),
         encoding="utf-8",
     )
@@ -632,7 +632,7 @@ hermes:
   integration_mode: boundary-cli
   deliver_channel: discord-origin
 reproducibility:
-  project_name: jinwang-jarvis
+  project_name: zeus-os
 """.strip(),
         encoding="utf-8",
     )

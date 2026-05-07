@@ -1,4 +1,4 @@
-# Schema notes for jinwang-jarvis
+# Schema notes for zeus-os
 
 ## Runtime directories
 - `data/snapshots/mail/`
@@ -11,7 +11,7 @@
 - `data/watchlists/`
 - `state/`
 - `state/locks/`
-- `queries/jinwang-jarvis-memory/` in the wiki for hierarchical memory notes
+- `queries/zeus-os-memory/` in the wiki for hierarchical memory notes
 
 ## Core SQLite tables
 - `messages`
@@ -45,7 +45,7 @@ These tables are rebuildable search indexes created only when SQLite FTS5 is ava
   "issues": [
     {
       "severity": "error",
-      "path": "queries/jinwang-jarvis-example.md",
+      "path": "queries/zeus-os-example.md",
       "code": "generated_metadata_missing",
       "message": "Generated report is missing required boundary metadata.",
       "evidence": "refresh_policy, operational_source_of_truth"
@@ -62,7 +62,7 @@ These tables are rebuildable search indexes created only when SQLite FTS5 is ava
 - feedback audits: `data/feedback/feedback-<proposal_id>-*.json`
 - backfill audits: `data/exports/backfill-*.json`
 - watchlist syntheses: `data/watchlists/watchlist-*.json`
-- wiki memory index: `queries/jinwang-jarvis-memory/index.md`
+- wiki memory index: `queries/zeus-os-memory/index.md`
 - auto-resume units: `systemd/*.service`, `systemd/*.timer`
 
 ## Hermes boundary
