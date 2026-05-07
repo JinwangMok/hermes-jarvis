@@ -23,6 +23,8 @@ A ZeusOS adapter may own:
 - cost/secret/side-effect classification;
 - approval requirements;
 - artifact registration;
+- browser workflow recipes, selectors, URL patterns, helper metadata, and skip-step knowledge;
+- reusable `SKILL.md` guidance for later agents, when provenance and verification are recorded;
 - event projection into ZeusOS state;
 - CLI, HTTP, MCP, A2A, or filesystem boundary calls.
 
@@ -33,7 +35,9 @@ A ZeusOS adapter must not:
 - mutate an external repo without explicit approval;
 - persist secrets or private reasoning;
 - bypass ZeusOS approval gates for repo writes, external posts, credentials, systemd/gateway changes, or paid generation;
-- treat Discord messages or generated reports as canonical state.
+- treat Discord messages or generated reports as canonical state;
+- treat learned browser selectors or helper scripts as stable public APIs without versioning, provenance, and re-verification;
+- vendor browser automation helpers from external repos into ZeusOS core without an explicit adapter boundary.
 
 ## Contract shape
 
@@ -66,10 +70,24 @@ health:
   command: kskill doctor weather
 artifacts:
   writes_under: data/zeus/tasks/<task_id>/
+browser_recipe:
+  harness: thin-browser
+  learned_patterns:
+    - kind: url_pattern
+      value: "https://example.invalid/items/*"
+    - kind: selector
+      value: "[data-testid='submit']"
+  helper_scope: modifiable-zeusos-side-helper
+  skill_ref: skills/example-browser-workflow/SKILL.md
+  verification:
+    manual_verified: true
+    last_verified_at: "2026-05-07"
 compatibility:
   min_version: "0.1.0"
   max_version: null
 ```
+
+Browser-oriented adapters may include an optional `browser_recipe` block. This block records reusable experience for later agents, but it does not make selectors canonical and does not permit vendoring external app logic.
 
 ## Adapter classes
 
@@ -80,6 +98,7 @@ compatibility:
 | Worker adapter | OpenCode/Claude/Hermes worker | ZeusOS creates work orders and artifacts; worker execution is bounded and audited |
 | Generation adapter | image/audio generation | Requires cost/safety approval and registers prompt/output artifacts |
 | Projection adapter | Discord/A2A/markdown | Renders canonical state outward; projection is not canonical |
+| Browser harness adapter | Thin browser harness, helper scripts, learned selectors/recipes | Drives or observes browser workflows through a narrow boundary; learned recipes are reusable artifacts, not vendored app logic or canonical state |
 
 ## Hermes profile adapter stance
 
@@ -174,6 +193,33 @@ data/zeus/tasks/<task_id>/<work_order_id>/
 - approval ids if any;
 - timestamps;
 - limitations or mock/dry-run status.
+
+## Portable browser recipe contract
+
+Some adapters may use a thin browser harness to learn a workflow once and make later agents faster. The reusable unit is not a patched runtime or a vendored external app; it is a portable experience artifact registered through ZeusOS.
+
+A portable browser recipe may include:
+
+- target app/site boundary;
+- URL patterns;
+- selectors and fallback selectors;
+- required preconditions;
+- steps that can be skipped after learning;
+- modifiable ZeusOS-side helper scripts;
+- linked `SKILL.md` guidance;
+- verification status and last-known-good timestamp;
+- artifact paths for screenshots, logs, traces, DOM snapshots, or exported data.
+
+Portable browser recipes must follow these limits:
+
+- Hermes source remains untouched;
+- external repositories are not vendored into ZeusOS core;
+- generated reports, screenshots, and Discord summaries are projections, not canonical state;
+- canonical state remains SQLite plus registered filesystem artifacts;
+- selectors and URL patterns are versioned and provenanced because they are fragile;
+- helper changes are patch proposals until `repo_write` approval, tests, and versioned promotion succeed;
+- Playwright or other browser frameworks may remain optional adapters or parity oracles rather than mandatory control-plane dependencies;
+- helper scripts live on the ZeusOS side of the adapter boundary and remain replaceable.
 
 ## First implementations
 

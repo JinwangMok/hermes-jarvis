@@ -9,6 +9,7 @@ Compatibility-first naming during the transition:
 - **`jinwang-jarvis` / `jinwang_jarvis`**: existing repository, distribution, CLI, and Python import compatibility surfaces. They are intentionally not renamed yet.
 - **Hermes**: source-untouched gateway/runtime/tool host. ZeusOS integrates through plugins, sidecars, and CLI boundaries rather than Hermes core patches.
 - **Hermes profiles**: optional operational split for reducing context pollution and gateway queue contention. First candidate is a separate `jarvis` profile for mail/calendar/news/report work; profiles are not security sandboxes.
+- **Portable browser recipes**: thin browser-harness helpers, URL/selector patterns, and `SKILL.md` playbooks can become reusable ZeusOS artifacts when registered with provenance; they do not patch Hermes or replace canonical SQLite/artifact state.
 - **External repos such as K-Skill**: independent capability providers integrated through adapter contracts, not vendored into ZeusOS core.
 
 For the migration contract, see `docs/zeus-os-rebrand-migration.md`. For external capability boundaries, see `docs/zeus-os-adapter-contract.md`.

@@ -19,6 +19,7 @@ The first step is to freeze the compatibility contract so future implementation 
 | **`jinwang-jarvis`** | Existing repository/distribution/local workspace identity | Compatibility surface; do not rename in the first PR |
 | **`jinwang_jarvis`** | Existing Python import namespace | Compatibility surface; keep canonical until aliases are proven |
 | **Hermes** | Upstream host/gateway/runtime/tool surface | Source-untouched; integrated only by plugins, configs, sidecars, and CLI boundaries |
+| **Portable experience artifacts** | Browser harness helpers, URL/selector recipes, SKILL.md playbooks, and learned skip-step knowledge | Reusable ZeusOS knowledge/artifact layer; canonical only when registered in SQLite plus artifacts |
 | **External repos** | K-Skill and other independently maintained capability providers | Stay independent; connect through adapter contracts, not vendoring |
 
 ## Non-negotiable invariants
@@ -29,6 +30,7 @@ The first step is to freeze the compatibility contract so future implementation 
 4. **External repos are not absorbed.** K-Skill and similar repos keep their own source of truth and lifecycle.
 5. **No big-bang rename.** Rename surfaces must be classified, tested, and migrated with rollback.
 6. **Generated wiki paths are not canonical just because they exist.** They follow the wiki generated-report contract and should not be moved without a planned writer migration.
+7. **Learned browser recipes are portable contracts, not runtime renames.** ZeusOS may capture browser-harness URL patterns, selectors, helper recipes, and skip-step knowledge as reusable artifacts or skills, but this must not rename code, patch Hermes, vendor external repos, or make generated reports canonical.
 
 ## First PR scope
 
@@ -96,11 +98,12 @@ Before adding `zeusos` import/CLI aliases, introducing additional Hermes gateway
 6. **Data backup/rollback:** backup `state/` and `data/` before any path migration.
 7. **Wiki migration plan:** queue durable wiki entity/concept changes and generated-path movement separately; never rewrite `raw/`.
 8. **Hermes no-touch verification:** verify no files under Hermes source changed.
+9. **Portable recipe provenance:** before promoting learned browser recipes or `SKILL.md` playbooks as reusable ZeusOS assets, record their source task, target site/app boundary, selector fragility, artifact path, verification status, and last-known-good timestamp.
 
 ## Recommended phased roadmap
 
 ### Phase 0 — Contract freeze
-Document ZeusOS identity, Jarvis capability-pack status, Hermes source-untouched boundary, external adapter stance, and no-touch surfaces.
+Document ZeusOS identity, Jarvis capability-pack status, Hermes source-untouched boundary, external adapter stance, no-touch surfaces, and the portable browser-recipe/skill artifact stance.
 
 ### Phase 1 — Rename-blocker cleanup
 Fix architectural blockers that make aliases unsafe:
