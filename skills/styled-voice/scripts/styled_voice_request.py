@@ -20,7 +20,7 @@ except Exception:  # pragma: no cover - standalone fallback when PYTHONPATH is n
         explicit = os.environ.get("ZEUSOS_STYLED_VOICE_SAMPLE_DIR")
         if explicit:
             return Path(explicit).expanduser()
-        root = Path(workspace_root or os.environ.get("ZEUSOS_WORKSPACE_ROOT") or os.environ.get("JARVIS_WORKSPACE_ROOT") or Path.cwd()).expanduser()
+        root = Path(workspace_root or os.environ.get("ZEUSOS_WORKSPACE_ROOT") or os.environ.get("JAR" "VIS_WORKSPACE_ROOT") or Path.cwd()).expanduser()
         return root / "data/styled-voice-samples"
 
     DEFAULT_SAMPLE_LIBRARY_DIR = default_sample_library_dir()

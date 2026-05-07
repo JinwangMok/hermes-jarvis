@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from jinwang_jarvis.wiki_semantic_lint import lint_wiki_semantics
+from zeus_os.wiki_semantic_lint import lint_wiki_semantics
 
 
 def test_lint_wiki_semantics_reports_generated_and_durable_issues(tmp_path: Path):

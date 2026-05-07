@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from jinwang_jarvis.news_crawlers import (
+from zeus_os.news_crawlers import (
     Article,
     collect_news_center,
     extract_article_body,

@@ -788,7 +788,7 @@ class HouroborosWorkflow:
                 "validate_run_id": True,
                 "validate_channel_thread": True,
                 "do_not_bypass_ambiguity_gate": True,
-                "side_effect_class": "jarvis_workspace_write_only",
+                "side_effect_class": "zeusos_workspace_write_only",
             },
             "card": {
                 "kind": "interview",
@@ -971,7 +971,7 @@ class HouroborosWorkflow:
             "actor_id": actor_id or None,
             "origin_channel_id": origin_channel_id or None,
             "origin_thread_id": origin_thread_id or None,
-            "side_effects": "jarvis_workspace_write_only",
+            "side_effects": "zeusos_workspace_write_only",
             "dimension": dimension or None,
             "option_id": option_id or None,
         })

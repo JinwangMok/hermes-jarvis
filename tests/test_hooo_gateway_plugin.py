@@ -148,7 +148,7 @@ def test_handle_hooo_command_reserves_run_before_creating_live_thread(monkeypatc
     monkeypatch.setattr(plugin, "_create_sibling_thread", fake_create_sibling_thread)
     monkeypatch.setattr(plugin, "_render_latest_card", fake_render_latest_card)
 
-    import jinwang_jarvis.houroboros as houroboros
+    import zeus_os.houroboros as houroboros
 
     monkeypatch.setattr(houroboros.HouroborosWorkflow, "from_config", classmethod(lambda cls, config: FakeService()))
 

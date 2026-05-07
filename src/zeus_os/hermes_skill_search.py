@@ -272,9 +272,9 @@ def _read_usage(skill_dir: Path, name: str, telemetry_index: dict[str, Any] | No
             sidecar = {"_invalid": True}
     telemetry = _telemetry_for_skill(skill_dir, name, telemetry_index or {})
     if telemetry:
-        merged = {**sidecar, **telemetry, "_source": "jarvis_telemetry"}
+        merged = {**sidecar, **telemetry, "_source": "zeusos_telemetry"}
         if sidecar and not sidecar.get("_invalid"):
-            merged["_source"] = "sidecar+jarvis_telemetry"
+            merged["_source"] = "sidecar+zeusos_telemetry"
         return merged
     if sidecar:
         sidecar.setdefault("_source", "sidecar")
@@ -364,8 +364,8 @@ def _parse_skill(skill_md: Path, root: Path, source: str, telemetry_index: dict[
 
 def _ensure_fts5(conn: sqlite3.Connection) -> None:
     try:
-        conn.execute("CREATE VIRTUAL TABLE temp._jarvis_fts5_probe USING fts5(x)")
-        conn.execute("DROP TABLE temp._jarvis_fts5_probe")
+        conn.execute("CREATE VIRTUAL TABLE temp._zeusos_fts5_probe USING fts5(x)")
+        conn.execute("DROP TABLE temp._zeusos_fts5_probe")
     except sqlite3.OperationalError as exc:
         raise FTS5UnavailableError("SQLite FTS5 extension is unavailable; Hermes skill search index cannot be built") from exc
 

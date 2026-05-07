@@ -8,7 +8,7 @@
 
 ## Explicit non-scope
 
-- Full repo filesystem rename from `/home/jinwang/workspace/jinwang-jarvis` to `/home/jinwang/workspace/zeus-os`.
+- Full repo filesystem rename from `/home/jinwang/workspace/zeus-os` to `/home/jinwang/workspace/zeus-os`.
 - Python backing package removal of `jinwang_jarvis`.
 - Historical wiki/raw/log rewrite.
 - Memory/profile rewrite.

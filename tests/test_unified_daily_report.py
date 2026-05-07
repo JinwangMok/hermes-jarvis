@@ -6,8 +6,8 @@ from pathlib import Path
 
 import pytest
 
-from jinwang_jarvis.cli import build_parser, main
-from jinwang_jarvis.unified_daily_report import (
+from zeus_os.cli import build_parser, main
+from zeus_os.unified_daily_report import (
     DeliveryGateError,
     OpportunityCandidate,
     compose_unified_daily_report,
@@ -502,7 +502,7 @@ def test_write_unified_daily_report_runs_hard_gate_by_default(tmp_path: Path, mo
         pdf.write_bytes(b"%PDF-1.7\n")
         return FakeGateResult(markdown, pdf)
 
-    monkeypatch.setattr("jinwang_jarvis.unified_daily_report.run_daily_hot_issues_delivery_gate", fake_gate)
+    monkeypatch.setattr("zeus_os.unified_daily_report.run_daily_hot_issues_delivery_gate", fake_gate)
 
     result = write_unified_daily_report(
         report_date="2026-04-30",
@@ -541,7 +541,7 @@ def test_write_unified_daily_report_raises_when_delivery_gate_fails(tmp_path: Pa
     def fake_gate(markdown: Path, *, pdf: Path):
         return FakeGateResult(markdown, pdf)
 
-    monkeypatch.setattr("jinwang_jarvis.unified_daily_report.run_daily_hot_issues_delivery_gate", fake_gate)
+    monkeypatch.setattr("zeus_os.unified_daily_report.run_daily_hot_issues_delivery_gate", fake_gate)
 
     with pytest.raises(DeliveryGateError) as excinfo:
         write_unified_daily_report(
@@ -657,7 +657,7 @@ reproducibility:
         pdf.write_bytes(b"%PDF-1.7\n")
         return FakeGateResult(markdown, pdf)
 
-    monkeypatch.setattr("jinwang_jarvis.unified_daily_report.run_daily_hot_issues_delivery_gate", fake_gate)
+    monkeypatch.setattr("zeus_os.unified_daily_report.run_daily_hot_issues_delivery_gate", fake_gate)
 
     exit_code = main([
         "generate-unified-daily-report",

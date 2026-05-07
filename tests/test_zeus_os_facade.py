@@ -45,7 +45,7 @@ def test_zeus_os_module_cli_uses_canonical_prog_name() -> None:
 
 def test_legacy_cli_module_shows_canonical_zeus_prog_name() -> None:
     completed = subprocess.run(
-        [sys.executable, "-m", "jinwang_jarvis.cli", "--help"],
+        [sys.executable, "-m", "zeus_os.cli", "--help"],
         check=False,
         text=True,
         env=_subprocess_env(),

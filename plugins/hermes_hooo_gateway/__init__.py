@@ -1,9 +1,9 @@
-"""Hermes plugin bridge for Jarvis HOOO Discord UX.
+"""Hermes plugin bridge for ZeusOS HOOO Discord UX.
 
-Source-untouched integration: keep this in the Jarvis repo and symlink/copy the
+Source-untouched integration: keep this in the ZeusOS repo and symlink/copy the
 plugin directory into ~/.hermes/plugins only when the operator approves a gateway
 restart. The plugin intercepts `/hooo ...` and `/houroboros ...` Discord text
-commands, creates a sibling task thread, starts a Jarvis HOOO run, renders the
+commands, creates a sibling task thread, starts a ZeusOS HOOO run, renders the
 latest `discord_cards.jsonl` record as Discord buttons, and reduces button
 clicks through `HouroborosWorkflow.handle_interaction()`.
 """
@@ -22,9 +22,9 @@ _SECRET_VALUE_RE = re.compile(
 )
 
 PLUGIN_ROOT = Path(__file__).resolve().parent
-JARVIS_ROOT = PLUGIN_ROOT.parents[1]
-SRC_ROOT = JARVIS_ROOT / "src"
-DEFAULT_CONFIG = JARVIS_ROOT / "config" / "pipeline.yaml"
+ZEUSOS_ROOT = PLUGIN_ROOT.parents[1]
+SRC_ROOT = ZEUSOS_ROOT / "src"
+DEFAULT_CONFIG = ZEUSOS_ROOT / "config" / "pipeline.yaml"
 if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 
@@ -97,8 +97,8 @@ async def _handle_hooo_command(event: Any, gateway: Any, command: HoooCommand) -
     source_thread_id = str(getattr(source, "thread_id", "") or "")
     thread_name = _thread_name(command.goal)
 
-    from jinwang_jarvis.config import load_pipeline_config
-    from jinwang_jarvis.houroboros import HouroborosWorkflow
+    from zeus_os.config import load_pipeline_config
+    from zeus_os.houroboros import HouroborosWorkflow
 
     service = HouroborosWorkflow.from_config(load_pipeline_config(DEFAULT_CONFIG))
     status = service.start(

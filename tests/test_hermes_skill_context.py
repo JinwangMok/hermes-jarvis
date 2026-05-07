@@ -3,9 +3,9 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from jinwang_jarvis.cli import main
-from jinwang_jarvis.hermes_skill_context import generate_skill_context
-from jinwang_jarvis.hermes_skill_search import build_skill_search_index
+from zeus_os.cli import main
+from zeus_os.hermes_skill_context import generate_skill_context
+from zeus_os.hermes_skill_search import build_skill_search_index
 
 
 def _write_skill(skill_dir: Path, *, name: str | None = None, body: str = "") -> None:

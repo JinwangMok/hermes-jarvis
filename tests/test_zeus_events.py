@@ -2,7 +2,7 @@ import sqlite3
 
 import pytest
 
-from jinwang_jarvis.zeus_os import events, schema, store
+from zeus_os.zeus_os import events, schema, store
 
 
 def _in_memory_store():

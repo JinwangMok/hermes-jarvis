@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from jinwang_jarvis.zeus_os import queue, schema, store
+from zeus_os.zeus_os import queue, schema, store
 
 
 def _in_memory_store():

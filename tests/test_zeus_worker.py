@@ -2,8 +2,8 @@ import json
 import sqlite3
 from pathlib import Path
 
-from jinwang_jarvis.cli import main
-from jinwang_jarvis.zeus_os import queue, schema, store, worker
+from zeus_os.cli import main
+from zeus_os.zeus_os import queue, schema, store, worker
 
 
 def _in_memory_store():

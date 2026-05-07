@@ -3,9 +3,9 @@ import sqlite3
 from datetime import UTC, datetime
 from pathlib import Path
 
-from jinwang_jarvis.bootstrap import bootstrap_workspace
-from jinwang_jarvis.briefing import generate_briefing
-from jinwang_jarvis.config import load_pipeline_config
+from zeus_os.bootstrap import bootstrap_workspace
+from zeus_os.briefing import generate_briefing
+from zeus_os.config import load_pipeline_config
 
 
 def _write_config(root: Path) -> Path:

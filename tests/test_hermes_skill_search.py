@@ -4,8 +4,8 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
-from jinwang_jarvis.cli import main
-from jinwang_jarvis.hermes_skill_search import build_skill_search_index, evaluate_skill_search, search_skills
+from zeus_os.cli import main
+from zeus_os.hermes_skill_search import build_skill_search_index, evaluate_skill_search, search_skills
 
 
 def _write_skill(
@@ -158,7 +158,7 @@ def test_usage_recency_and_count_are_scoring_inputs(tmp_path: Path) -> None:
     assert result["rows"][0]["use_count"] == 5
 
 
-def test_jarvis_central_telemetry_merges_into_search_index(tmp_path: Path) -> None:
+def test_zeusos_central_telemetry_merges_into_search_index(tmp_path: Path) -> None:
     root = tmp_path / "skills"
     regular = root / "regular-helper"
     central = root / "central-helper"

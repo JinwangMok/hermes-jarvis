@@ -1,8 +1,8 @@
 import json
 from pathlib import Path
 
-from jinwang_jarvis.calendar import collect_calendar_snapshots
-from jinwang_jarvis.config import load_pipeline_config
+from zeus_os.calendar import collect_calendar_snapshots
+from zeus_os.config import load_pipeline_config
 
 
 class FakeCalendarRunner:

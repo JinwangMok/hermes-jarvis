@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-from jinwang_jarvis.mail import (
+from zeus_os.mail import (
     FolderInfo,
     _derive_interaction_role,
     _derive_self_role,

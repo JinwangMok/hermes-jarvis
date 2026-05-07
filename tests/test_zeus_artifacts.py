@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from jinwang_jarvis.zeus_os import artifacts, schema, store
+from zeus_os.zeus_os import artifacts, schema, store
 
 
 def _in_memory_store():

@@ -7,7 +7,7 @@ Direct full zero-Jarvis rename/removal is **FAIL-CLOSED** for this gate.
 External/MoA reviews found the current system is not safe for a single-step repo path/package/wiki/cron/systemd rewrite because:
 
 1. `/home/jinwang/workspace/zeus-os` already exists and contains runtime `data/` and `state/`.
-2. Enabled Hermes cron jobs still use `/home/jinwang/workspace/jinwang-jarvis`, `python3 -m jinwang_jarvis.cli`, and `queries/jinwang-jarvis-*` wording.
+2. Enabled Hermes cron jobs still use `/home/jinwang/workspace/zeus-os`, `python3 -m jinwang_jarvis.cli`, and `queries/jinwang-jarvis-*` wording.
 3. Live Hermes config still references repo-local skill/STT paths under `jinwang-jarvis`.
 4. User systemd has active ZeusOS health timer but disabled legacy `jinwang-jarvis-*` files still exist; some inactive zeus units may contain stale test paths.
 5. `zeus_os` is currently a facade over `jinwang_jarvis`; removing the backing package would break the canonical entrypoint.
@@ -26,7 +26,7 @@ External/MoA reviews found the current system is not safe for a single-step repo
 - Inventory `/home/jinwang/workspace/zeus-os` runtime data before moving anything.
 
 ### Stage 4B — cron command/prompt cutover while repo path remains legacy
-- Keep `workdir=/home/jinwang/workspace/jinwang-jarvis` until repo-path collision is resolved.
+- Keep `workdir=/home/jinwang/workspace/zeus-os` until repo-path collision is resolved.
 - Replace live cron commands with `python3 -m zeus_os.cli` and ZeusOS wording.
 - Re-enable one canary job at a time after smoke checks.
 

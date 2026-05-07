@@ -5,9 +5,9 @@ from pathlib import Path
 
 import yaml
 
-from jinwang_jarvis.bootstrap import bootstrap_workspace
-from jinwang_jarvis.config import load_pipeline_config
-from jinwang_jarvis.watch import (
+from zeus_os.bootstrap import bootstrap_workspace
+from zeus_os.config import load_pipeline_config
+from zeus_os.watch import (
     WatchSource,
     _apply_editorial_interest_floor,
     _sanitize_exception_message,
@@ -519,7 +519,7 @@ def test_semianalysis_stale_rss_uses_archive_html_fallback(tmp_path: Path):
     assert items[0]["title"] == "Frontier GPU cluster costs reshape AI datacenter planning"
     assert items[0]["url"] == "https://semianalysis.com/2026/05/frontier-gpu-cluster-costs/"
     assert items[0]["published_at"] == "2026-05-01T12:00:00+00:00"
-    assert items[0]["_jarvis_fetch_status"] == "rss_stale_html_fallback"
+    assert items[0]["_zeusos_fetch_status"] == "rss_stale_html_fallback"
 
 
 def test_venturebeat_stale_rss_allows_source_specific_ai_path_fallback(tmp_path: Path):
@@ -578,7 +578,7 @@ def test_venturebeat_stale_rss_allows_source_specific_ai_path_fallback(tmp_path:
     assert items[0]["title"] == "Frontier model enterprise agents reshape AI deployment"
     assert items[0]["url"] == "https://venturebeat.com/ai/frontier-model-enterprise-agents/"
     assert items[0]["published_at"] == "2026-05-02T09:30:00+00:00"
-    assert items[0]["_jarvis_fetch_status"] == "rss_stale_html_fallback"
+    assert items[0]["_zeusos_fetch_status"] == "rss_stale_html_fallback"
 
 
 def test_hpcwire_feed_error_uses_single_conservative_html_fallback(tmp_path: Path):
@@ -629,8 +629,8 @@ def test_hpcwire_feed_error_uses_single_conservative_html_fallback(tmp_path: Pat
 
     assert items[0]["title"] == "AI supercomputing centers expand for frontier model training"
     assert items[0]["url"] == "https://www.hpcwire.com/2026/05/02/ai-supercomputing-centers-expand/"
-    assert items[0]["_jarvis_fetch_status"] == "conservative_html_fallback"
-    assert items[0]["_jarvis_fetch_path"] == "https://www.hpcwire.com/news/"
+    assert items[0]["_zeusos_fetch_status"] == "conservative_html_fallback"
+    assert items[0]["_zeusos_fetch_path"] == "https://www.hpcwire.com/news/"
     assert fetched_urls.count("https://www.hpcwire.com/news/") == 1
 
 
@@ -747,7 +747,7 @@ recency_hours_override: 1080
 
     with sqlite3.connect(config.database_path) as conn:
         payload = conn.execute("SELECT raw_payload_json FROM watch_signals WHERE source_id = ?", ("import-ai",)).fetchone()[0]
-    assert json.loads(payload)["_jarvis_freshness_status"] == "new_since_last_seen"
+    assert json.loads(payload)["_zeusos_freshness_status"] == "new_since_last_seen"
 
 
 def test_added_watch_source_discovery_configs_are_safe_rss_or_atom():
@@ -1190,7 +1190,7 @@ def test_generate_watch_report_uses_news_center_when_hot_issue_threshold_is_quie
             "news_markdown": "## 뉴스 센터 브리핑\n\n### 기술 · 국내\n\n- 확인된 사실: AI 반도체 정책 발표\n- 왜 중요한가: 국내 기술 흐름 확인\n- 오늘 할 일: 원문 확인\n- 근거: google-news / 2026-04-26\n- 불확실성: 자동 수집 요약",
         }
 
-    monkeypatch.setattr("jinwang_jarvis.watch.collect_news_center", fake_collect_news_center)
+    monkeypatch.setattr("zeus_os.watch.collect_news_center", fake_collect_news_center)
 
     report_result = generate_watch_report(config)
 

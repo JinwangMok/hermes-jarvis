@@ -1,7 +1,7 @@
 from pathlib import Path
 
-from jinwang_jarvis.runtime import build_hermes_standby_unit_texts, build_systemd_unit_texts, check_hermes_jarvis_health
-from jinwang_jarvis.config import load_pipeline_config
+from zeus_os.runtime import build_hermes_standby_unit_texts, build_systemd_unit_texts, check_hermes_zeusos_health
+from zeus_os.config import load_pipeline_config
 
 
 def _write_runtime_config(tmp_path: Path) -> Path:
@@ -184,9 +184,9 @@ def test_hermes_health_check_requires_discord_ready_gateway_log(tmp_path: Path, 
     )
     monkeypatch.setenv("HERMES_HOME", str(hermes_home))
     calls: list[list[str]] = []
-    monkeypatch.setattr("jinwang_jarvis.runtime.subprocess.run", _fake_systemctl(calls))
+    monkeypatch.setattr("zeus_os.runtime.subprocess.run", _fake_systemctl(calls))
 
-    result = check_hermes_jarvis_health(
+    result = check_hermes_zeusos_health(
         config,
         readiness_timeout_seconds=0,
         discord_api_check=False,
@@ -211,9 +211,9 @@ def test_hermes_health_check_passes_when_gateway_log_is_discord_ready(tmp_path: 
     )
     monkeypatch.setenv("HERMES_HOME", str(hermes_home))
     calls: list[list[str]] = []
-    monkeypatch.setattr("jinwang_jarvis.runtime.subprocess.run", _fake_systemctl(calls))
+    monkeypatch.setattr("zeus_os.runtime.subprocess.run", _fake_systemctl(calls))
 
-    result = check_hermes_jarvis_health(
+    result = check_hermes_zeusos_health(
         config,
         readiness_timeout_seconds=0,
         discord_api_check=False,
@@ -249,9 +249,9 @@ def test_hermes_health_check_restarts_active_but_not_ready_gateway(tmp_path: Pat
             encoding="utf-8",
         )
 
-    monkeypatch.setattr("jinwang_jarvis.runtime.subprocess.run", _fake_systemctl(calls, on_restart=mark_ready_after_restart))
+    monkeypatch.setattr("zeus_os.runtime.subprocess.run", _fake_systemctl(calls, on_restart=mark_ready_after_restart))
 
-    result = check_hermes_jarvis_health(
+    result = check_hermes_zeusos_health(
         config,
         restart=True,
         readiness_timeout_seconds=0,

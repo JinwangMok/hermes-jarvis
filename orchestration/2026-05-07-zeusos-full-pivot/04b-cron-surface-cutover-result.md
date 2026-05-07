@@ -6,7 +6,7 @@ Live Hermes cron metadata was updated to stop re-injecting user-facing Jarvis wo
 
 ## Safety boundary
 
-- `workdir` remains `/home/jinwang/workspace/jinwang-jarvis` because the repo-path cutover is blocked by the existing `/home/jinwang/workspace/zeus-os` runtime data directory.
+- `workdir` remains `/home/jinwang/workspace/zeus-os` because the repo-path cutover is blocked by the existing `/home/jinwang/workspace/zeus-os` runtime data directory.
 - Raw cron backup was written outside the git repo under `~/.hermes/backups/zeusos-stage4-*/`.
 - No gateway restart was performed.
 
@@ -29,5 +29,5 @@ Replaced, inside `~/.hermes/cron/jobs.json`:
 
 ## Residuals
 
-- `workdir=/home/jinwang/workspace/jinwang-jarvis` intentionally remains until repo-path collision is resolved.
+- `workdir=/home/jinwang/workspace/zeus-os` intentionally remains until repo-path collision is resolved.
 - Some paused/historical jobs and cron output history may still contain legacy strings and are not canonical active surfaces.

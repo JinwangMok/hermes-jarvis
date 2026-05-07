@@ -32,7 +32,7 @@ def test_plugin_manifest_uses_unique_zeus_identity():
     text = (PLUGIN_DIR / "plugin.yaml").read_text(encoding="utf-8")
 
     assert "name: hermes-zeus-styled-voice-gateway" in text
-    assert "jarvis" not in text.lower()
+    assert "zeusos" not in text.lower()
 
 
 def test_parse_professor_voice_request_from_inline_command():

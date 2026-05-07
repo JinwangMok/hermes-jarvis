@@ -2,15 +2,15 @@ from pathlib import Path
 
 
 _FORBIDDEN_PATH_TOKENS = (
-    "/home/jinwang/workspace/jinwang-jarvis",
-    "~/workspace/jinwang-jarvis",
-    "workspace/jinwang-jarvis/",
+    "/home/jinwang/workspace/zeus-os",
+    "~/workspace/zeus-os",
+    "workspace/zeus-os/",
 )
 
 
 def test_zeus_source_has_no_hardcoded_personal_workspace_path():
     repo_root = Path(__file__).resolve().parents[1]
-    zeus_dir = repo_root / "src" / "jinwang_jarvis" / "zeus_os"
+    zeus_dir = repo_root / "src" / "zeus_os" / "zeus_os"
     hits: list[str] = []
 
     for source in sorted(zeus_dir.rglob("*.py")):

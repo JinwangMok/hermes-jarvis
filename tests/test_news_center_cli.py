@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from jinwang_jarvis.cli import build_parser
+from zeus_os.cli import build_parser
 
 
 def test_cli_exposes_news_center_and_podcast_commands() -> None:

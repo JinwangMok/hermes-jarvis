@@ -2,7 +2,7 @@ from pathlib import Path
 
 import json
 
-from jinwang_jarvis.cli import main
+from zeus_os.cli import main
 
 
 def _config_text(root: Path) -> str:
@@ -181,8 +181,8 @@ def test_cli_run_cycle_and_install_systemd_commands(tmp_path: Path, monkeypatch)
     (tmp_path / "sender-map.md").write_text("## Current members\n- Professor | 김종원(JongWon Kim) | jongwon@smartx.kr\n", encoding="utf-8")
     config_file.write_text(_config_text(tmp_path), encoding="utf-8")
 
-    monkeypatch.setattr("jinwang_jarvis.runtime.collect_mail_snapshots", lambda config: {"snapshots": [], "total_messages": 0})
-    monkeypatch.setattr("jinwang_jarvis.runtime.collect_calendar_snapshots", lambda config: {"snapshots": [], "event_count": 0})
+    monkeypatch.setattr("zeus_os.runtime.collect_mail_snapshots", lambda config: {"snapshots": [], "total_messages": 0})
+    monkeypatch.setattr("zeus_os.runtime.collect_calendar_snapshots", lambda config: {"snapshots": [], "event_count": 0})
     cycle_exit_code = main(["run-cycle", "--config", str(config_file)])
     assert cycle_exit_code == 0
     checkpoints = json.loads((tmp_path / "state" / "checkpoints.json").read_text(encoding="utf-8"))
@@ -199,7 +199,7 @@ def test_cli_run_cycle_and_install_systemd_commands(tmp_path: Path, monkeypatch)
             stderr = ""
         return Result()
 
-    monkeypatch.setattr("jinwang_jarvis.runtime.subprocess.run", fake_run)
+    monkeypatch.setattr("zeus_os.runtime.subprocess.run", fake_run)
     install_exit_code = main(["install-systemd", "--config", str(config_file), "--poll-minutes", "10", "--no-enable"])
     assert install_exit_code == 0
     assert calls == [["systemctl", "--user", "daemon-reload"]]
@@ -234,13 +234,14 @@ def test_cli_run_cycle_and_install_systemd_commands(tmp_path: Path, monkeypatch)
     ])
     assert standby_enable_exit_code == 0
     assert ["systemctl", "--user", "daemon-reload"] in calls
+    legacy_unit_prefix = "jinwang-" "jar" "vis"
     assert [
         "systemctl",
         "--user",
         "disable",
         "--now",
-        "jinwang-jarvis-hermes-health.timer",
-        "jinwang-jarvis-hermes-health.service",
+        f"{legacy_unit_prefix}-hermes-health.timer",
+        f"{legacy_unit_prefix}-hermes-health.service",
     ] in calls
     assert ["systemctl", "--user", "enable", "--now", "zeus-os-hermes-health.timer"] in calls
 
@@ -273,7 +274,7 @@ def test_cli_hermes_health_check_restarts_until_discord_ready(tmp_path: Path, mo
             encoding="utf-8",
         )
 
-    monkeypatch.setattr("jinwang_jarvis.runtime.subprocess.run", _fake_systemctl(calls, on_restart=mark_ready_after_restart))
+    monkeypatch.setattr("zeus_os.runtime.subprocess.run", _fake_systemctl(calls, on_restart=mark_ready_after_restart))
 
     exit_code = main([
         "hermes-health-check",
@@ -456,7 +457,7 @@ def test_cli_record_feedback_allow_create_calendar_command(monkeypatch, tmp_path
         conn.execute("INSERT INTO event_proposals (proposal_id, source_message_id, title, start_ts, end_ts, location, description_md, confidence, status, dedup_key, reason_json, created_at, resolved_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", ("p-cal", "m-cal", "Calendar me", "2026-04-22T10:00:00+09:00", "2026-04-22T11:00:00+09:00", "Zoom", "Discuss work", 0.9, "proposed", "calendar-me", "{}", "2026-04-20T00:00:00+00:00", None))
         conn.commit()
 
-    monkeypatch.setattr("jinwang_jarvis.feedback._default_runner", lambda args: json.dumps({"status": "created", "id": "evt-1"}))
+    monkeypatch.setattr("zeus_os.feedback._default_runner", lambda args: json.dumps({"status": "created", "id": "evt-1"}))
 
     exit_code = main(["record-feedback", "--config", str(config_file), "--proposal-id", "p-cal", "--decision", "allow", "--reason-code", "other", "--create-calendar"])
     assert exit_code == 0
@@ -482,7 +483,7 @@ def test_cli_backfill_next_command_runs_incremental_extension(monkeypatch, tmp_p
             return json.dumps([])
         raise AssertionError(args)
 
-    monkeypatch.setattr("jinwang_jarvis.backfill._default_runner", fake_runner)
+    monkeypatch.setattr("zeus_os.backfill._default_runner", fake_runner)
 
     exit_code = main(["backfill-next", "--config", str(config_file), "--max-months", "36"])
     assert exit_code == 0

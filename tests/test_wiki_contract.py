@@ -1,4 +1,4 @@
-from jinwang_jarvis.wiki_contract import EvidenceRef, redact_obvious_secrets, render_evidence_line, render_status_block, stable_source_hash
+from zeus_os.wiki_contract import EvidenceRef, redact_obvious_secrets, render_evidence_line, render_status_block, stable_source_hash
 
 
 def test_stable_source_hash_is_deterministic_for_dict_order():

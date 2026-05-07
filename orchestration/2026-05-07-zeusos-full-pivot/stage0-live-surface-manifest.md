@@ -3,7 +3,7 @@
 Generated for the ZeusOS full-pivot gate. Raw command transcripts and live config snapshots were removed before commit.
 
 ## Repo
-- Worktree: `/home/jinwang/workspace/jinwang-jarvis`
+- Worktree: `/home/jinwang/workspace/zeus-os`
 - Branch during migration: `main`
 - Safety tag created locally: `pre-zeusos-full-pivot-20260507`
 

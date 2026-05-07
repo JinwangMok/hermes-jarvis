@@ -70,7 +70,7 @@ FIRST_READER_REQUIRED_TERMS = [
     "불확실성",
 ]
 FIRST_READER_BANNED_PATTERNS = [
-    (re.compile(r"/home/jinwang|/workspace|(?:jinwang-jarvis|zeus-os)/data", re.I), "local path leaked"),
+    (re.compile(r"/home/jinwang|/workspace|(?:zeus-os|zeus-os)/data", re.I), "local path leaked"),
     (re.compile(r"\b(high-heat|low-heat|weak signal|score|momentum|importance|deduped|fetch(?:ed)?|registry|source audit)\b", re.I), "internal/pipeline residue"),
     (re.compile(r"검증 전 후보|내부 후보|일반론|분류\s*:|열기\s*:|중요도\s*\d"), "internal/pipeline residue"),
 ]

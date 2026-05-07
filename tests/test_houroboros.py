@@ -2,9 +2,9 @@ from pathlib import Path
 
 import json
 
-from jinwang_jarvis.cli import main
-from jinwang_jarvis import houroboros as houroboros_module
-from jinwang_jarvis.houroboros import HouroborosWorkflow, load_run
+from zeus_os.cli import main
+from zeus_os import houroboros as houroboros_module
+from zeus_os.houroboros import HouroborosWorkflow, load_run
 
 
 class FakeDiscordThreadClient:
@@ -496,7 +496,7 @@ def test_houroboros_claude_code_executor_writes_handoff_without_running_claude(t
     started = workflow.start(goal="Run through Claude Code", origin_platform="discord", origin_channel_id="parent")
     run_id = started["run_id"]
     for message in [
-        "Scope: one Jarvis feature",
+        "Scope: one ZeusOS feature",
         "Acceptance: creates a Claude Code handoff",
         "Constraint: no live external service calls",
         "Executor: claude-code",
@@ -586,7 +586,7 @@ def test_houroboros_seed_requires_all_dimensions_even_at_threshold(tmp_path: Pat
     started = workflow.start(goal="Do not seed with one unresolved dimension", origin_platform="discord", origin_channel_id="parent")
     run_id = started["run_id"]
     for message in [
-        "Scope: one Jarvis feature",
+        "Scope: one ZeusOS feature",
         "Acceptance: targeted tests pass",
         "Constraint: no external side effects",
         "Executor: opencode",

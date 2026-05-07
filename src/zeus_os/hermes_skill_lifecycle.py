@@ -67,9 +67,9 @@ def _read_usage(skill_dir: Path, telemetry_index: dict[str, Any] | None = None) 
             sidecar = {"_invalid": True}
     telemetry = _telemetry_for_skill(skill_dir, telemetry_index or {})
     if telemetry:
-        merged = {**sidecar, **telemetry, "_source": "jarvis_telemetry"}
+        merged = {**sidecar, **telemetry, "_source": "zeusos_telemetry"}
         if sidecar and not sidecar.get("_invalid"):
-            merged["_source"] = "sidecar+jarvis_telemetry"
+            merged["_source"] = "sidecar+zeusos_telemetry"
         return merged
     if sidecar:
         sidecar.setdefault("_source", "sidecar")

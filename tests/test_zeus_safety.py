@@ -1,6 +1,6 @@
 import pytest
 
-from jinwang_jarvis.zeus_os import safety
+from zeus_os.zeus_os import safety
 
 
 class TestRedaction:

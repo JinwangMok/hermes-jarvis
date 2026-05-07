@@ -23,3 +23,6 @@ config/sender-map.md
 # Local work backups / private audio samples.
 /.work-backups/
 /data/styled-voice-samples/
+
+# Local compressed historical archives.
+/.local-archive/

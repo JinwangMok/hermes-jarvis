@@ -18,7 +18,7 @@ BANNED_PATTERNS = [
     (re.compile(r"\b(advisory|canonical|deduped|fetch(?:ed)?|watch lane|action_required|registry|source audit)\b", re.I), "remove internal pipeline jargon from reader-facing PDF"),
     (re.compile(r"신호"), "do not use vague '신호'; say 발표/보도/공고/변화/검증 전 참고"),
     (re.compile(r"약신호|전략 잔존"), "replace analyst shorthand with reader-facing explanation"),
-    (re.compile(r"Jinwang 관점|Hermes/Jarvis류|Hermes/Jarvis식|Hermes/ZeusOS류|Hermes/ZeusOS식"), "use reader-facing wording, not internal personalization labels"),
+    (re.compile(r"Jinwang 관점|Hermes/ZeusOS류|Hermes/ZeusOS식|Hermes/ZeusOS류|Hermes/ZeusOS식"), "use reader-facing wording, not internal personalization labels"),
     (re.compile(r"낮춘 기준"), "do not say the quality/selection criterion was lowered; say '확장 기준' or explain inclusion scope"),
     (re.compile(r"검증 전 후보"), "do not promote unverified watch candidates into reader-facing main issues"),
     (re.compile(r"(?:분류\s*:|열기\s*:|중요도\s*\d|모멘텀\s*\d|momentum\s*[0-9.]+|importance\s*[0-9.]+)", re.I), "remove internal scoring/debug metadata from reader-facing PDF"),

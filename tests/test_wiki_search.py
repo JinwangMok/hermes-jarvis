@@ -3,9 +3,9 @@ from pathlib import Path
 
 import pytest
 
-from jinwang_jarvis.bootstrap import bootstrap_workspace, ensure_search_indexes
-from jinwang_jarvis.config import load_pipeline_config
-from jinwang_jarvis.wiki_search import rebuild_operational_search_index, search_operational_index
+from zeus_os.bootstrap import bootstrap_workspace, ensure_search_indexes
+from zeus_os.config import load_pipeline_config
+from zeus_os.wiki_search import rebuild_operational_search_index, search_operational_index
 
 
 def _config_text(root: Path) -> str:

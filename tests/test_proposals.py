@@ -3,9 +3,9 @@ import sqlite3
 from datetime import datetime
 from pathlib import Path
 
-from jinwang_jarvis.bootstrap import bootstrap_workspace
-from jinwang_jarvis.config import load_pipeline_config
-from jinwang_jarvis.proposals import derive_message_scores, extract_candidate_event, generate_proposals, MessageContext
+from zeus_os.bootstrap import bootstrap_workspace
+from zeus_os.config import load_pipeline_config
+from zeus_os.proposals import derive_message_scores, extract_candidate_event, generate_proposals, MessageContext
 
 
 SENDER_MAP = """

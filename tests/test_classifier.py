@@ -1,4 +1,4 @@
-from jinwang_jarvis.classifier import (
+from zeus_os.classifier import (
     classify_message,
     parse_sender_map_markdown,
     resolve_sender_identity,

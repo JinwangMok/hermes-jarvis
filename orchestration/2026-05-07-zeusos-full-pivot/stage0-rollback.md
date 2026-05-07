@@ -6,7 +6,7 @@ Created before live-facing ZeusOS cutover work.
 - Safety tag: `pre-zeusos-full-pivot-20260507`
 - Restore code state if needed:
   ```bash
-  git -C /home/jinwang/workspace/jinwang-jarvis reset --hard pre-zeusos-full-pivot-20260507
+  git -C /home/jinwang/workspace/zeus-os reset --hard pre-zeusos-full-pivot-20260507
   ```
 
 ## Hermes config rollback

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
-REPO=/home/jinwang/workspace/jinwang-jarvis
+REPO=/home/jinwang/workspace/zeus-os
 CONFIG=/home/jinwang/.hermes/config.yaml
 STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
 RUN_DIR="$REPO/orchestration/2026-05-07-zeusos-full-pivot/gateway-plugin-cutover-$STAMP"

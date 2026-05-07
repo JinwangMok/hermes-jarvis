@@ -1,19 +1,19 @@
 from pathlib import Path
 
-from jinwang_jarvis.hermes_continuity import check_hermes_customizations
+from zeus_os.hermes_continuity import check_hermes_customizations
 
 
 def test_check_hermes_customizations_reports_two_component_contract(tmp_path: Path, monkeypatch):
     hermes_home = tmp_path / "hermes"
     hermes_agent = hermes_home / "hermes-agent"
-    jarvis_skills = tmp_path / "zeus-os" / "skills"
+    zeusos_skills = tmp_path / "zeus-os" / "skills"
     (hermes_agent / "gateway").mkdir(parents=True)
     (hermes_agent / "hermes_cli").mkdir(parents=True)
-    jarvis_skills.mkdir(parents=True)
+    zeusos_skills.mkdir(parents=True)
     (hermes_home / "config.yaml").write_text(
         "skills:\n"
         "  external_dirs:\n"
-        f"    - {jarvis_skills}\n",
+        f"    - {zeusos_skills}\n",
         encoding="utf-8",
     )
     (hermes_agent / "gateway" / "run.py").write_text("# upstream Hermes source untouched\n", encoding="utf-8")
@@ -26,7 +26,7 @@ def test_check_hermes_customizations_reports_two_component_contract(tmp_path: Pa
             return True, '{"commands": ["/discord-voice-stt-enhance", "/styled-voice"], "hidden": 0}'
         return False, "unexpected"
 
-    monkeypatch.setattr("jinwang_jarvis.hermes_continuity._run_python_probe", fake_probe)
+    monkeypatch.setattr("zeus_os.hermes_continuity._run_python_probe", fake_probe)
 
     result = check_hermes_customizations(hermes_home=hermes_home, hermes_agent_dir=hermes_agent)
 
@@ -45,7 +45,7 @@ def test_check_hermes_customizations_reports_source_untouched_limitations(tmp_pa
     (hermes_home / "config.yaml").write_text("skills:\n  external_dirs: []\n", encoding="utf-8")
     (hermes_agent / "gateway" / "run.py").write_text("# upstream Hermes source untouched\n", encoding="utf-8")
     (hermes_agent / "hermes_cli" / "commands.py").write_text("# upstream Hermes source untouched\n", encoding="utf-8")
-    monkeypatch.setattr("jinwang_jarvis.hermes_continuity._run_python_probe", lambda *_args, **_kwargs: (True, "[]"))
+    monkeypatch.setattr("zeus_os.hermes_continuity._run_python_probe", lambda *_args, **_kwargs: (True, "[]"))
 
     result = check_hermes_customizations(hermes_home=hermes_home, hermes_agent_dir=hermes_agent)
 

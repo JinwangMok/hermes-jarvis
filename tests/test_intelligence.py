@@ -2,8 +2,8 @@ import json
 from datetime import UTC, datetime
 from pathlib import Path
 
-from jinwang_jarvis.config import load_pipeline_config
-from jinwang_jarvis.intelligence import (
+from zeus_os.config import load_pipeline_config
+from zeus_os.intelligence import (
     _backfill_message_participant_cache,
     _build_education_cv_sections,
     _build_education_memory_records,
@@ -104,8 +104,8 @@ def test_parse_participant_headers_extracts_to_cc_reply_to_and_references():
 
 
 def test_cached_message_participants_roundtrip(tmp_path: Path):
-    from jinwang_jarvis.bootstrap import bootstrap_workspace
-    from jinwang_jarvis.config import load_pipeline_config
+    from zeus_os.bootstrap import bootstrap_workspace
+    from zeus_os.config import load_pipeline_config
     import sqlite3
 
     config = load_pipeline_config(_write_config(tmp_path))
@@ -142,8 +142,8 @@ def test_cached_message_participants_roundtrip(tmp_path: Path):
 
 
 def test_backfill_message_participant_cache_stores_exported_headers(tmp_path: Path):
-    from jinwang_jarvis.bootstrap import bootstrap_workspace
-    from jinwang_jarvis.config import load_pipeline_config
+    from zeus_os.bootstrap import bootstrap_workspace
+    from zeus_os.config import load_pipeline_config
     import sqlite3
 
     config = load_pipeline_config(_write_config(tmp_path))
@@ -172,8 +172,8 @@ def test_backfill_message_participant_cache_stores_exported_headers(tmp_path: Pa
 
 
 def test_systematic_backfill_message_participant_cache_queries_uncached_rows(tmp_path: Path):
-    from jinwang_jarvis.bootstrap import bootstrap_workspace
-    from jinwang_jarvis.config import load_pipeline_config
+    from zeus_os.bootstrap import bootstrap_workspace
+    from zeus_os.config import load_pipeline_config
     import sqlite3
 
     config = load_pipeline_config(_write_config(tmp_path))

@@ -1,8 +1,8 @@
 import sqlite3
 from pathlib import Path
 
-from jinwang_jarvis.bootstrap import REQUIRED_DIRECTORIES, bootstrap_workspace, ensure_search_indexes
-from jinwang_jarvis.config import load_pipeline_config
+from zeus_os.bootstrap import REQUIRED_DIRECTORIES, bootstrap_workspace, ensure_search_indexes
+from zeus_os.config import load_pipeline_config
 
 
 def test_bootstrap_workspace_creates_required_directories_and_tables(tmp_path: Path):

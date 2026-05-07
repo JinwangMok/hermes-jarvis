@@ -88,7 +88,7 @@ def test_followup_workflow_prevents_overclaiming_eligibility():
 
 
 def test_personal_radar_source_audit_builds_generated_artifact(tmp_path):
-    from jinwang_jarvis.personal_radar import generate_personal_radar_source_audit
+    from zeus_os.personal_radar import generate_personal_radar_source_audit
 
     result = generate_personal_radar_source_audit(CFG, tmp_path)
     assert result["source_count"] >= 15
@@ -124,7 +124,7 @@ def test_iris_registry_has_ai_university_priority_fixtures():
 
 
 def test_personal_radar_coverage_verification_catches_critical_gates(tmp_path):
-    from jinwang_jarvis.personal_radar import generate_personal_radar_coverage_verification
+    from zeus_os.personal_radar import generate_personal_radar_coverage_verification
 
     result = generate_personal_radar_coverage_verification(CFG, tmp_path, live=False)
     assert result["ok"] is True

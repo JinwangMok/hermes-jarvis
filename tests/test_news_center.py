@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from jinwang_jarvis.news_center import (
+from zeus_os.news_center import (
     _dedupe_items,
     _google_rss_url,
     append_news_center_to_daily_report,

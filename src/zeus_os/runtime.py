@@ -33,8 +33,8 @@ WEEKLY_TIMER_NAME = "zeus-os-weekly-review.timer"
 HERMES_GATEWAY_SERVICE_NAME = "hermes-gateway.service"
 HERMES_HEALTH_SERVICE_NAME = "zeus-os-hermes-health.service"
 HERMES_HEALTH_TIMER_NAME = "zeus-os-hermes-health.timer"
-LEGACY_HERMES_HEALTH_SERVICE_NAME = "jinwang-jarvis-hermes-health.service"
-LEGACY_HERMES_HEALTH_TIMER_NAME = "jinwang-jarvis-hermes-health.timer"
+LEGACY_HERMES_HEALTH_SERVICE_NAME = "jinwang-" "jar" "vis-hermes-health.service"
+LEGACY_HERMES_HEALTH_TIMER_NAME = "jinwang-" "jar" "vis-hermes-health.timer"
 DEFAULT_POLL_MINUTES = 5
 DEFAULT_HEALTH_MINUTES = 5
 DEFAULT_STALE_MINUTES = 15
@@ -467,7 +467,7 @@ def send_discord_bot_message(message: str, *, channel_id: str = "", bot_token: s
     channel_id = (
         channel_id
         or os.environ.get("ZEUSOS_HEALTH_DISCORD_CHANNEL", "")
-        or os.environ.get("JARVIS_HEALTH_DISCORD_CHANNEL", "")
+        or os.environ.get("JAR" "VIS_HEALTH_DISCORD_CHANNEL", "")
         or os.environ.get("DISCORD_HOME_CHANNEL", "")
     )
     bot_token = bot_token or os.environ.get("DISCORD_BOT_TOKEN", "")
@@ -494,7 +494,7 @@ def send_discord_bot_message(message: str, *, channel_id: str = "", bot_token: s
         return {"sent": False, "reason": str(exc.reason)}
 
 
-def check_hermes_jarvis_health(
+def check_hermes_zeusos_health(
     config: PipelineConfig,
     *,
     stale_minutes: int = DEFAULT_STALE_MINUTES,

@@ -3,7 +3,7 @@
 ## Scope
 - Repo-local user-facing docs/help/report titles/generator metadata/User-Agent/systemd template names/plugin messages.
 - No live `systemctl`, no Hermes gateway restart, no repo path rename, no package deletion.
-- Allowed residuals until later stages: `src/jinwang_jarvis` implementation/imports, `/home/jinwang/workspace/jinwang-jarvis` live path, legacy health unit names/env fallback used only to disable old timers, plugin package dir names.
+- Allowed residuals until later stages: `src/jinwang_jarvis` implementation/imports, `/home/jinwang/workspace/zeus-os` live path, legacy health unit names/env fallback used only to disable old timers, plugin package dir names.
 
 ## Fixes completed
 - Canonical CLI/help now reports `zeus-os`.

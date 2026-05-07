@@ -1,6 +1,6 @@
 import json
 
-from jinwang_jarvis.calendar import build_dedup_key, normalize_calendar_event
+from zeus_os.calendar import build_dedup_key, normalize_calendar_event
 
 
 def test_normalize_calendar_event_maps_gws_json_to_snapshot_record():

@@ -2,8 +2,8 @@ import json
 import sqlite3
 from pathlib import Path
 
-from jinwang_jarvis.cli import main
-from jinwang_jarvis.zeus_os import adapters, schema, store
+from zeus_os.cli import main
+from zeus_os.zeus_os import adapters, schema, store
 
 
 def _in_memory_store():
@@ -175,7 +175,7 @@ def test_repeated_dry_runs_create_distinct_registered_artifacts(tmp_path: Path):
     assert first["ok"] is True
     assert second["ok"] is True
     assert first["artifact_uri"] != second["artifact_uri"]
-    reconciliation = __import__("jinwang_jarvis.zeus_os.artifacts", fromlist=["reconcile_artifacts"]).reconcile_artifacts(conn, tmp_path)
+    reconciliation = __import__("zeus_os.zeus_os.artifacts", fromlist=["reconcile_artifacts"]).reconcile_artifacts(conn, tmp_path)
     assert reconciliation["unregistered_files"] == []
     assert reconciliation["hash_mismatches"] == []
 

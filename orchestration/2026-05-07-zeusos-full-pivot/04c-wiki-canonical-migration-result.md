@@ -41,7 +41,7 @@ Backups were written under wiki meta backup directories, e.g.:
 
 Remaining active content residuals are mostly blocked by later stages:
 
-- Current operational path remains `/home/jinwang/workspace/jinwang-jarvis` until Stage 4E resolves the existing `/home/jinwang/workspace/zeus-os` runtime-data collision.
+- Current operational path remains `/home/jinwang/workspace/zeus-os` until Stage 4E resolves the existing `/home/jinwang/workspace/zeus-os` runtime-data collision.
 - Some source references point to raw transcript filenames containing old terms; raw/history evidence was intentionally not rewritten.
 - Some durable historical design notes still describe the old implementation name and should be reviewed case-by-case rather than mass-rewritten.
 

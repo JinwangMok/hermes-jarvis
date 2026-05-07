@@ -5,9 +5,9 @@ from pathlib import Path
 
 import pytest
 
-from jinwang_jarvis.cli import build_parser, main
-from jinwang_jarvis.zeus_os import schema, store
-from jinwang_jarvis.zeus_os.cli import build_zeus_parser
+from zeus_os.cli import build_parser, main
+from zeus_os.zeus_os import schema, store
+from zeus_os.zeus_os.cli import build_zeus_parser
 
 
 def _in_memory_store():

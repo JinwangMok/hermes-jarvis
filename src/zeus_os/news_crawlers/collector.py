@@ -10,7 +10,7 @@ from typing import Callable, Iterable
 
 import yaml
 
-from jinwang_jarvis.wiki_contract import render_generated_report_frontmatter, write_markdown
+from zeus_os.wiki_contract import render_generated_report_frontmatter, write_markdown
 
 from .adapters import _google_rss_url, _naver_section_url, extract_article_body, parse_google_news_rss, parse_naver_section_html
 from .models import Article, clean_text, compute_content_hash, dedupe_articles, normalized_title_key

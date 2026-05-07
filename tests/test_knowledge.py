@@ -2,9 +2,9 @@ import json
 import sqlite3
 from pathlib import Path
 
-from jinwang_jarvis.bootstrap import bootstrap_workspace
-from jinwang_jarvis.config import load_pipeline_config
-from jinwang_jarvis.knowledge import synthesize_knowledge
+from zeus_os.bootstrap import bootstrap_workspace
+from zeus_os.config import load_pipeline_config
+from zeus_os.knowledge import synthesize_knowledge
 
 
 SENDER_MAP = """

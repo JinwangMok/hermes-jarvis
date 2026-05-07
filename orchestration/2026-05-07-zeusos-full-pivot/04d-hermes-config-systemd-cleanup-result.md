@@ -27,7 +27,7 @@ Cleaned live user-systemd ZeusOS surfaces that could safely be handled before re
 
 The following are intentionally deferred to Stage 4E repo-path/data collision resolution:
 
-- Active systemd `WorkingDirectory=/home/jinwang/workspace/jinwang-jarvis` and `cd /home/jinwang/workspace/jinwang-jarvis`.
+- Active systemd `WorkingDirectory=/home/jinwang/workspace/zeus-os` and `cd /home/jinwang/workspace/zeus-os`.
 - Hermes config paths under `/home/jinwang/.hermes/config.yaml` for external skill/STT commands.
 
 Reason: changing those now would point live automation at `/home/jinwang/workspace/zeus-os`, which currently contains runtime data/state and is not the git worktree.

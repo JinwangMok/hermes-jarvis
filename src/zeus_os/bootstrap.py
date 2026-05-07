@@ -359,8 +359,8 @@ FTS_TABLE_STATEMENTS = [
 def ensure_search_indexes(conn: sqlite3.Connection) -> dict[str, object]:
     """Create rebuildable FTS5 sidecar tables when the local SQLite supports FTS5."""
     try:
-        conn.execute("CREATE VIRTUAL TABLE temp._jarvis_fts5_probe USING fts5(value)")
-        conn.execute("DROP TABLE temp._jarvis_fts5_probe")
+        conn.execute("CREATE VIRTUAL TABLE temp._zeusos_fts5_probe USING fts5(value)")
+        conn.execute("DROP TABLE temp._zeusos_fts5_probe")
     except sqlite3.OperationalError as exc:
         return {"fts5_available": False, "reason": "fts5_unavailable", "error": str(exc)}
 

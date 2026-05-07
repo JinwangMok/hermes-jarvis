@@ -30,12 +30,12 @@ def test_daily_hot_issues_linter_rejects_vague_internal_signal_language():
 def test_daily_hot_issues_linter_rejects_internal_ops_as_main_issue():
     md = """# 오늘의 핫이슈
 
-- 범위: 최근 24시간, 낮춘 기준 적용 + Jarvis 운영 보강 반영
+- 범위: 최근 24시간, 낮춘 기준 적용 + ZeusOS 운영 보강 반영
 
 ## 주요 이슈
 
-### Jarvis 운영 보강: 복지로와 IRIS AI 대학 과제를 매일 확인 대상으로 고정
-- 확인된 사실: Jarvis 코드가 업데이트되어 복지로와 IRIS를 우선 확인하도록 바뀌었다. 해당 변경은 GitHub에 커밋·푸시됐다.
+### ZeusOS 운영 보강: 복지로와 IRIS AI 대학 과제를 매일 확인 대상으로 고정
+- 확인된 사실: ZeusOS 코드가 업데이트되어 복지로와 IRIS를 우선 확인하도록 바뀌었다. 해당 변경은 GitHub에 커밋·푸시됐다.
 - 왜 중요한가: 정책·청년·복지·R&D 정보는 한 번 놓치면 신청 기간을 잃을 수 있다.
 - 오늘 할 일: 복지로와 IRIS 자동 확인 결과를 본다.
 - 근거: GitHub 변경 커밋. 복지로 공식 경로: https://www.bokjiro.go.kr/ssis-tbu/index.do . IRIS 공식 경로: https://www.iris.go.kr/ .
@@ -127,7 +127,7 @@ def test_daily_hot_issues_linter_rejects_internal_ops_even_if_ops_section_exists
 
 ### 내부 자동화 변경
 - 출처 성격: 내부 운영 변경.
-- 확인된 사실: Jarvis 내부 cron 설명이 별도 운영 메모에 있다.
+- 확인된 사실: ZeusOS 내부 cron 설명이 별도 운영 메모에 있다.
 - 왜 중요한가: 독자에게는 외부 이슈와 분리되어야 한다.
 - 오늘 할 일: 운영자는 별도 로그를 확인한다.
 - 근거: https://github.com/example/repo/commit/1, 2026-04-27 확인.
@@ -135,9 +135,9 @@ def test_daily_hot_issues_linter_rejects_internal_ops_even_if_ops_section_exists
 
 ## 주요 이슈
 
-### Jarvis 운영 보강이 외부 핫이슈처럼 반복 노출됨
+### ZeusOS 운영 보강이 외부 핫이슈처럼 반복 노출됨
 - 출처 성격: 보도.
-- 확인된 사실: Jarvis 코드가 업데이트되어 GitHub에 커밋·푸시됐다.
+- 확인된 사실: ZeusOS 코드가 업데이트되어 GitHub에 커밋·푸시됐다.
 - 왜 중요한가: 내부 운영 변경이다.
 - 오늘 할 일: 외부 핫이슈로 보내지 않는다.
 - 근거: https://github.com/example/repo/commit/2, 2026-04-27 확인.

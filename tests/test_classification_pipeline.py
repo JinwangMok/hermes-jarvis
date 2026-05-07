@@ -2,8 +2,8 @@ import json
 import sqlite3
 from pathlib import Path
 
-from jinwang_jarvis.classifier import classify_messages
-from jinwang_jarvis.config import load_pipeline_config
+from zeus_os.classifier import classify_messages
+from zeus_os.config import load_pipeline_config
 
 
 SENDER_MAP = """

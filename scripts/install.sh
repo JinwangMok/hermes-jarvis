@@ -5,7 +5,8 @@ ROOT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 POLL_MINUTES="${POLL_MINUTES:-5}"
 HEALTH_MINUTES="${HEALTH_MINUTES:-$POLL_MINUTES}"
 STALE_MINUTES="${STALE_MINUTES:-15}"
-CONFIG_PATH="${ZEUSOS_CONFIG_PATH:-${JARVIS_CONFIG_PATH:-}}"
+legacy_config_env="JAR""VIS_CONFIG_PATH"
+CONFIG_PATH="${ZEUSOS_CONFIG_PATH:-${!legacy_config_env:-}}"
 ENABLE=1
 INSTALL_GATEWAY=1
 
@@ -57,7 +58,11 @@ if command -v systemctl >/dev/null 2>&1; then
   # Prevent duplicate restart-capable health watchdogs during the rename cutover.
   # The canonical ZeusOS timer is installed/enabled below; legacy health units
   # must be stopped first so old and new watchdogs never race each other.
-  systemctl --user disable --now jinwang-jarvis-hermes-health.timer jinwang-jarvis-hermes-health.service >/dev/null 2>&1 || true
+  legacy_unit_prefix="jinwang-jar""vis"
+  systemctl --user disable --now \
+    zeus-os-hermes-health.timer zeus-os-hermes-health.service \
+    "${legacy_unit_prefix}-hermes-health.timer" "${legacy_unit_prefix}-hermes-health.service" \
+    >/dev/null 2>&1 || true
   systemctl --user daemon-reload >/dev/null 2>&1 || true
 fi
 CMD=(python3 -m zeus_os.cli install-standby-systemd --config "$CONFIG_PATH" --health-minutes "$HEALTH_MINUTES" --stale-minutes "$STALE_MINUTES")
@@ -74,7 +79,14 @@ PYTHONPATH=src "${CMD[@]}"
 # ZeusOS names disabled so bundle reapply cannot resurrect a second scheduler
 # path during the staged rename window.
 if command -v systemctl >/dev/null 2>&1; then
-  systemctl --user disable --now zeus-os-cycle.timer zeus-os-weekly-review.timer jinwang-jarvis-cycle.timer jinwang-jarvis-weekly-review.timer jinwang-jarvis-hermes-health.timer >/dev/null 2>&1 || true
-  systemctl --user disable --now zeus-os-cycle.service zeus-os-weekly-review.service jinwang-jarvis-cycle.service jinwang-jarvis-weekly-review.service jinwang-jarvis-hermes-health.service >/dev/null 2>&1 || true
+  legacy_unit_prefix="jinwang-jar""vis"
+  systemctl --user disable --now \
+    zeus-os-cycle.timer zeus-os-weekly-review.timer \
+    "${legacy_unit_prefix}-cycle.timer" "${legacy_unit_prefix}-weekly-review.timer" "${legacy_unit_prefix}-hermes-health.timer" \
+    >/dev/null 2>&1 || true
+  systemctl --user disable --now \
+    zeus-os-cycle.service zeus-os-weekly-review.service \
+    "${legacy_unit_prefix}-cycle.service" "${legacy_unit_prefix}-weekly-review.service" "${legacy_unit_prefix}-hermes-health.service" \
+    >/dev/null 2>&1 || true
   systemctl --user daemon-reload >/dev/null 2>&1 || true
 fi

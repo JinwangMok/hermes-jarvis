@@ -11,7 +11,7 @@
 
 ## Counts
 - `/home/jinwang/workspace`: path hits 17,640; content files 5,104.
-  - 대부분 현재 repo path `/home/jinwang/workspace/jinwang-jarvis` 아래라 repo path/package cutover 전에는 구조적으로 남습니다.
+  - 대부분 현재 repo path `/home/jinwang/workspace/zeus-os` 아래라 repo path/package cutover 전에는 구조적으로 남습니다.
   - 기타: `hermes-safe-restart-bundle/manifests/bundles/jinwang-jarvis.yaml`, update review artifacts.
 - `/home/jinwang/wiki`: path hits 1,513; content files 1,860.
   - raw/runs/backups 1,450개: raw/history layer라 rewrite 금지 또는 archive/rename 정책 필요.
@@ -25,7 +25,7 @@
 ## Classification
 1. Stage 3 live/runtime/plugin/systemd/config: `.hermes/plugins`, live systemd, safe-restart bundle manifest, repo-local package path.
 2. Stage 4 wiki canonical/generated: `entities/`, `concepts/`, `queries/`, `reports/`, source-registry; raw/runs/backups는 policy상 직접 rewrite 금지/별도 archive strategy.
-3. Stage 5 repo package/path/distribution: `/home/jinwang/workspace/jinwang-jarvis`, `src/jinwang_jarvis`, `pyproject name`, state/db filenames.
+3. Stage 5 repo package/path/distribution: `/home/jinwang/workspace/zeus-os`, `src/jinwang_jarvis`, `pyproject name`, state/db filenames.
 4. Historical artifacts/backups: only after explicit archive policy; do not delete blindly.
 
 ## Side-effect note

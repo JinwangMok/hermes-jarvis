@@ -967,9 +967,9 @@ def _fetch_feed_items_with_candidates(source: WatchSource, fetch_text) -> list[d
         if not items:
             continue
         if not _items_are_stale_for_source(source, items):
-            return _mark_items(items, _jarvis_fetch_status="ok", _jarvis_fetch_path=feed_url)
+            return _mark_items(items, _zeusos_fetch_status="ok", _zeusos_fetch_path=feed_url)
         if not best_items:
-            best_items = _mark_items(items, _jarvis_fetch_status="stale_rss", _jarvis_fetch_path=feed_url)
+            best_items = _mark_items(items, _zeusos_fetch_status="stale_rss", _zeusos_fetch_path=feed_url)
     if best_items:
         return best_items
     if last_error is not None:
@@ -985,7 +985,7 @@ def _fetch_html_fallback_items(source: WatchSource, fetch_text, *, reason: str, 
         except Exception:
             continue
         if items:
-            return _mark_items(items, _jarvis_fetch_status=reason, _jarvis_fetch_path=url)
+            return _mark_items(items, _zeusos_fetch_status=reason, _zeusos_fetch_path=url)
     return []
 
 
@@ -1111,7 +1111,7 @@ def fetch_source_items(source: WatchSource, fetch_text=_fetch_text, fetch_json=_
         items = _fetch_rss_with_source_fallbacks(source, fetch_text)
         if _looks_like_x_source(source):
             return [_enrich_x_item(source, item, fetch_text) for item in items[:1]]
-        if any(str(item.get("_jarvis_fetch_status") or "").endswith("html_fallback") or item.get("_jarvis_fetch_status") == "conservative_html_fallback" for item in items):
+        if any(str(item.get("_zeusos_fetch_status") or "").endswith("html_fallback") or item.get("_zeusos_fetch_status") == "conservative_html_fallback" for item in items):
             # Listing fallbacks are intentionally metadata-only.  Do not fan out
             # into article fetches/searches for gated or anti-bot-sensitive sites.
             return items[:10]
@@ -1257,7 +1257,7 @@ def _sanitize_exception_message(exc: Exception) -> str:
 
 
 def _source_health_fetch_status(*, items_seen: int, items_after_recency: int, stored_count: int, newest_published_at: str | None, recency_start: datetime, source: WatchSource, accepted_reasons: list[str], items: list[dict]) -> str:
-    item_statuses = {str(item.get("_jarvis_fetch_status") or "") for item in items if item.get("_jarvis_fetch_status")}
+    item_statuses = {str(item.get("_zeusos_fetch_status") or "") for item in items if item.get("_zeusos_fetch_status")}
     if stored_count > 0:
         if any(status in {"rss_stale_html_fallback", "rss_error_html_fallback", "conservative_html_fallback"} for status in item_statuses):
             return "ok_html_fallback"
@@ -1396,7 +1396,7 @@ def collect_watch_signals(config: PipelineConfig, fetcher=None) -> dict:
                 accepted_reasons.append(accept_reason)
                 signal_kind = "official-post" if source.source_role == "official-origin" else ("reaction-thread" if source.source_role == "reaction" else "media-post")
                 raw_payload = dict(item)
-                raw_payload["_jarvis_freshness_status"] = accept_reason
+                raw_payload["_zeusos_freshness_status"] = accept_reason
                 conn.execute(
                     """
                     INSERT OR REPLACE INTO watch_signals (
@@ -1493,7 +1493,7 @@ def build_watch_stories(config: PipelineConfig) -> dict:
                 datetime(COALESCE(published_at, collected_at)) >= datetime(?)
                 OR (
                     datetime(collected_at) >= datetime(?)
-                    AND json_extract(raw_payload_json, '$._jarvis_freshness_status') = 'new_since_last_seen'
+                    AND json_extract(raw_payload_json, '$._zeusos_freshness_status') = 'new_since_last_seen'
                 )
             )
             ORDER BY collected_at ASC
@@ -1581,7 +1581,7 @@ def build_watch_stories(config: PipelineConfig) -> dict:
                     datetime(COALESCE(ws.published_at, ws.collected_at)) >= datetime(?)
                     OR (
                         datetime(ws.collected_at) >= datetime(?)
-                        AND json_extract(ws.raw_payload_json, '$._jarvis_freshness_status') = 'new_since_last_seen'
+                        AND json_extract(ws.raw_payload_json, '$._zeusos_freshness_status') = 'new_since_last_seen'
                     )
                   )
                 """,

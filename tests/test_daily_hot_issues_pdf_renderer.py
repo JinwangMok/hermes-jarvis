@@ -119,7 +119,7 @@ def test_render_document_excludes_internal_appendix_and_local_paths():
 - 오늘 할 일: 공식 원문을 확인한다.
 
 ## 부록: 내부 생성 근거
-- source: /home/jinwang/workspace/jinwang-jarvis/data/internal.json
+- source: /home/jinwang/workspace/zeus-os/data/internal.json
 - source audit: internal
 """
     doc = renderer.render_document(md, "2026-04-26 21:00 KST")

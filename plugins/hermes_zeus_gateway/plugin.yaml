@@ -4,7 +4,7 @@ description: |
   Hermes gateway plugin for Zeus OS boardroom projection.
   Provides dry-run Discord card rendering without restarting the gateway.
   Live delivery requires explicit operator approval.
-author: jinwang-jarvis
+author: zeus-os
 type: gateway_adapter
 entrypoint: __init__.py
 config_schema:
@@ -30,4 +30,4 @@ config_schema:
     default: []
     description: Channel IDs where Zeus cards may be projected
 requirements:
-  - jinwang_jarvis >= 0.1.0
+  - zeus_os >= 0.1.0

@@ -4,8 +4,8 @@ import json
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from jinwang_jarvis.cli import main
-from jinwang_jarvis.hermes_skill_lifecycle import audit_hermes_skill_lifecycle, record_skill_telemetry
+from zeus_os.cli import main
+from zeus_os.hermes_skill_lifecycle import audit_hermes_skill_lifecycle, record_skill_telemetry
 
 
 def _write_skill(path: Path, body: str = "Do the thing.") -> None:
@@ -93,10 +93,10 @@ def test_cli_exposes_passive_lifecycle_audit(tmp_path: Path, capsys) -> None:
     assert payload["skills"][0]["name"] == "cli-skill"
 
 
-def test_audit_hermes_skill_lifecycle_includes_jarvis_external_dirs_from_config(tmp_path: Path) -> None:
+def test_audit_hermes_skill_lifecycle_includes_zeusos_external_dirs_from_config(tmp_path: Path) -> None:
     hermes_home = tmp_path / "hermes"
     external_skills = tmp_path / "zeus-os" / "skills"
-    _write_skill(external_skills / "jarvis-owned")
+    _write_skill(external_skills / "zeusos-owned")
     (hermes_home / "config.yaml").parent.mkdir(parents=True, exist_ok=True)
     (hermes_home / "config.yaml").write_text(
         "skills:\n"
@@ -109,13 +109,13 @@ def test_audit_hermes_skill_lifecycle_includes_jarvis_external_dirs_from_config(
 
     assert any(root["path"] == str(external_skills) and root["kind"] == "external" for root in result["roots"])
     assert result["skills"][0]["source"] == "external"
-    assert result["skills"][0]["name"] == "jarvis-owned"
+    assert result["skills"][0]["name"] == "zeusos-owned"
 
 
-def test_record_skill_telemetry_writes_jarvis_sidecar_and_audit_consumes_it(tmp_path: Path) -> None:
+def test_record_skill_telemetry_writes_zeusos_sidecar_and_audit_consumes_it(tmp_path: Path) -> None:
     hermes_home = tmp_path / "hermes"
     skill = hermes_home / "skills" / "telemetry-skill"
-    telemetry_path = tmp_path / "jarvis" / "state" / "hermes-skill-usage.json"
+    telemetry_path = tmp_path / "zeusos" / "state" / "hermes-skill-usage.json"
     _write_skill(skill)
     now = datetime(2026, 4, 29, 12, 0, tzinfo=timezone.utc)
 
@@ -149,14 +149,14 @@ def test_record_skill_telemetry_writes_jarvis_sidecar_and_audit_consumes_it(tmp_
 
     entry = audit["skills"][0]
     assert entry["usage_metadata_present"] is True
-    assert entry["usage_metadata_source"] == "jarvis_telemetry"
+    assert entry["usage_metadata_source"] == "zeusos_telemetry"
     assert entry["use_count"] == 1
     assert entry["last_used_at"] == (now + timedelta(minutes=5)).isoformat()
 
 
 def test_cli_records_skill_telemetry(tmp_path: Path, capsys) -> None:
     hermes_home = tmp_path / "hermes"
-    telemetry_path = tmp_path / "jarvis" / "state" / "hermes-skill-usage.json"
+    telemetry_path = tmp_path / "zeusos" / "state" / "hermes-skill-usage.json"
     _write_skill(hermes_home / "skills" / "cli-telemetry-skill")
 
     exit_code = main([

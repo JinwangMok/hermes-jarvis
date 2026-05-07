@@ -1,5 +1,0 @@
-name: hermes-jarvis-styled-voice-gateway
-version: 0.1.0
-description: Discord natural-language trigger for Jarvis-owned styled voice generation
-provides_hooks:
-  - pre_gateway_dispatch

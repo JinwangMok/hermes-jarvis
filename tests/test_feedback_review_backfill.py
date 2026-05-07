@@ -3,11 +3,11 @@ import sqlite3
 from datetime import UTC, datetime
 from pathlib import Path
 
-from jinwang_jarvis.backfill import determine_next_backfill_month_window, run_next_backfill_step, run_progressive_backfill
-from jinwang_jarvis.bootstrap import bootstrap_workspace
-from jinwang_jarvis.config import load_pipeline_config
-from jinwang_jarvis.feedback import record_proposal_feedback
-from jinwang_jarvis.review import generate_weekly_review
+from zeus_os.backfill import determine_next_backfill_month_window, run_next_backfill_step, run_progressive_backfill
+from zeus_os.bootstrap import bootstrap_workspace
+from zeus_os.config import load_pipeline_config
+from zeus_os.feedback import record_proposal_feedback
+from zeus_os.review import generate_weekly_review
 
 
 def _write_config(root: Path) -> Path:

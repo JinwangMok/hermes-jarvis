@@ -1,8 +1,8 @@
 import json
 from pathlib import Path
 
-from jinwang_jarvis.config import load_pipeline_config
-from jinwang_jarvis.mail import collect_mail_snapshots
+from zeus_os.config import load_pipeline_config
+from zeus_os.mail import collect_mail_snapshots
 
 
 class FakeCommandRunner:
