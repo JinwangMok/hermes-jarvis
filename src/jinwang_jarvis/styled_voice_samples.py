@@ -8,10 +8,25 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterable, Sequence
 
-DEFAULT_SAMPLE_LIBRARY_DIR = Path(os.environ.get(
-    "JARVIS_STYLED_VOICE_SAMPLE_DIR",
-    "~/workspace/jinwang-jarvis/data/styled-voice-samples",
-)).expanduser()
+DEFAULT_SAMPLE_LIBRARY_RELATIVE_DIR = Path("data/styled-voice-samples")
+
+
+def default_sample_library_dir(workspace_root: Path | str | None = None) -> Path:
+    """Return the default styled-voice sample library path.
+
+    Precedence:
+    1. `JARVIS_STYLED_VOICE_SAMPLE_DIR` explicit override.
+    2. `JARVIS_WORKSPACE_ROOT` or supplied workspace root.
+    3. Current working directory, keeping local CLI use repo-relative.
+    """
+    explicit = os.environ.get("JARVIS_STYLED_VOICE_SAMPLE_DIR")
+    if explicit:
+        return Path(explicit).expanduser()
+    root = Path(workspace_root or os.environ.get("JARVIS_WORKSPACE_ROOT") or Path.cwd()).expanduser()
+    return root / DEFAULT_SAMPLE_LIBRARY_RELATIVE_DIR
+
+
+DEFAULT_SAMPLE_LIBRARY_DIR = default_sample_library_dir()
 
 AUDIO_EXTENSIONS = {".wav", ".ogg", ".oga", ".opus", ".m4a", ".mp3", ".flac", ".webm", ".aac"}
 _SAFE_LABEL_RE = re.compile(r"[^A-Za-z0-9._-]+")
@@ -49,8 +64,12 @@ def parse_profile(profile: str | None, *, person: str | None = None, style: str 
     return sanitize_label(parsed_person), sanitize_label(parsed_style or "default")
 
 
+def _sample_library_base(library_dir: Path | str | None = None) -> Path:
+    return Path(library_dir).expanduser() if library_dir else default_sample_library_dir()
+
+
 def profile_dir(library_dir: Path | str | None = None, profile: str | None = None, *, person: str | None = None, style: str | None = None) -> Path:
-    base = Path(library_dir).expanduser() if library_dir else DEFAULT_SAMPLE_LIBRARY_DIR
+    base = _sample_library_base(library_dir)
     resolved_person, resolved_style = parse_profile(profile, person=person, style=style)
     return base / resolved_person / resolved_style
 
@@ -67,7 +86,7 @@ def collect_profile_audio(library_dir: Path | str | None = None, profile: str | 
     # <library>/<person> are usable when style defaults to 'default'.
     resolved_person, resolved_style = parse_profile(profile, person=person, style=style)
     if resolved_style == "default":
-        direct_dir = (Path(library_dir).expanduser() if library_dir else DEFAULT_SAMPLE_LIBRARY_DIR) / resolved_person
+        direct_dir = _sample_library_base(library_dir) / resolved_person
         if direct_dir.exists():
             files.extend(path.resolve() for path in sorted(direct_dir.iterdir()) if _is_audio_file(path))
     return sorted(dict.fromkeys(files))
@@ -105,7 +124,7 @@ def add_samples(audio_paths: Sequence[Path | str], library_dir: Path | str | Non
 
 
 def list_profiles(library_dir: Path | str | None = None) -> list[dict]:
-    base = Path(library_dir).expanduser() if library_dir else DEFAULT_SAMPLE_LIBRARY_DIR
+    base = _sample_library_base(library_dir)
     if not base.exists():
         return []
     profiles: list[VoiceProfile] = []
@@ -138,7 +157,7 @@ def list_profiles(library_dir: Path | str | None = None) -> list[dict]:
 
 
 def init_library(library_dir: Path | str | None = None, profiles: Iterable[str] = ("default",)) -> dict:
-    base = Path(library_dir).expanduser() if library_dir else DEFAULT_SAMPLE_LIBRARY_DIR
+    base = _sample_library_base(library_dir)
     created: list[str] = []
     for profile in profiles:
         path = profile_dir(base, profile)

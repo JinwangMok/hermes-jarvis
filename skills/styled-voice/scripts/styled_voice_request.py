@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import json
 import mimetypes
+import os
 import shutil
 import subprocess
 import sys
@@ -13,12 +14,19 @@ from pathlib import Path
 from typing import Sequence
 
 try:
-    from jinwang_jarvis.styled_voice_samples import DEFAULT_SAMPLE_LIBRARY_DIR, collect_profile_audio
+    from jinwang_jarvis.styled_voice_samples import DEFAULT_SAMPLE_LIBRARY_DIR, collect_profile_audio, default_sample_library_dir
 except Exception:  # pragma: no cover - standalone fallback when PYTHONPATH is not set
-    DEFAULT_SAMPLE_LIBRARY_DIR = Path.home() / "workspace/jinwang-jarvis/data/styled-voice-samples"
+    def default_sample_library_dir(workspace_root: Path | str | None = None) -> Path:
+        explicit = os.environ.get("JARVIS_STYLED_VOICE_SAMPLE_DIR")
+        if explicit:
+            return Path(explicit).expanduser()
+        root = Path(workspace_root or os.environ.get("JARVIS_WORKSPACE_ROOT") or Path.cwd()).expanduser()
+        return root / "data/styled-voice-samples"
+
+    DEFAULT_SAMPLE_LIBRARY_DIR = default_sample_library_dir()
 
     def collect_profile_audio(library_dir=None, profile=None, **_kwargs):
-        base = Path(library_dir).expanduser() if library_dir else DEFAULT_SAMPLE_LIBRARY_DIR
+        base = Path(library_dir).expanduser() if library_dir else default_sample_library_dir()
         person, _, style = (profile or "default").partition("/")
         style = style or "default"
         exts = {".wav", ".ogg", ".oga", ".opus", ".m4a", ".mp3", ".flac", ".webm", ".aac"}
@@ -28,7 +36,7 @@ except Exception:  # pragma: no cover - standalone fallback when PYTHONPATH is n
         files = []
         for candidate in candidates:
             if candidate.exists():
-                files.extend(path.resolve() for path in sorted(candidate.iterdir()) if path.is_file() and path.suffix.lower() in exts)
+                files.extend(path.resolve() for path in sorted(candidate.iterdir()) if path.is_file() and not path.name.startswith(".") and path.suffix.lower() in exts)
         return sorted(dict.fromkeys(files))
 
 DEFAULT_ENDPOINT = "http://10.40.40.40:9100/v1/audio/speech"

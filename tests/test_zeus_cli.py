@@ -1,11 +1,13 @@
+import argparse
 import json
 import sqlite3
 from pathlib import Path
 
 import pytest
 
-from jinwang_jarvis.cli import main
+from jinwang_jarvis.cli import build_parser, main
 from jinwang_jarvis.zeus_os import schema, store
+from jinwang_jarvis.zeus_os.cli import build_zeus_parser
 
 
 def _in_memory_store():
@@ -21,6 +23,58 @@ def _last_json(capsys):
     out = capsys.readouterr().out.strip()
     lines = [ln for ln in out.splitlines() if ln.strip()]
     return json.loads(lines[-1])
+
+
+def _subparser_action(parser: argparse.ArgumentParser) -> argparse._SubParsersAction:
+    for action in parser._actions:
+        if isinstance(action, argparse._SubParsersAction):
+            return action
+    raise AssertionError(f"no subparser action in {parser.prog}")
+
+
+def _action_signature(action: argparse.Action) -> tuple[object, ...]:
+    return (
+        type(action).__name__,
+        tuple(action.option_strings),
+        action.dest,
+        getattr(action, "required", False),
+        action.nargs,
+        action.const,
+        action.default,
+        tuple(action.choices) if action.choices is not None else None,
+    )
+
+
+def _parser_tree(parser: argparse.ArgumentParser) -> dict[str, object]:
+    actions = [
+        _action_signature(action)
+        for action in parser._actions
+        if not isinstance(action, argparse._SubParsersAction)
+    ]
+    try:
+        subparsers = _subparser_action(parser)
+    except AssertionError:
+        children = {}
+    else:
+        children = {name: _parser_tree(child) for name, child in sorted(subparsers.choices.items())}
+    return {"actions": actions, "children": children}
+
+
+class TestZeusCliParserParity:
+    def test_top_level_zeus_parser_matches_standalone_zeus_parser(self):
+        top_parser = build_parser()
+        top_subparsers = _subparser_action(top_parser)
+        top_zeus_parser = top_subparsers.choices["zeus"]
+
+        assert _parser_tree(top_zeus_parser) == _parser_tree(build_zeus_parser())
+
+    def test_top_level_zeus_unknown_subcommand_fails_like_standalone(self):
+        with pytest.raises(SystemExit) as top_exc:
+            build_parser().parse_args(["zeus", "unknown-command"])
+        with pytest.raises(SystemExit) as standalone_exc:
+            build_zeus_parser().parse_args(["unknown-command"])
+
+        assert top_exc.value.code == standalone_exc.value.code == 2
 
 
 class TestZeusCliInit:

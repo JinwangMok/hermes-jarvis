@@ -2,7 +2,15 @@ from pathlib import Path
 
 import pytest
 
-from jinwang_jarvis.styled_voice_samples import add_samples, collect_profile_audio, list_profiles, parse_profile, profile_dir, sanitize_label
+from jinwang_jarvis.styled_voice_samples import (
+    add_samples,
+    collect_profile_audio,
+    default_sample_library_dir,
+    list_profiles,
+    parse_profile,
+    profile_dir,
+    sanitize_label,
+)
 
 
 def test_parse_profile_defaults_style():
@@ -13,6 +21,27 @@ def test_parse_profile_defaults_style():
 def test_sanitize_label_rejects_empty():
     with pytest.raises(ValueError):
         sanitize_label("///")
+
+
+def test_default_sample_library_dir_is_workspace_relative(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.delenv("JARVIS_STYLED_VOICE_SAMPLE_DIR", raising=False)
+    monkeypatch.delenv("JARVIS_WORKSPACE_ROOT", raising=False)
+
+    assert default_sample_library_dir(tmp_path) == tmp_path / "data" / "styled-voice-samples"
+
+
+def test_default_sample_library_dir_honors_workspace_root_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.delenv("JARVIS_STYLED_VOICE_SAMPLE_DIR", raising=False)
+    monkeypatch.setenv("JARVIS_WORKSPACE_ROOT", str(tmp_path))
+
+    assert default_sample_library_dir() == tmp_path / "data" / "styled-voice-samples"
+
+
+def test_default_sample_library_dir_honors_explicit_override(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    override = tmp_path / "voice-lib"
+    monkeypatch.setenv("JARVIS_STYLED_VOICE_SAMPLE_DIR", str(override))
+
+    assert default_sample_library_dir(tmp_path) == override
 
 
 def test_profile_dir_uses_person_style_layout(tmp_path: Path):

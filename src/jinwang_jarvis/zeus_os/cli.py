@@ -8,12 +8,16 @@ import sqlite3
 from pathlib import Path
 from typing import Any
 
-from . import a2a, artifacts, boardroom, doctor, events, export, ids, painter, queue, safety, schema, store
+from . import a2a, adapters, artifacts, boardroom, doctor, events, export, ids, painter, queue, safety, schema, store, worker
 
 
-def build_zeus_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="jinwang-jarvis zeus")
-    subparsers = parser.add_subparsers(dest="zeus_command", required=True)
+def populate_zeus_subparsers(subparsers: argparse._SubParsersAction) -> None:
+    """Populate a Zeus OS subparser tree.
+
+    This is the single source of truth for Zeus CLI command shape. The
+    top-level `jinwang-jarvis zeus ...` command and the standalone Zeus parser
+    both call this function so new subcommands cannot drift between wrappers.
+    """
 
     init_parser = subparsers.add_parser("init", help="Initialize Zeus OS schema and directories")
     init_parser.add_argument("--workspace", default=".", help="Workspace root directory")
@@ -111,6 +115,20 @@ def build_zeus_parser() -> argparse.ArgumentParser:
     painter_run.add_argument("--style", default="", help="Style notes")
     painter_run.add_argument("--workspace", default=".", help="Workspace root directory")
 
+    adapter_parser = subparsers.add_parser("adapter", help="Adapter manifest and browser recipe utilities")
+    adapter_subparsers = adapter_parser.add_subparsers(dest="adapter_command", required=True)
+
+    adapter_dry_run = adapter_subparsers.add_parser("dry-run", help="Validate adapter manifest + browser recipe and register proposal artifact")
+    adapter_dry_run.add_argument("--workspace", default=".", help="Workspace root directory")
+    adapter_dry_run.add_argument("--task-id", required=True, help="Task ID used to register the dry-run artifact")
+    adapter_dry_run.add_argument("--adapter-manifest", required=True, help="Adapter manifest JSON path")
+    adapter_dry_run.add_argument("--browser-recipe", required=True, help="Browser recipe JSON path")
+
+
+def build_zeus_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(prog="jinwang-jarvis zeus")
+    subparsers = parser.add_subparsers(dest="zeus_command", required=True)
+    populate_zeus_subparsers(subparsers)
     return parser
 
 
@@ -150,6 +168,9 @@ def handle_zeus(args: argparse.Namespace) -> int:
 
         if args.zeus_command == "painter":
             return _handle_painter(conn, config, args)
+
+        if args.zeus_command == "adapter":
+            return _handle_adapter(conn, config, args)
 
         return 2
     except (FileNotFoundError, KeyError, ValueError, sqlite3.IntegrityError, PermissionError) as exc:
@@ -244,17 +265,12 @@ def _handle_worker(conn: sqlite3.Connection, config: store.StoreConfig, args: ar
         return 0
 
     if args.worker_command == "run":
-        topic = f"worker.{args.kind}"
-        lease_owner = f"cli-worker-{args.kind}"
-        claimed = queue.claim_next(conn, topic, lease_owner, lease_seconds=300)
-        if not claimed:
-            print(json.dumps({"ok": True, "action": "no_work"}, ensure_ascii=False))
-            return 0
-        work_order_id = claimed["payload"].get("work_order_id")
-        result = {"processed_queue_id": claimed["queue_id"], "work_order_id": work_order_id, "action": "processed"}
-        queue.ack(conn, claimed["queue_id"], lease_owner, work_order_result=result)
+        if args.kind != "deterministic":
+            print(json.dumps({"ok": False, "error": f"unsupported worker kind: {args.kind}"}, ensure_ascii=False))
+            return 1
+        result = worker.run_deterministic_once(conn, Path(config.artifact_root), kind=args.kind)
         conn.commit()
-        print(json.dumps({"ok": True, **result}, ensure_ascii=False))
+        print(json.dumps(result, ensure_ascii=False))
         return 0
 
     return 2
@@ -317,5 +333,24 @@ def _handle_painter(conn: sqlite3.Connection, config: store.StoreConfig, args: a
         conn.commit()
         print(json.dumps({"ok": True, "artifacts": [r["artifact_id"] for r in records]}, ensure_ascii=False))
         return 0
+
+    return 2
+
+
+def _handle_adapter(conn: sqlite3.Connection, config: store.StoreConfig, args: argparse.Namespace) -> int:
+    if args.adapter_command == "dry-run":
+        manifest = adapters.load_json_file(args.adapter_manifest)
+        recipe = adapters.load_json_file(args.browser_recipe)
+        result = adapters.register_dry_run_proposal(
+            conn,
+            Path(config.artifact_root),
+            task_id=args.task_id,
+            adapter_manifest=manifest,
+            browser_recipe=recipe,
+        )
+        if result["ok"]:
+            conn.commit()
+        print(json.dumps(result, ensure_ascii=False))
+        return 0 if result["ok"] else 1
 
     return 2
