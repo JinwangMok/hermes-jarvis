@@ -1,4 +1,17 @@
-# Hermes Jarvis
+# ZeusOS
+
+ZeusOS is the product/control-plane identity for the existing `jinwang-jarvis` repository. It combines a local Agent OS control plane with the Jarvis personal-intelligence capability pack.
+
+Compatibility-first naming during the transition:
+
+- **ZeusOS**: product/control-plane and Agent OS identity.
+- **Jarvis**: personal-intelligence capability pack for mail, calendar, briefings, hot issues, opportunity radar, HOOO/Houroboros, and related workflows.
+- **`jinwang-jarvis` / `jinwang_jarvis`**: existing repository, distribution, CLI, and Python import compatibility surfaces. They are intentionally not renamed yet.
+- **Hermes**: source-untouched gateway/runtime/tool host. ZeusOS integrates through plugins, sidecars, and CLI boundaries rather than Hermes core patches.
+- **Hermes profiles**: optional operational split for reducing context pollution and gateway queue contention. First candidate is a separate `jarvis` profile for mail/calendar/news/report work; profiles are not security sandboxes.
+- **External repos such as K-Skill**: independent capability providers integrated through adapter contracts, not vendored into ZeusOS core.
+
+For the migration contract, see `docs/zeus-os-rebrand-migration.md`. For external capability boundaries, see `docs/zeus-os-adapter-contract.md`.
 
 Hermes Jarvis helps you turn mail and calendar activity into a short action-oriented briefing.
 
