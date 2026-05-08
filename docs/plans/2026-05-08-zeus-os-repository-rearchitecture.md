@@ -122,10 +122,36 @@ Status after Jinwang-approved follow-up B:
 - Added tests: `tests/test_declarative_manifests.py`.
 - Verified with TDD RED/GREEN: missing validator failed first, missing schema docs failed first, then `PYTHONPATH=src pytest -q tests/test_declarative_manifests.py` passed.
 
+### Aggressive Acceptance — defendable target state
+
+This migration should not stop at a cosmetic directory scaffold. The accepted end state is:
+
+1. **Declarative control plane first:** `agents/`, `agent-shim/`, `apps/`, and `channels/` manifests become the primary registry for ZeusOS-owned capabilities; legacy paths remain compatibility surfaces, not the design center.
+2. **Runtime reads the registry:** phase exit requires at least one concrete ZeusOS-owned runtime caller to read canonical metadata through the declarative registry while preserving old fallback behavior; final migration acceptance requires every migrated capability to be registry-driven.
+3. **Compatibility is explicit, not implicit:** every old root (`data/`, `state/`, `skills/`, `scripts/`) has a named resolver rule, source-of-truth status, rollback note, and regression test.
+4. **No destructive truth moves:** `data/` and `state/` remain in place until there is an inventory, migration map, dry-run verifier, rollback command, and post-move smoke test.
+5. **Every moved capability is app-shaped:** a migrated watchdog/skill/tool/channel must have an `app.yaml`, entrypoint, validation test, compatibility alias if needed, and runtime smoke evidence.
+6. **Hermes boundary stays clean:** Hermes source, `~/.hermes`, gateway, systemd, cron, raw wiki, and credentials are not modified unless a separate approval explicitly names them.
+7. **Secrets remain unrepresentable:** manifests may reference credential handles, never secret values; tests must fail on obvious secret-like values in tracked declarative files.
+8. **Operator evidence is mandatory:** each leaf migration records commands, test output, diff scope, and reviewer verdict before the next leaf starts.
+
+### Defensive review model
+
+Before each implementation leaf is accepted:
+
+1. **Spec review:** a fresh reviewer checks whether the leaf obeys this plan, touches only allowed paths, and advances the aggressive acceptance criteria.
+2. **Safety review:** verify no secret persistence, no raw wiki writes, no runtime truth move, no cron/systemd/gateway side effects, and no unrelated dirty files staged.
+3. **Compatibility review:** prove old CLI/path behavior still works or that the change is behind an explicit compatibility shim.
+4. **Test review:** require RED -> GREEN evidence for new behavior plus targeted regression tests for existing behavior.
+5. **Diff review:** inspect staged diff only; unrelated pre-existing dirty work must remain excluded.
+6. **Rollback review:** every migration leaf must name a concrete rollback command or no-op rollback reason.
+
 ### Phase 2 — Compatibility path resolver
-- Implement `zeus_os.paths` or equivalent mapping old and new roots.
+- Implement `zeus_os.paths` or equivalent as the compatibility firewall between old roots and new declarative roots.
 - Add tests proving existing CLI/data/state behavior remains unchanged.
-- Document environment overrides.
+- Add tests proving new declarative roots can be resolved without moving runtime truth.
+- Document environment overrides, source-of-truth status, and rollback expectations.
+- Acceptance for Phase 2: runtime can ask one resolver API for `data`, `state`, `skills`, `scripts`, `apps`, `channels`, `agents`, and `agent_shim` roots; no caller hardcodes migration assumptions.
 
 ### Phase 3 — Skill/app migration
 - Introduce `apps/skill-sets/custom-skills/minerva/` as canonical future HOOO location.
