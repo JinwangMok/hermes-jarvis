@@ -1,0 +1,11 @@
+apiVersion: zeus.os/v1alpha1
+kind: CapabilityApp
+metadata:
+  name: gateway-recovery
+spec:
+  kind: tool
+  entrypoint: README.md
+  legacyScripts:
+    - path: scripts/arm-opencode-gateway-recovery.sh
+      role: tool
+      migration: classify-only

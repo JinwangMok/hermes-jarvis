@@ -84,6 +84,18 @@ def test_repository_ops_manifest_classifies_install_verify_and_wrapper_without_m
     assert all(script["migration"] == "classify-only" for script in scripts.values())
 
 
+def test_gateway_recovery_manifest_classifies_safety_critical_script_without_moving_it():
+    result = validate_repo_manifests(paths=ZeusPaths(Path.cwd()))
+    scripts = {script["path"]: script for script in result.apps["gateway-recovery"].legacy_scripts}
+
+    assert result.apps["gateway-recovery"].kind == "tool"
+    assert scripts["scripts/arm-opencode-gateway-recovery.sh"] == {
+        "path": "scripts/arm-opencode-gateway-recovery.sh",
+        "role": "tool",
+        "migration": "classify-only",
+    }
+
+
 def test_agent_manifest_requires_existing_shim(tmp_path):
     (tmp_path / "agents").mkdir()
     (tmp_path / "agent-shim" / "hermes").mkdir(parents=True)
