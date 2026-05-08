@@ -12,6 +12,9 @@ from typing import Any, Sequence
 
 import yaml
 
+from zeus_os.declarative import ManifestValidationError, validate_repo_manifests
+from zeus_os.paths import ZeusPaths
+
 DEFAULT_HERMES_HOME = Path.home() / ".hermes"
 DEFAULT_SKILL_SEARCH_DB = Path("state/hermes-skill-search.sqlite")
 DEFAULT_SKILL_TELEMETRY_PATH = Path("state/hermes-skill-usage.json")
@@ -152,13 +155,42 @@ def skill_roots_from_config(
     hermes_home: Path | str = DEFAULT_HERMES_HOME,
     hermes_config_path: Path | str | None = None,
     skill_roots: Sequence[Path | str] | None = None,
-) -> list[dict[str, str]]:
+    zeus_paths: ZeusPaths | None = None,
+) -> list[dict[str, Any]]:
+    roots: list[dict[str, Any]] = []
     if skill_roots:
-        return [{"kind": "explicit", "path": str(Path(root).expanduser())} for root in skill_roots]
-    hermes_home = Path(hermes_home).expanduser()
-    roots = [{"kind": "builtin", "path": str(hermes_home / "skills")}]
-    if hermes_config_path:
-        roots.extend({"kind": "external", "path": str(path)} for path in _external_dirs_from_config(Path(hermes_config_path)))
+        roots.extend({"kind": "explicit", "path": str(Path(root).expanduser())} for root in skill_roots)
+    else:
+        hermes_home = Path(hermes_home).expanduser()
+        roots.append({"kind": "builtin", "path": str(hermes_home / "skills")})
+        if hermes_config_path:
+            roots.extend({"kind": "external", "path": str(path)} for path in _external_dirs_from_config(Path(hermes_config_path)))
+    roots.extend(_compatibility_bridge_skill_roots(zeus_paths))
+    return roots
+
+
+def _compatibility_bridge_skill_roots(paths: ZeusPaths | None) -> list[dict[str, Any]]:
+    if paths is None:
+        return []
+    try:
+        manifests = validate_repo_manifests(paths=paths)
+    except ManifestValidationError:
+        return []
+    roots: list[dict[str, Any]] = []
+    for app in manifests.apps.values():
+        bridge = app.compatibility_bridge
+        if not bridge or bridge.get("legacy_root") != "skills" or bridge.get("runtime_wiring") is not False:
+            continue
+        legacy_name = str(bridge["legacy_name"])
+        roots.append({
+            "kind": "compatibility_bridge",
+            "path": str(paths.repo_root / "skills" / legacy_name),
+            "app": app.name,
+            "legacy_root": bridge["legacy_root"],
+            "legacy_name": legacy_name,
+            "mode": bridge["mode"],
+            "runtime_wiring": bridge["runtime_wiring"],
+        })
     return roots
 
 
@@ -476,10 +508,16 @@ def build_skill_search_index(
     hermes_config_path: Path | str | None = None,
     skill_roots: Sequence[Path | str] | None = None,
     telemetry_path: Path | str | None = DEFAULT_SKILL_TELEMETRY_PATH,
+    zeus_paths: ZeusPaths | None = None,
 ) -> dict[str, Any]:
     db_path = Path(db_path).expanduser()
     db_path.parent.mkdir(parents=True, exist_ok=True)
-    roots = skill_roots_from_config(hermes_home=hermes_home, hermes_config_path=hermes_config_path, skill_roots=skill_roots)
+    roots = skill_roots_from_config(
+        hermes_home=hermes_home,
+        hermes_config_path=hermes_config_path,
+        skill_roots=skill_roots,
+        zeus_paths=zeus_paths,
+    )
     telemetry_index = _load_telemetry(telemetry_path)
     indexed_at = datetime.now(timezone.utc).isoformat()
     counts = {"inserted": 0, "updated": 0, "skipped": 0, "deleted": 0, "errors": 0}

@@ -6,6 +6,7 @@ from pathlib import Path
 
 from zeus_os.cli import main
 from zeus_os.hermes_skill_search import build_skill_search_index, evaluate_skill_search, search_skills
+from zeus_os.paths import ZeusPaths
 
 
 def _write_skill(
@@ -188,6 +189,63 @@ def test_zeusos_central_telemetry_merges_into_search_index(tmp_path: Path) -> No
     assert index["telemetry_path"] == str(telemetry_path)
     assert result["rows"][0]["name"] == "central-helper"
     assert result["rows"][0]["use_count"] == 9
+
+
+def test_build_skill_search_index_consumes_minerva_hooo_registry_bridge(tmp_path: Path) -> None:
+    repo = tmp_path / "zeus-os"
+    (repo / "agents").mkdir(parents=True)
+    (repo / "agent-shim" / "hermes").mkdir(parents=True)
+    (repo / "channels").mkdir(parents=True)
+    (repo / "apps" / "skill-sets" / "custom-skills" / "minerva").mkdir(parents=True)
+    (repo / "apps" / "skill-sets" / "custom-skills" / "minerva" / "app.yaml").write_text(
+        "apiVersion: zeus.os/v1alpha1\n"
+        "kind: CapabilityApp\n"
+        "metadata:\n"
+        "  name: minerva\n"
+        "spec:\n"
+        "  kind: skill-set\n"
+        "  entrypoint: README.md\n"
+        "  compatibilityBridge:\n"
+        "    legacyRoot: skills\n"
+        "    legacyName: hooo\n"
+        "    mode: read-only-metadata\n"
+        "    runtimeWiring: false\n",
+        encoding="utf-8",
+    )
+    _write_skill(
+        repo / "skills" / "hooo",
+        name="hooo",
+        description="HOOO workflow harness bridge search target",
+        body="Minerva compatibility bridge should make this legacy HOOO skill searchable.",
+    )
+    db_path = tmp_path / "skills.sqlite"
+
+    index = build_skill_search_index(db_path, zeus_paths=ZeusPaths(repo))
+    result = search_skills(db_path, "minerva hooo bridge", top_k=1)
+
+    assert {
+        "kind": "compatibility_bridge",
+        "path": str(repo / "skills" / "hooo"),
+        "app": "minerva",
+        "legacy_root": "skills",
+        "legacy_name": "hooo",
+        "mode": "read-only-metadata",
+        "runtime_wiring": False,
+    } in index["roots"]
+    assert result["rows"][0]["name"] == "hooo"
+
+
+def test_empty_skill_roots_still_uses_default_hermes_root(tmp_path: Path) -> None:
+    hermes_home = tmp_path / "hermes"
+    root = hermes_home / "skills"
+    _write_skill(root / "default-root-skill", description="Default root skill", body="Default root should remain searchable.")
+    db_path = tmp_path / "skills.sqlite"
+
+    index = build_skill_search_index(db_path, hermes_home=hermes_home, skill_roots=[])
+    result = search_skills(db_path, "default root", top_k=1)
+
+    assert index["roots"] == [{"kind": "builtin", "path": str(root)}]
+    assert result["rows"][0]["name"] == "default-root-skill"
 
 
 def test_search_logging_is_opt_in_and_metadata_only(tmp_path: Path) -> None:
