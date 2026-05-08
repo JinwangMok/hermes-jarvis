@@ -64,6 +64,16 @@ def test_minerva_manifest_declares_legacy_hooo_bridge_without_runtime_wiring():
     }
 
 
+def test_news_center_manifest_classifies_legacy_scripts_without_moving_them():
+    result = validate_repo_manifests(paths=ZeusPaths(Path.cwd()))
+    scripts = {script["path"]: script for script in result.apps["news-center"].legacy_scripts}
+
+    assert scripts["scripts/lint_daily_hot_issues_content.py"]["role"] == "quality-gate"
+    assert scripts["scripts/gate_daily_hot_issues_delivery.py"]["role"] == "quality-gate"
+    assert scripts["scripts/render_daily_hot_issues_pdf.py"]["role"] == "renderer"
+    assert all(script["migration"] == "classify-only" for script in scripts.values())
+
+
 def test_agent_manifest_requires_existing_shim(tmp_path):
     (tmp_path / "agents").mkdir()
     (tmp_path / "agent-shim" / "hermes").mkdir(parents=True)
@@ -132,4 +142,31 @@ def test_compatibility_bridge_legacy_name_cannot_escape_skills_root(tmp_path):
     )
 
     with pytest.raises(ManifestValidationError, match="legacyName"):
+        validate_repo_manifests(tmp_path)
+
+
+def test_legacy_script_classification_path_cannot_escape_repo_root(tmp_path):
+    (tmp_path / "agents").mkdir()
+    (tmp_path / "agent-shim" / "hermes").mkdir(parents=True)
+    app_dir = tmp_path / "apps" / "bad-scripts"
+    app_dir.mkdir(parents=True)
+    (app_dir / "app.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "apiVersion": "zeus.os/v1alpha1",
+                "kind": "CapabilityApp",
+                "metadata": {"name": "bad-scripts"},
+                "spec": {
+                    "kind": "tool",
+                    "entrypoint": "README.md",
+                    "legacyScripts": [
+                        {"path": "../credentials/key.txt", "role": "tool", "migration": "classify-only"}
+                    ],
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ManifestValidationError, match="legacyScripts.*path"):
         validate_repo_manifests(tmp_path)

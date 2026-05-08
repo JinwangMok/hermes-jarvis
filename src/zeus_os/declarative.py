@@ -38,6 +38,7 @@ class AppManifest:
     entrypoint: str
     path: Path
     compatibility_bridge: dict[str, Any] | None = None
+    legacy_scripts: tuple[dict[str, str], ...] = ()
 
 
 @dataclass(frozen=True)
@@ -165,6 +166,7 @@ def _load_apps(app_root: Path) -> dict[str, AppManifest]:
         kind = _nonempty_str(spec.get("kind"), path, "spec.kind")
         entrypoint = _nonempty_str(spec.get("entrypoint"), path, "spec.entrypoint")
         compatibility_bridge = _optional_compatibility_bridge(spec.get("compatibilityBridge"), path)
+        legacy_scripts = _optional_legacy_scripts(spec.get("legacyScripts"), path)
         _require(kind in ALLOWED_APP_KINDS, path, f"unknown app kind {kind!r}")
         _require(name not in apps, path, f"duplicate app {name!r}")
         apps[name] = AppManifest(
@@ -173,6 +175,7 @@ def _load_apps(app_root: Path) -> dict[str, AppManifest]:
             entrypoint=entrypoint,
             path=path.parent,
             compatibility_bridge=compatibility_bridge,
+            legacy_scripts=legacy_scripts,
         )
     return apps
 
@@ -214,6 +217,29 @@ def _optional_compatibility_bridge(value: Any, path: Path) -> dict[str, Any] | N
         "mode": mode,
         "runtime_wiring": runtime_wiring,
     }
+
+
+def _optional_legacy_scripts(value: Any, path: Path) -> tuple[dict[str, str], ...]:
+    if value is None:
+        return ()
+    _require(isinstance(value, list), path, "spec.legacyScripts must be a list")
+    scripts: list[dict[str, str]] = []
+    for index, item in enumerate(value):
+        field = f"spec.legacyScripts[{index}]"
+        script = _mapping(item, path, field)
+        script_path = _nonempty_str(script.get("path"), path, f"{field}.path")
+        role = _nonempty_str(script.get("role"), path, f"{field}.role")
+        migration = _nonempty_str(script.get("migration"), path, f"{field}.migration")
+        _require(_is_repo_relative_script_path(script_path), path, f"{field}.path must be a repo-relative scripts/ path")
+        _require(role in {"watchdog", "tool", "renderer", "quality-gate", "installer"}, path, f"{field}.role has unknown classification")
+        _require(migration == "classify-only", path, f"{field}.migration must be classify-only")
+        scripts.append({"path": script_path, "role": role, "migration": migration})
+    return tuple(scripts)
+
+
+def _is_repo_relative_script_path(value: str) -> bool:
+    parsed = PurePosixPath(value)
+    return not parsed.is_absolute() and ".." not in parsed.parts and len(parsed.parts) >= 2 and parsed.parts[0] == "scripts"
 
 
 def _is_single_relative_name(value: str) -> bool:

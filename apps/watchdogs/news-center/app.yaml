@@ -5,3 +5,13 @@ metadata:
 spec:
   kind: watchdog
   entrypoint: README.md
+  legacyScripts:
+    - path: scripts/lint_daily_hot_issues_content.py
+      role: quality-gate
+      migration: classify-only
+    - path: scripts/gate_daily_hot_issues_delivery.py
+      role: quality-gate
+      migration: classify-only
+    - path: scripts/render_daily_hot_issues_pdf.py
+      role: renderer
+      migration: classify-only

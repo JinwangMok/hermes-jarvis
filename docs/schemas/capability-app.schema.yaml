@@ -16,7 +16,12 @@ spec:
         legacyName: optional legacy capability name
         mode: optional compatibility mode; currently read-only-metadata
         runtimeWiring: must be false for declaration-only bridges
+      legacyScripts:
+        - path: repo-relative path under scripts/
+          role: one of [watchdog, tool, renderer, quality-gate, installer]
+          migration: classify-only
   notes:
     - Capability apps are declarative mount points.
     - Moving existing runtime files into apps/ requires a separate migration gate.
     - compatibilityBridge declares metadata only; runtime callers require a separate review gate.
+    - legacyScripts classifies existing scripts without moving or wiring them.
