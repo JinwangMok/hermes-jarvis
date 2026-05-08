@@ -74,6 +74,16 @@ def test_news_center_manifest_classifies_legacy_scripts_without_moving_them():
     assert all(script["migration"] == "classify-only" for script in scripts.values())
 
 
+def test_repository_ops_manifest_classifies_install_verify_and_wrapper_without_moving_them():
+    result = validate_repo_manifests(paths=ZeusPaths(Path.cwd()))
+    scripts = {script["path"]: script for script in result.apps["repository-ops"].legacy_scripts}
+
+    assert scripts["scripts/install.sh"]["role"] == "installer"
+    assert scripts["scripts/verify.sh"]["role"] == "quality-gate"
+    assert scripts["scripts/patch_google_workspace_wrapper.py"]["role"] == "tool"
+    assert all(script["migration"] == "classify-only" for script in scripts.values())
+
+
 def test_agent_manifest_requires_existing_shim(tmp_path):
     (tmp_path / "agents").mkdir()
     (tmp_path / "agent-shim" / "hermes").mkdir(parents=True)

@@ -1,0 +1,17 @@
+apiVersion: zeus.os/v1alpha1
+kind: CapabilityApp
+metadata:
+  name: repository-ops
+spec:
+  kind: tool
+  entrypoint: README.md
+  legacyScripts:
+    - path: scripts/install.sh
+      role: installer
+      migration: classify-only
+    - path: scripts/verify.sh
+      role: quality-gate
+      migration: classify-only
+    - path: scripts/patch_google_workspace_wrapper.py
+      role: tool
+      migration: classify-only
