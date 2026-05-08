@@ -4,6 +4,7 @@ import pytest
 import yaml
 
 from zeus_os.declarative import ManifestValidationError, validate_repo_manifests
+from zeus_os.paths import ZeusPaths
 
 
 def test_repository_declarative_manifests_are_valid():
@@ -24,6 +25,19 @@ def test_declarative_schema_documents_exist():
 
     assert yaml.safe_load(agent_schema.read_text(encoding="utf-8"))["kind"] == "AgentPersonaSchema"
     assert yaml.safe_load(app_schema.read_text(encoding="utf-8"))["kind"] == "CapabilityAppSchema"
+
+
+def test_manifest_validation_can_use_zeus_paths_policy():
+    result = validate_repo_manifests(paths=ZeusPaths(Path.cwd()))
+
+    assert result.agents["boramae"].shim == "hermes"
+    assert result.shims["hermes"].path == Path.cwd() / "agent-shim" / "hermes"
+    assert result.apps["discord"].path == Path.cwd() / "channels" / "discord"
+
+
+def test_manifest_validation_still_requires_explicit_root_or_paths():
+    with pytest.raises(TypeError, match="repo_root or paths"):
+        validate_repo_manifests()
 
 
 def test_agent_manifest_requires_existing_shim(tmp_path):

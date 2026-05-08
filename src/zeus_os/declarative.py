@@ -6,6 +6,8 @@ from typing import Any
 
 import yaml
 
+from zeus_os.paths import ZeusPaths
+
 
 API_VERSION = "zeus.os/v1alpha1"
 ALLOWED_APP_KINDS = {"watchdog", "skill-set", "mcp", "tool", "a2a", "channel"}
@@ -43,12 +45,26 @@ class ManifestValidationResult:
     apps: dict[str, AppManifest]
 
 
-def validate_repo_manifests(repo_root: Path) -> ManifestValidationResult:
-    root = Path(repo_root)
-    shims = _discover_shims(root / "agent-shim")
-    agents = _load_agents(root / "agents", shims)
-    apps = _load_apps(root / "apps")
-    channel_apps = _load_apps(root / "channels")
+def validate_repo_manifests(
+    repo_root: Path | None = None,
+    *,
+    paths: ZeusPaths | None = None,
+) -> ManifestValidationResult:
+    if paths is not None:
+        if repo_root is not None:
+            raise TypeError("validate_repo_manifests accepts either repo_root or paths, not both")
+        shims = _discover_shims(paths.resolve_root("agent_shim"))
+        agents = _load_agents(paths.resolve_root("agents"), shims)
+        apps = _load_apps(paths.resolve_root("apps"))
+        channel_apps = _load_apps(paths.resolve_root("channels"))
+    else:
+        if repo_root is None:
+            raise TypeError("validate_repo_manifests requires repo_root or paths")
+        root = Path(repo_root)
+        shims = _discover_shims(root / "agent-shim")
+        agents = _load_agents(root / "agents", shims)
+        apps = _load_apps(root / "apps")
+        channel_apps = _load_apps(root / "channels")
     overlap = set(apps) & set(channel_apps)
     if overlap:
         raise ManifestValidationError(f"duplicate app names across roots: {sorted(overlap)}")
