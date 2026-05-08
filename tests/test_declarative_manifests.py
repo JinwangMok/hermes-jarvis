@@ -103,3 +103,33 @@ def test_app_manifest_requires_known_kind(tmp_path):
 
     with pytest.raises(ManifestValidationError, match="unknown"):
         validate_repo_manifests(tmp_path)
+
+
+def test_compatibility_bridge_legacy_name_cannot_escape_skills_root(tmp_path):
+    (tmp_path / "agents").mkdir()
+    (tmp_path / "agent-shim" / "hermes").mkdir(parents=True)
+    app_dir = tmp_path / "apps" / "bad-bridge"
+    app_dir.mkdir(parents=True)
+    (app_dir / "app.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "apiVersion": "zeus.os/v1alpha1",
+                "kind": "CapabilityApp",
+                "metadata": {"name": "bad-bridge"},
+                "spec": {
+                    "kind": "skill-set",
+                    "entrypoint": "README.md",
+                    "compatibilityBridge": {
+                        "legacyRoot": "skills",
+                        "legacyName": "../credentials",
+                        "mode": "read-only-metadata",
+                        "runtimeWiring": False,
+                    },
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ManifestValidationError, match="legacyName"):
+        validate_repo_manifests(tmp_path)

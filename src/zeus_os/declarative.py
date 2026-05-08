@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any
 
 import yaml
@@ -201,6 +201,7 @@ def _optional_compatibility_bridge(value: Any, path: Path) -> dict[str, Any] | N
     bridge = _mapping(value, path, "spec.compatibilityBridge")
     legacy_root = _nonempty_str(bridge.get("legacyRoot"), path, "spec.compatibilityBridge.legacyRoot")
     legacy_name = _nonempty_str(bridge.get("legacyName"), path, "spec.compatibilityBridge.legacyName")
+    _require(_is_single_relative_name(legacy_name), path, "spec.compatibilityBridge.legacyName must be a single relative name")
     mode = _nonempty_str(bridge.get("mode"), path, "spec.compatibilityBridge.mode")
     runtime_wiring = bridge.get("runtimeWiring")
     _require(isinstance(runtime_wiring, bool), path, "spec.compatibilityBridge.runtimeWiring must be a boolean")
@@ -213,6 +214,11 @@ def _optional_compatibility_bridge(value: Any, path: Path) -> dict[str, Any] | N
         "mode": mode,
         "runtime_wiring": runtime_wiring,
     }
+
+
+def _is_single_relative_name(value: str) -> bool:
+    parsed = PurePosixPath(value)
+    return not parsed.is_absolute() and len(parsed.parts) == 1 and parsed.parts[0] not in {".", ".."}
 
 
 def _require(condition: bool, path: Path, message: str) -> None:

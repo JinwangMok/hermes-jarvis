@@ -6,6 +6,7 @@ from pathlib import Path
 
 from zeus_os.cli import main
 from zeus_os.hermes_skill_lifecycle import audit_hermes_skill_lifecycle, record_skill_telemetry
+from zeus_os.paths import ZeusPaths
 
 
 def _write_skill(path: Path, body: str = "Do the thing.") -> None:
@@ -110,6 +111,51 @@ def test_audit_hermes_skill_lifecycle_includes_zeusos_external_dirs_from_config(
     assert any(root["path"] == str(external_skills) and root["kind"] == "external" for root in result["roots"])
     assert result["skills"][0]["source"] == "external"
     assert result["skills"][0]["name"] == "zeusos-owned"
+
+
+def test_audit_hermes_skill_lifecycle_consumes_minerva_hooo_registry_bridge(tmp_path: Path) -> None:
+    repo_root = tmp_path / "zeus-os"
+    hermes_home = tmp_path / "hermes"
+    (repo_root / "agents").mkdir(parents=True)
+    (repo_root / "agent-shim" / "hermes").mkdir(parents=True)
+    minerva = repo_root / "apps" / "skill-sets" / "custom-skills" / "minerva"
+    minerva.mkdir(parents=True)
+    (repo_root / "channels").mkdir()
+    _write_skill(repo_root / "skills" / "hooo")
+    (minerva / "app.yaml").write_text(
+        "apiVersion: zeus.os/v1alpha1\n"
+        "kind: CapabilityApp\n"
+        "metadata:\n"
+        "  name: minerva\n"
+        "spec:\n"
+        "  kind: skill-set\n"
+        "  entrypoint: README.md\n"
+        "  compatibilityBridge:\n"
+        "    legacyRoot: skills\n"
+        "    legacyName: hooo\n"
+        "    mode: read-only-metadata\n"
+        "    runtimeWiring: false\n",
+        encoding="utf-8",
+    )
+
+    result = audit_hermes_skill_lifecycle(
+        hermes_home=hermes_home,
+        hermes_config_path=hermes_home / "config.yaml",
+        include_external_dirs=False,
+        zeus_paths=ZeusPaths(repo_root),
+    )
+
+    assert any(root["kind"] == "compatibility_bridge" and root["name"] == "minerva" for root in result["roots"])
+    entry = result["skills"][0]
+    assert entry["name"] == "hooo"
+    assert entry["source"] == "compatibility_bridge"
+    assert entry["compatibility_bridge"] == {
+        "app": "minerva",
+        "legacy_root": "skills",
+        "legacy_name": "hooo",
+        "mode": "read-only-metadata",
+        "runtime_wiring": False,
+    }
 
 
 def test_record_skill_telemetry_writes_zeusos_sidecar_and_audit_consumes_it(tmp_path: Path) -> None:

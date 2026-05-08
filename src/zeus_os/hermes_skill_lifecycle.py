@@ -8,6 +8,9 @@ from typing import Any
 
 import yaml
 
+from zeus_os.declarative import ManifestValidationError, validate_repo_manifests
+from zeus_os.paths import ZeusPaths
+
 DEFAULT_HERMES_HOME = Path.home() / ".hermes"
 DEFAULT_STALE_AFTER_DAYS = 30
 DEFAULT_ARCHIVE_AFTER_DAYS = 90
@@ -113,6 +116,45 @@ def _skill_roots(hermes_home: Path, hermes_config_path: Path, include_external_d
     if include_external_dirs:
         roots.extend({"kind": "external", "path": str(path)} for path in _external_dirs_from_config(hermes_config_path))
     return roots
+
+
+def _compatibility_bridge_skill_roots(paths: ZeusPaths | None) -> list[dict[str, str]]:
+    if paths is None:
+        return []
+    try:
+        manifests = validate_repo_manifests(paths=paths)
+        skills_root = paths.resolve_root("skills")
+    except (FileNotFoundError, ManifestValidationError):
+        return []
+    roots: list[dict[str, str]] = []
+    for app in manifests.apps.values():
+        bridge = app.compatibility_bridge
+        if not bridge:
+            continue
+        if bridge["legacy_root"] != "skills":
+            continue
+        roots.append({
+            "kind": "compatibility_bridge",
+            "path": str(skills_root / bridge["legacy_name"]),
+            "name": app.name,
+            "legacy_name": bridge["legacy_name"],
+            "legacy_root": bridge["legacy_root"],
+            "mode": bridge["mode"],
+            "runtime_wiring": str(bridge["runtime_wiring"]).lower(),
+        })
+    return roots
+
+
+def _root_compatibility_bridge(root: dict[str, str]) -> dict[str, Any] | None:
+    if root.get("kind") != "compatibility_bridge":
+        return None
+    return {
+        "app": root["name"],
+        "legacy_root": root["legacy_root"],
+        "legacy_name": root["legacy_name"],
+        "mode": root["mode"],
+        "runtime_wiring": root["runtime_wiring"] == "true",
+    }
 
 
 def _find_skill_dir(*, skill: str | None, skill_path: Path | str | None, roots: list[dict[str, str]]) -> tuple[Path, str, str]:
@@ -255,6 +297,7 @@ def audit_hermes_skill_lifecycle(
     archive_after_days: int = DEFAULT_ARCHIVE_AFTER_DAYS,
     negative_claim_ttl_days: int = DEFAULT_NEGATIVE_CLAIM_TTL_DAYS,
     telemetry_path: Path | str | None = DEFAULT_TELEMETRY_PATH,
+    zeus_paths: ZeusPaths | None = None,
 ) -> dict[str, Any]:
     """Passively audit Hermes skill lifecycle health from ZeusOS.
 
@@ -267,6 +310,7 @@ def audit_hermes_skill_lifecycle(
     now = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
 
     roots: list[dict[str, str]] = _skill_roots(hermes_home, hermes_config_path, include_external_dirs)
+    roots.extend(_compatibility_bridge_skill_roots(zeus_paths))
     telemetry_index = _load_telemetry(telemetry_path)
 
     seen: set[Path] = set()
@@ -332,6 +376,7 @@ def audit_hermes_skill_lifecycle(
                 "usage_metadata_source": usage.get("_source") if usage and not usage.get("_invalid") else None,
                 "usage_metadata_invalid": bool(usage.get("_invalid")),
                 "negative_claims": negative_claims,
+                "compatibility_bridge": _root_compatibility_bridge(root),
             })
 
     entries.sort(key=lambda item: (item["state"] != "archived", item["recommended_action"], item["name"]))
