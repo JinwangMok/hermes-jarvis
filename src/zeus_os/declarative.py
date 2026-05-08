@@ -37,6 +37,7 @@ class AppManifest:
     kind: str
     entrypoint: str
     path: Path
+    compatibility_bridge: dict[str, Any] | None = None
 
 
 @dataclass(frozen=True)
@@ -163,9 +164,16 @@ def _load_apps(app_root: Path) -> dict[str, AppManifest]:
         name = _nonempty_str(metadata.get("name"), path, "metadata.name")
         kind = _nonempty_str(spec.get("kind"), path, "spec.kind")
         entrypoint = _nonempty_str(spec.get("entrypoint"), path, "spec.entrypoint")
+        compatibility_bridge = _optional_compatibility_bridge(spec.get("compatibilityBridge"), path)
         _require(kind in ALLOWED_APP_KINDS, path, f"unknown app kind {kind!r}")
         _require(name not in apps, path, f"duplicate app {name!r}")
-        apps[name] = AppManifest(name=name, kind=kind, entrypoint=entrypoint, path=path.parent)
+        apps[name] = AppManifest(
+            name=name,
+            kind=kind,
+            entrypoint=entrypoint,
+            path=path.parent,
+            compatibility_bridge=compatibility_bridge,
+        )
     return apps
 
 
@@ -185,6 +193,26 @@ def _mapping(value: Any, path: Path, field: str) -> dict[str, Any]:
 def _nonempty_str(value: Any, path: Path, field: str) -> str:
     _require(isinstance(value, str) and bool(value.strip()), path, f"{field} must be a non-empty string")
     return value.strip()
+
+
+def _optional_compatibility_bridge(value: Any, path: Path) -> dict[str, Any] | None:
+    if value is None:
+        return None
+    bridge = _mapping(value, path, "spec.compatibilityBridge")
+    legacy_root = _nonempty_str(bridge.get("legacyRoot"), path, "spec.compatibilityBridge.legacyRoot")
+    legacy_name = _nonempty_str(bridge.get("legacyName"), path, "spec.compatibilityBridge.legacyName")
+    mode = _nonempty_str(bridge.get("mode"), path, "spec.compatibilityBridge.mode")
+    runtime_wiring = bridge.get("runtimeWiring")
+    _require(isinstance(runtime_wiring, bool), path, "spec.compatibilityBridge.runtimeWiring must be a boolean")
+    _require(legacy_root == "skills", path, "spec.compatibilityBridge.legacyRoot must be skills")
+    _require(mode == "read-only-metadata", path, "spec.compatibilityBridge.mode must be read-only-metadata")
+    _require(runtime_wiring is False, path, "spec.compatibilityBridge.runtimeWiring must be false")
+    return {
+        "legacy_root": legacy_root,
+        "legacy_name": legacy_name,
+        "mode": mode,
+        "runtime_wiring": runtime_wiring,
+    }
 
 
 def _require(condition: bool, path: Path, message: str) -> None:

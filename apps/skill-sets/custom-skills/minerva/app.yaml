@@ -5,3 +5,8 @@ metadata:
 spec:
   kind: skill-set
   entrypoint: README.md
+  compatibilityBridge:
+    legacyRoot: skills
+    legacyName: hooo
+    mode: read-only-metadata
+    runtimeWiring: false

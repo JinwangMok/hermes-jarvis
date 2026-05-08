@@ -52,6 +52,18 @@ def test_registry_entries_are_read_only_structured_view():
     assert by_key[("channel", "discord")].source_root == "channels"
 
 
+def test_minerva_manifest_declares_legacy_hooo_bridge_without_runtime_wiring():
+    result = validate_repo_manifests(paths=ZeusPaths(Path.cwd()))
+    bridge = result.apps["minerva"].compatibility_bridge
+
+    assert bridge == {
+        "legacy_root": "skills",
+        "legacy_name": "hooo",
+        "mode": "read-only-metadata",
+        "runtime_wiring": False,
+    }
+
+
 def test_agent_manifest_requires_existing_shim(tmp_path):
     (tmp_path / "agents").mkdir()
     (tmp_path / "agent-shim" / "hermes").mkdir(parents=True)

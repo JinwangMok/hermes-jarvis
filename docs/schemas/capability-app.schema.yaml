@@ -11,6 +11,12 @@ spec:
     spec:
       kind: one of [watchdog, skill-set, mcp, tool, a2a, channel]
       entrypoint: non-empty string
+      compatibilityBridge:
+        legacyRoot: optional compatibility root; currently only skills
+        legacyName: optional legacy capability name
+        mode: optional compatibility mode; currently read-only-metadata
+        runtimeWiring: must be false for declaration-only bridges
   notes:
     - Capability apps are declarative mount points.
     - Moving existing runtime files into apps/ requires a separate migration gate.
+    - compatibilityBridge declares metadata only; runtime callers require a separate review gate.
