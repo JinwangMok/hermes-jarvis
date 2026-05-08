@@ -1,0 +1,16 @@
+apiVersion: zeus.os/v1alpha1
+kind: CapabilityAppSchema
+metadata:
+  name: capability-app
+spec:
+  required:
+    apiVersion: zeus.os/v1alpha1
+    kind: CapabilityApp
+    metadata:
+      name: non-empty string
+    spec:
+      kind: one of [watchdog, skill-set, mcp, tool, a2a, channel]
+      entrypoint: non-empty string
+  notes:
+    - Capability apps are declarative mount points.
+    - Moving existing runtime files into apps/ requires a separate migration gate.

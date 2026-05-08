@@ -1,0 +1,16 @@
+apiVersion: zeus.os/v1alpha1
+kind: AgentPersonaSchema
+metadata:
+  name: agent-persona
+spec:
+  required:
+    apiVersion: zeus.os/v1alpha1
+    kind: AgentPersona
+    metadata:
+      name: non-empty string
+    spec:
+      persona: non-empty string
+      shim: existing directory under agent-shim/
+  notes:
+    - Agent manifests declare persona identity only.
+    - Runtime/platform dependency details belong in agent-shim/.

@@ -1,0 +1,7 @@
+apiVersion: zeus.os/v1alpha1
+kind: CapabilityApp
+metadata:
+  name: a2a
+spec:
+  kind: a2a
+  entrypoint: README.md

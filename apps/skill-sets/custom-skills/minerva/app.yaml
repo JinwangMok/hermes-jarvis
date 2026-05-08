@@ -1,0 +1,7 @@
+apiVersion: zeus.os/v1alpha1
+kind: CapabilityApp
+metadata:
+  name: minerva
+spec:
+  kind: skill-set
+  entrypoint: README.md

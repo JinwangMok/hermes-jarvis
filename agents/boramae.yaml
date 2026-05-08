@@ -1,0 +1,7 @@
+apiVersion: zeus.os/v1alpha1
+kind: AgentPersona
+metadata:
+  name: boramae
+spec:
+  persona: Boramae personal orchestrator for Jinwang
+  shim: hermes

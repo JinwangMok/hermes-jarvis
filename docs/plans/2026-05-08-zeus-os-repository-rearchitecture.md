@@ -115,6 +115,13 @@ zeus-os/
 - Define `apps/*/README.md` capability contract.
 - Add validation tests that only inspect declarations.
 
+Status after Jinwang-approved follow-up B:
+- Added schema docs: `docs/schemas/agent-persona.schema.yaml`, `docs/schemas/capability-app.schema.yaml`.
+- Added sample declarations: `agents/boramae.yaml`, `apps/watchdogs/news-center/app.yaml`, `apps/skill-sets/custom-skills/minerva/app.yaml`, `apps/a2a/app.yaml`, `channels/discord/app.yaml`.
+- Added validator module: `src/zeus_os/declarative.py`.
+- Added tests: `tests/test_declarative_manifests.py`.
+- Verified with TDD RED/GREEN: missing validator failed first, missing schema docs failed first, then `PYTHONPATH=src pytest -q tests/test_declarative_manifests.py` passed.
+
 ### Phase 2 — Compatibility path resolver
 - Implement `zeus_os.paths` or equivalent mapping old and new roots.
 - Add tests proving existing CLI/data/state behavior remains unchanged.
