@@ -22,6 +22,7 @@ class AgentManifest:
     name: str
     persona: str
     shim: str
+    path: Path
 
 
 @dataclass(frozen=True)
@@ -43,6 +44,16 @@ class ManifestValidationResult:
     agents: dict[str, AgentManifest]
     shims: dict[str, ShimManifest]
     apps: dict[str, AppManifest]
+
+
+@dataclass(frozen=True)
+class RegistryEntry:
+    category: str
+    name: str
+    kind: str
+    path: Path
+    source_root: str
+    entrypoint: str | None = None
 
 
 def validate_repo_manifests(
@@ -72,6 +83,48 @@ def validate_repo_manifests(
     return ManifestValidationResult(agents=agents, shims=shims, apps=apps)
 
 
+def list_registry(
+    repo_root: Path | None = None,
+    *,
+    paths: ZeusPaths | None = None,
+) -> tuple[RegistryEntry, ...]:
+    manifests = validate_repo_manifests(repo_root, paths=paths)
+    entries: list[RegistryEntry] = []
+    for agent in manifests.agents.values():
+        entries.append(
+            RegistryEntry(
+                category="agent",
+                name=agent.name,
+                kind="AgentPersona",
+                path=agent.path,
+                source_root="agents",
+            )
+        )
+    for shim in manifests.shims.values():
+        entries.append(
+            RegistryEntry(
+                category="shim",
+                name=shim.name,
+                kind="AgentShim",
+                path=shim.path,
+                source_root="agent_shim",
+            )
+        )
+    for app in manifests.apps.values():
+        is_channel = app.kind == "channel"
+        entries.append(
+            RegistryEntry(
+                category="channel" if is_channel else "app",
+                name=app.name,
+                kind=app.kind,
+                path=app.path,
+                source_root="channels" if is_channel else "apps",
+                entrypoint=app.entrypoint,
+            )
+        )
+    return tuple(sorted(entries, key=lambda entry: (entry.category, entry.name)))
+
+
 def _discover_shims(shim_root: Path) -> dict[str, ShimManifest]:
     if not shim_root.exists():
         return {}
@@ -95,7 +148,7 @@ def _load_agents(agent_root: Path, shims: dict[str, ShimManifest]) -> dict[str, 
         shim = _nonempty_str(spec.get("shim"), path, "spec.shim")
         _require(shim in shims, path, f"agent {name!r} references missing shim {shim!r}")
         _require(name not in agents, path, f"duplicate agent {name!r}")
-        agents[name] = AgentManifest(name=name, persona=persona, shim=shim)
+        agents[name] = AgentManifest(name=name, persona=persona, shim=shim, path=path)
     return agents
 
 

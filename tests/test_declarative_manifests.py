@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from zeus_os.declarative import ManifestValidationError, validate_repo_manifests
+from zeus_os.declarative import ManifestValidationError, list_registry, validate_repo_manifests
 from zeus_os.paths import ZeusPaths
 
 
@@ -38,6 +38,18 @@ def test_manifest_validation_can_use_zeus_paths_policy():
 def test_manifest_validation_still_requires_explicit_root_or_paths():
     with pytest.raises(TypeError, match="repo_root or paths"):
         validate_repo_manifests()
+
+
+def test_registry_entries_are_read_only_structured_view():
+    entries = list_registry(paths=ZeusPaths(Path.cwd()))
+    by_key = {(entry.category, entry.name): entry for entry in entries}
+
+    assert by_key[("agent", "boramae")].kind == "AgentPersona"
+    assert by_key[("agent", "boramae")].source_root == "agents"
+    assert by_key[("agent", "boramae")].path == Path.cwd() / "agents" / "boramae.yaml"
+    assert by_key[("shim", "hermes")].source_root == "agent_shim"
+    assert by_key[("app", "news-center")].kind == "watchdog"
+    assert by_key[("channel", "discord")].source_root == "channels"
 
 
 def test_agent_manifest_requires_existing_shim(tmp_path):
