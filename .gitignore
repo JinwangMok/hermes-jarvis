@@ -5,10 +5,29 @@ __pycache__/
 # Runtime/generated local artifacts. These may contain private mail/calendar/watch data.
 /data/
 /state/
-/wiki/
 /.hermes/
 /orchestration/**/opencode*.log
 /orchestration/**/prompt*.txt
+
+# ZeusOS rearchitecture local/private roots.
+/credentials/**
+!/credentials/
+!/credentials/**/
+!/credentials/**/README.md
+/vmem/**
+!/vmem/
+!/vmem/README.md
+/assets/tmp/**
+!/assets/tmp/
+!/assets/tmp/README.md
+/workspace/**
+!/workspace/
+!/workspace/README.md
+
+# In-repo wiki placeholder is trackable, but future generated/private wiki payloads need explicit policy before commit.
+/wiki/**
+!/wiki/
+!/wiki/README.md
 
 config/pipeline.local.yaml
 config/sender-map.md

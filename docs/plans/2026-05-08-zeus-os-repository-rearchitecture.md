@@ -1,0 +1,157 @@
+# ZeusOS Repository Rearchitecture Implementation Plan
+
+> **For Hermes:** Use incremental-spec-driven-execution and subagent-driven-development before moving real files. This plan is the non-destructive migration contract for Jinwang-approved option B: plan + new branch + empty scaffold only.
+
+**Goal:** Reorganize `zeus-os` into a template-based, extensible, declarative Agent OS workspace without breaking the current `zeus_os` CLI, runtime state, data artifacts, cron/watchdog behavior, or Hermes source-untouched boundary.
+
+**Architecture:** The target repo separates declarative identity (`agents/`), platform bindings (`agent-shim/`), extensible capabilities (`apps/`), user-facing channels (`channels/`), volatile/session memory (`vmem/`), staged knowledge (`journals/`), durable wiki (`wiki/`), generated assets (`assets/`), secrets (`credentials/`), and the default work area (`workspace/`). Current Python package code remains under `src/zeus_os` until compatibility contracts and migration tests are accepted.
+
+**Tech Stack:** Python 3.11+, YAML/Markdown declarative manifests, SQLite runtime state, Hermes user plugin/shim boundary, cron-compatible watchdog scripts, gitignored local secret/runtime directories.
+
+---
+
+## 0. Current live constraints
+
+- Branch for this work: `feature/zeus-os-repository-rearchitecture`.
+- Existing dirty work was present before branch creation; do not mix unrelated mail-secretary/runtime edits into scaffold commits.
+- Existing root `Spec.md` is an old mail/calendar MVP execution spec and must not be overwritten in this step.
+- Runtime truth currently exists under `state/` and `data/`; do not move these without migration map + rollback.
+- Hermes core, `~/.hermes`, systemd, live cron, raw wiki, and credentials are out of scope unless Jinwang explicitly approves.
+
+## 1. Target top-level layout contract
+
+```text
+zeus-os/
+  agents/                         # declarative agent persona definitions
+  agent-shim/                     # runtime/platform dependency handlers
+    hermes/
+    pi/
+    openclaw/
+    ironclaw/
+    roach-pi/
+  apps/                           # extensible capabilities
+    watchdogs/
+      email-handler/
+      news-center/
+      update-handler/
+      dialog-pattern-analysis/
+      compact-knowledge-base/
+      journal-to-wiki/
+    skill-sets/
+      external-skills/
+        k-skill/
+      custom-skills/
+        minerva/                  # future rename target for hooo/houroboros
+    mcps/
+    tools/
+      custom-defined-tools/
+        tmux-manager/
+        email-sender/
+        opencode-manager/
+        claude-code-manager/
+    a2a/
+  channels/
+    discord/
+    kakaotalk/
+    emails/
+  vmem/                           # volatile memory; TTL/session-cleanable
+  journals/                       # staged knowledge before wiki promotion
+  wiki/                           # long-term wiki-style memory
+  assets/
+    tmp/
+    archive/
+      ArchiveLists.md
+  credentials/                    # gitignored secrets root
+    user-secrets/
+    api-keys/
+    channel-secrets/
+  workspace/                      # default user working area
+```
+
+## 2. Naming and responsibility decisions
+
+| Area | Responsibility | Current source / migration note |
+|---|---|---|
+| `agents/` | Persona definitions only, no runtime SDK dependency | New declarative manifests; each agent maps to one or more `agent-shim/*` entries |
+| `agent-shim/` | Adapter contracts for Hermes, Pi, OpenClaw, IronClaw, Roach-Pi | Do not move Hermes plugin yet; document interface first |
+| `apps/watchdogs/` | Cron/watch loop apps | Current `scripts/*watchdog*` and news/mail jobs migrate here after tests |
+| `apps/skill-sets/` | External/custom skills | Current `skills/` remains compatibility path until loader contract is rewritten |
+| `apps/skill-sets/custom-skills/minerva/` | Future HOOO/Houroboros home | Do not rename `skills/hooo` yet; create placeholder only |
+| `apps/mcps/` | MCP server configs/adapters | Empty scaffold until native MCP contracts are known |
+| `apps/tools/custom-defined-tools/` | Tool adapters/managers | Future tmux/email/opencode/claude-code managers live here |
+| `apps/a2a/` | A2A blackboard/orchestrator capability | Align with ZeusOS Discord Boardroom A2A Blackboard concept |
+| `channels/` | Direct user-message surfaces | Discord/KakaoTalk/email render/send adapters |
+| `vmem/` | Volatile online memory | Must have TTL/cleanup policy before use |
+| `journals/` | Staged knowledge before wiki | `journal-to-wiki` should polish/promote daily |
+| `wiki/` | Durable long-term memory | Current external `~/wiki` remains canonical until migration approved |
+| `assets/` | Generated files and attachments | `tmp/` for new files, `archive/` for retained assets |
+| `credentials/` | Local secrets only | Must stay gitignored; only placeholder policy files may be tracked |
+| `workspace/` | Default user working area | Repo clones, push work, scratch tasks; no secrets by default |
+
+## 3. Compatibility strategy
+
+1. Keep `src/zeus_os` package and `zeus-os` CLI stable during early migration.
+2. Add path-resolution layer later so old paths (`data/`, `state/`, `skills/`, `scripts/`) and new app paths can coexist.
+3. Move only one responsibility at a time, with:
+   - inventory of current files,
+   - target path,
+   - compatibility shim,
+   - rollback command,
+   - targeted test.
+4. Treat `data/` and `state/` as runtime truth; never bulk move them in the same commit as scaffolding.
+5. Keep `~/wiki` canonical until `wiki/` migration has explicit source-of-truth policy.
+
+## 4. Execution phases
+
+### Phase 0 — Non-destructive scaffold (current approved B)
+- Create empty target directories with `.gitkeep` where needed.
+- Add short `README.md` contracts to major roots.
+- Add `.gitignore` rules for `credentials/**`, `vmem/**`, `assets/tmp/**`, and `workspace/**` while preserving placeholder docs.
+- Do not move existing files.
+
+### Phase 1 — Declarative contracts
+- Define manifest schema for `agents/*.yaml`.
+- Define `agent-shim/*/README.md` interface contract.
+- Define `apps/*/README.md` capability contract.
+- Add validation tests that only inspect declarations.
+
+### Phase 2 — Compatibility path resolver
+- Implement `zeus_os.paths` or equivalent mapping old and new roots.
+- Add tests proving existing CLI/data/state behavior remains unchanged.
+- Document environment overrides.
+
+### Phase 3 — Skill/app migration
+- Introduce `apps/skill-sets/custom-skills/minerva/` as canonical future HOOO location.
+- Keep compatibility bridge from `skills/hooo` until loader migration is verified.
+- Migrate one skill at a time.
+
+### Phase 4 — Watchdog/app migration
+- Migrate `scripts/mail-secretary-watchdog.py` and news-center flows into `apps/watchdogs/*` one by one.
+- Keep current cron/systemd entries unchanged until explicit cutover approval.
+
+### Phase 5 — Channels and A2A
+- Formalize `channels/discord`, `channels/kakaotalk`, `channels/emails` contracts.
+- Align `apps/a2a` with the blackboard/orchestrator design.
+
+### Phase 6 — Memory and asset lifecycle
+- Implement TTL policy for `vmem`.
+- Implement `journals -> wiki` promotion workflow.
+- Implement asset archive policy and `ArchiveLists.md` updates.
+
+## 5. Immediate acceptance for option B
+
+- [ ] Branch exists: `feature/zeus-os-repository-rearchitecture`.
+- [ ] This plan exists under `docs/plans/2026-05-08-zeus-os-repository-rearchitecture.md`.
+- [ ] Target scaffold directories exist.
+- [ ] No existing runtime file is moved.
+- [ ] `credentials/`, `vmem/`, `assets/tmp/`, and `workspace/` contents are ignored except placeholder policy files.
+- [ ] `git status` clearly separates pre-existing dirty work from this scaffold.
+
+## 6. Next approval gate
+
+After option B, do **not** proceed to migration. Ask Jinwang to choose:
+
+A. Review/refine naming and contracts only.
+B. Add declarative schemas/tests for manifests.
+C. Start first real migration leaf, probably path resolver or `minerva` skill bridge.
+```
