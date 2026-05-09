@@ -306,6 +306,11 @@ class HouroborosWorkflow:
         run = load_run(self.db_path, run_id)
         self._require_phase(run_id, run["phase"], {"seeded", "running"}, "run")
         seed = self._load_seed(run_id)
+        workflow_design = self._load_workflow_design(run_id, seed)
+        gate = dict(dict(workflow_design.get("phase_gate") or {}).get("gate") or {})
+        if gate.get("allowed") is not True:
+            failed = ", ".join(str(item) for item in gate.get("failed_dimensions") or []) or "unknown"
+            raise ValueError(f"Cannot run {run_id}: workflow design gate failed ({failed}); return to Minerva planning/critic before execution")
         executor_name = executor or str(seed.get("decisions", {}).get("executor") or "deterministic-placeholder")
         if executor_name in {"claude-code", "claude_code"}:
             self._write_claude_code_handoff(run_id, seed)
@@ -619,6 +624,15 @@ class HouroborosWorkflow:
         if not seed_path.exists():
             raise FileNotFoundError(f"Seed does not exist for run {run_id}; run `houroboros seed` first")
         return json.loads(seed_path.read_text(encoding="utf-8"))
+
+    def _load_workflow_design(self, run_id: str, seed: dict[str, Any]) -> dict[str, Any]:
+        design_path = self._artifact_path(run_id, "workflow_design.json")
+        if design_path.exists():
+            return json.loads(design_path.read_text(encoding="utf-8"))
+        embedded = seed.get("workflow_design")
+        if isinstance(embedded, dict):
+            return embedded
+        raise FileNotFoundError(f"Workflow design does not exist for run {run_id}; run `houroboros seed` first")
 
     def _artifact_texts(self, run_id: str) -> dict[str, str]:
         texts = {}

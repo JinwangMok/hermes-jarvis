@@ -2,6 +2,8 @@ from pathlib import Path
 
 import json
 
+import pytest
+
 from zeus_os.cli import main
 from zeus_os import houroboros as houroboros_module
 from zeus_os.houroboros import HouroborosWorkflow, load_run
@@ -173,6 +175,24 @@ def test_houroboros_state_machine_creates_artifacts_and_preserves_seed(tmp_path:
     assert export["run"]["run_id"] == run_id
     assert export["seed"]["version"] == 1
     assert export["interview"]
+
+
+def test_houroboros_run_blocks_when_workflow_design_gate_fails(tmp_path: Path):
+    config_file = _write_config(tmp_path)
+    workflow = HouroborosWorkflow.from_config_path(config_file)
+    started = workflow.start(goal="Block unsafe workflow design")
+    run_id = started["run_id"]
+    _make_seed_ready(workflow, run_id)
+    workflow.seed(run_id)
+
+    design_path = tmp_path / "data" / "houroboros" / run_id / "workflow_design.json"
+    workflow_design = json.loads(design_path.read_text(encoding="utf-8"))
+    workflow_design["phase_gate"]["gate"]["allowed"] = False
+    workflow_design["phase_gate"]["gate"]["failed_dimensions"] = ["safety"]
+    design_path.write_text(json.dumps(workflow_design), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="workflow design gate"):
+        workflow.run(run_id)
 
 
 def test_houroboros_evaluate_blocks_when_placeholder_evidence_missing(tmp_path: Path):
