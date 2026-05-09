@@ -266,6 +266,7 @@ class HouroborosWorkflow:
             raise ValueError(f"Cannot seed {run_id}: no self-alignment checkpoint exists; record at least one user-alignment turn before seeding")
         acceptance = self._acceptance_from_interview(interview)
         minerva_process_gate = self._minerva_seed_process_gate(interview_state)
+        workflow_design = self._workflow_design_from_interview(run_id, run, interview_state, acceptance)
         seed = {
             "run_id": run_id,
             "version": 1,
@@ -280,6 +281,7 @@ class HouroborosWorkflow:
                 "passed": bool(interview_state.get("alignment_checkpoints")),
             },
             "minerva_process_gate": minerva_process_gate,
+            "workflow_design": workflow_design,
             "decisions": interview_state.get("decisions", {}),
             "acceptance_criteria": acceptance,
             "constraints": [
@@ -289,12 +291,14 @@ class HouroborosWorkflow:
                 "Seed v1 is immutable; evolve writes proposals instead of hidden mutation",
             ],
         }
+        self._write_json(run_id, "workflow_design.json", workflow_design)
         self._write_json(run_id, "seed.json", seed)
         seed_md.write_text(self._seed_markdown(seed), encoding="utf-8")
         self._set_phase(run_id, "seeded", seed_version=1)
         result = self.status(run_id)
         result["created"] = True
         result["seed_version"] = 1
+        result["seed"] = seed
         return result
 
     def run(self, run_id: str, executor: str = "") -> dict[str, Any]:
@@ -1147,6 +1151,52 @@ class HouroborosWorkflow:
             "evidence": 1.0 if interview_state.get("decisions") else 0.0,
         }
         return evaluate_phase_gate("critic_for_plan", scores)
+
+    def _workflow_design_from_interview(
+        self,
+        run_id: str,
+        run: dict[str, Any],
+        interview_state: dict[str, Any],
+        acceptance: list[str],
+    ) -> dict[str, object]:
+        decisions = dict(interview_state.get("decisions") or {})
+        work_items = [
+            {
+                "id": f"acceptance-{index}",
+                "source": "acceptance_criteria",
+                "description": criterion,
+                "status": "planned",
+            }
+            for index, criterion in enumerate(acceptance, start=1)
+        ]
+        scores = {
+            "alignment": 1.0 if interview_state.get("alignment_checkpoints") else 0.0,
+            "consensus": 1.0 if not interview_state.get("unresolved") else 0.0,
+            "clarity": max(0.0, min(1.0, 1.0 - float(interview_state.get("ambiguity_score", 1.0)))),
+            "safety": 1.0,
+            "evidence": 1.0 if acceptance else 0.0,
+        }
+        return {
+            "run_id": run_id,
+            "goal": run["goal"],
+            "phase_gate": phase_gate_card("workload_parsing_workflow_designing", scores),
+            "work_items": work_items,
+            "workflow": ["seed", "execute", "evaluate", "evolve"],
+            "executor": decisions.get("executor") or "deterministic-placeholder",
+            "parallelization": {
+                "mode": "sequential-by-default",
+                "parallel_allowed_when": "file-boundaries-are-provably-non-conflicting",
+            },
+            "safety": {
+                "live_mutation": "forbidden-without-explicit-approval",
+                "runtime_boundary": "ZeusOS-owned artifacts only",
+                "rollback": "no-op for planning artifacts",
+            },
+            "self_heal": {
+                "strategy": "review-align-gap-evolve",
+                "on_gate_failure": "return-to-idea-direction-explore-or-recognize-missing-gap",
+            },
+        }
 
     def _minerva_process_gate_for_run(
         self,

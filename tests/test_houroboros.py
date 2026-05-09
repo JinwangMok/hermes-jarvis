@@ -133,6 +133,13 @@ def test_houroboros_state_machine_creates_artifacts_and_preserves_seed(tmp_path:
 
     seed = workflow.seed(run_id)
     seed_md = tmp_path / "data" / "houroboros" / run_id / "seed.md"
+    workflow_design = seed["seed"]["workflow_design"]
+    assert workflow_design["phase_gate"]["phase"]["id"] == "workload_parsing_workflow_designing"
+    assert workflow_design["phase_gate"]["gate"]["allowed"] is True
+    assert workflow_design["parallelization"]["mode"] == "sequential-by-default"
+    assert workflow_design["safety"]["live_mutation"] == "forbidden-without-explicit-approval"
+    assert workflow_design["work_items"][0]["source"] == "acceptance_criteria"
+    assert (tmp_path / "data" / "houroboros" / run_id / "workflow_design.json").exists()
     assert seed["phase"] == "seeded"
     assert seed["seed_version"] == 1
     assert seed_md.exists()
