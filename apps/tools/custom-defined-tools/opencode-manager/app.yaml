@@ -1,0 +1,7 @@
+apiVersion: zeus.os/v1alpha1
+kind: CapabilityApp
+metadata:
+  name: opencode-manager
+spec:
+  kind: tool
+  entrypoint: README.md
