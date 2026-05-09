@@ -414,3 +414,186 @@ def test_handle_minerva_command_current_thread_renders_card_without_pointer_mess
     asyncio.run(plugin._handle_minerva_command(event, gateway, plugin.MinervaCommand(goal="live shape")))
 
     assert calls == ["start", "mark", "thread.created", "render"]
+
+
+
+def test_handle_minerva_command_resolves_hermes_autothread_before_rendering(monkeypatch):
+    plugin = load_plugin()
+    calls: list[str] = []
+
+    class FakeService:
+        def start(self, *args, **kwargs):
+            calls.append("start")
+            assert kwargs["auto_open_thread"] is False
+            assert kwargs["origin_channel_id"] == "parent-1"
+            assert kwargs["origin_thread_id"] == "origin-thread"
+            return {"run_id": "minerva-20260509-parent-mismatch"}
+
+        def mark_thread_created(self, run_id, **kwargs):
+            calls.append("mark")
+            assert kwargs["thread_id"] == "origin-thread"
+            assert kwargs["thread_name"] == "Hermes spawned thread"
+            return {"run_id": run_id}
+
+        def _append_interview_card(self, run_id, event):
+            calls.append(event)
+
+    class ParentChannel:
+        id = "parent-1"
+        name = "보라매봇-기본"
+        parent = None
+
+        def get_thread(self, thread_id):
+            calls.append(f"parent-get-thread:{thread_id}")
+            return None
+
+        async def create_thread(self, *args, **kwargs):
+            raise AssertionError("source.thread_id must not create a sibling/nested thread")
+
+        async def send(self, *args, **kwargs):
+            raise AssertionError("Minerva card must not leak to parent channel")
+
+    parent = ParentChannel()
+    thread = type("Thread", (), {"id": "origin-thread", "name": "Hermes spawned thread", "parent": parent, "parent_id": "parent-1"})()
+
+    class Guild:
+        id = "guild-1"
+
+        def get_thread(self, thread_id):
+            calls.append(f"guild-get-thread:{thread_id}")
+            return thread
+
+    async def fail_create_sibling_thread(parent, raw_message, name):
+        raise AssertionError("source.thread_id means Hermes already spawned the operating thread")
+
+    async def fake_render_latest_card(render_thread, service, run_id):
+        calls.append("render")
+        assert render_thread is thread
+
+    monkeypatch.setattr(plugin, "_create_sibling_thread", fail_create_sibling_thread)
+    monkeypatch.setattr(plugin, "_render_latest_card", fake_render_latest_card)
+
+    import zeus_os.minerva as minerva
+
+    monkeypatch.setattr(minerva.MinervaWorkflow, "from_config", classmethod(lambda cls, config, semantic_client=None: FakeService()))
+
+    raw_message = type("RawMessage", (), {"channel": parent, "id": "message-1", "guild": Guild()})()
+    source = type("Source", (), {"thread_id": "origin-thread", "parent_chat_id": "parent-1", "chat_id": "origin-thread", "platform": "discord"})()
+    event = type("Event", (), {"raw_message": raw_message, "source": source})()
+    gateway = type("Gateway", (), {"adapters": {"discord": type("Adapter", (), {})()}})()
+
+    asyncio.run(plugin._handle_minerva_command(event, gateway, plugin.MinervaCommand(goal="live mismatch")))
+
+    assert calls == ["parent-get-thread:origin-thread", "guild-get-thread:origin-thread", "start", "mark", "thread.created", "render"]
+
+
+def test_handle_minerva_command_unresolved_source_thread_fails_closed(monkeypatch):
+    plugin = load_plugin()
+    calls: list[str] = []
+
+    class FakeService:
+        def start(self, *args, **kwargs):
+            raise AssertionError("Minerva run must not start until the Discord thread object is resolved")
+
+    class ParentChannel:
+        id = "parent-1"
+        name = "보라매봇-기본"
+        parent = None
+
+        def get_thread(self, thread_id):
+            return None
+
+        async def create_thread(self, *args, **kwargs):
+            raise AssertionError("unresolved source thread must not create a sibling/nested thread")
+
+        async def send(self, *args, **kwargs):
+            raise AssertionError("fail-closed diagnostic must not use parent channel.send")
+
+    class Guild:
+        id = "guild-1"
+
+        def get_thread(self, thread_id):
+            return None
+
+        def get_channel(self, thread_id):
+            return None
+
+        async def fetch_channel(self, thread_id):
+            raise LookupError("not found")
+
+    class Adapter:
+        async def send(self, chat_id, content):
+            calls.append((chat_id, content))
+
+    async def fake_render_latest_card(thread, service, run_id):
+        raise AssertionError("unresolved source thread must not render")
+
+    monkeypatch.setattr(plugin, "_render_latest_card", fake_render_latest_card)
+    import zeus_os.minerva as minerva
+    monkeypatch.setattr(minerva.MinervaWorkflow, "from_config", classmethod(lambda cls, config, semantic_client=None: FakeService()))
+
+    parent = ParentChannel()
+    raw_message = type("RawMessage", (), {"channel": parent, "id": "message-1", "guild": Guild()})()
+    source = type("Source", (), {"thread_id": "origin-thread", "parent_chat_id": "parent-1", "chat_id": "origin-thread", "platform": "discord"})()
+    event = type("Event", (), {"raw_message": raw_message, "source": source})()
+    gateway = type("Gateway", (), {"adapters": {"discord": Adapter()}})()
+
+    asyncio.run(plugin._handle_minerva_command(event, gateway, plugin.MinervaCommand(goal="live mismatch")))
+
+    assert calls == [("origin-thread", "Minerva: Discord thread 객체를 확인하지 못해 작업을 시작하지 않았습니다.")]
+
+
+def test_resolve_existing_discord_thread_rejects_wrong_parent(monkeypatch):
+    plugin = load_plugin()
+    parent = type("Parent", (), {"id": "parent-1", "parent": None})()
+    wrong_parent = type("Parent", (), {"id": "wrong-parent"})()
+    thread = type("Thread", (), {"id": "origin-thread", "name": "wrong", "parent": wrong_parent, "parent_id": "wrong-parent"})()
+
+    class Guild:
+        def get_thread(self, thread_id):
+            return thread
+
+        async def fetch_channel(self, thread_id):
+            return thread
+
+    raw_message = type("RawMessage", (), {"channel": parent, "guild": Guild()})()
+    resolved = asyncio.run(plugin._resolve_existing_discord_thread(raw_message, parent, None, "origin-thread", "parent-1"))
+    assert resolved is None
+
+
+def test_handle_minerva_command_rejects_parent_channel_even_if_id_matches_source_thread(monkeypatch):
+    plugin = load_plugin()
+    calls: list[tuple[str, str] | str] = []
+
+    class FakeService:
+        def start(self, *args, **kwargs):
+            raise AssertionError("parent channel masquerading as source thread must fail closed")
+
+    class ParentChannel:
+        id = "parent-1"
+        name = "보라매봇-기본"
+        parent = None
+
+        async def send(self, *args, **kwargs):
+            raise AssertionError("Minerva card/diagnostic must not use parent channel.send")
+
+    class Adapter:
+        async def send(self, chat_id, content):
+            calls.append((chat_id, content))
+
+    async def fake_render_latest_card(thread, service, run_id):
+        raise AssertionError("parent channel must not be accepted as render target")
+
+    monkeypatch.setattr(plugin, "_render_latest_card", fake_render_latest_card)
+    import zeus_os.minerva as minerva
+    monkeypatch.setattr(minerva.MinervaWorkflow, "from_config", classmethod(lambda cls, config, semantic_client=None: FakeService()))
+
+    parent = ParentChannel()
+    raw_message = type("RawMessage", (), {"channel": parent, "id": "message-1", "guild": None})()
+    source = type("Source", (), {"thread_id": "parent-1", "parent_chat_id": "", "chat_id": "parent-1", "platform": "discord"})()
+    event = type("Event", (), {"raw_message": raw_message, "source": source})()
+    gateway = type("Gateway", (), {"adapters": {"discord": Adapter()}})()
+
+    asyncio.run(plugin._handle_minerva_command(event, gateway, plugin.MinervaCommand(goal="bad source")))
+
+    assert calls == [("parent-1", "Minerva: Discord thread 객체를 확인하지 못해 작업을 시작하지 않았습니다.")]

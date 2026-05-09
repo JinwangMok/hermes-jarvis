@@ -302,7 +302,6 @@ def _is_gateway_runtime_issue(issue: str) -> bool:
     return (
         issue.startswith(f"{HERMES_GATEWAY_SERVICE_NAME} is not active")
         or issue.startswith("Hermes gateway is active but not Discord-ready")
-        or issue.startswith("Discord bot API check failed")
     )
 
 

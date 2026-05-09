@@ -288,3 +288,32 @@ def test_run_pipeline_cycle_includes_mail_secretary_step(tmp_path: Path, monkeyp
     assert result["secretary"] == {"case_count": 1, "draft_count": 1, "needs_approval_count": 1}
     assert ("secretary", 30, 20) in calls
     assert result["knowledge"]["write_wiki"] is False
+
+
+def test_hermes_health_check_does_not_restart_for_discord_api_only_failure(tmp_path: Path, monkeypatch):
+    config = load_pipeline_config(_write_runtime_config(tmp_path))
+    hermes_home = tmp_path / ".hermes"
+    _write_hermes_health_files(
+        hermes_home,
+        gateway_log="""
+2026-04-30 13:52:24,778 INFO gateway.run: Connecting to discord...
+2026-04-30 13:52:28,942 INFO gateway.platforms.discord: [Discord] Connected as BoramaeBot#9049
+2026-04-30 13:52:28,951 INFO gateway.run: ✓ discord connected
+2026-04-30 13:52:28,953 INFO gateway.run: Gateway running with 1 platform(s)
+""",
+    )
+    monkeypatch.setenv("HERMES_HOME", str(hermes_home))
+    calls: list[list[str]] = []
+    monkeypatch.setattr("zeus_os.runtime.subprocess.run", _fake_systemctl(calls))
+    monkeypatch.setattr("zeus_os.runtime._check_discord_bot_identity", lambda: {"ok": False, "status": 429, "reason": "Too Many Requests"})
+
+    result = check_hermes_zeusos_health(
+        config,
+        restart=True,
+        readiness_timeout_seconds=0,
+        discord_api_check=True,
+    )
+
+    assert result["status"] == "alert"
+    assert any("Discord bot API check failed" in issue for issue in result["issues"])
+    assert ["systemctl", "--user", "restart", "hermes-gateway.service"] not in calls

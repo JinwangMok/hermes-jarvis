@@ -203,9 +203,28 @@ async def _handle_minerva_command(event: Any, gateway: Any, command: MinervaComm
     source_thread_id = str(getattr(source, "thread_id", "") or "")
     source_parent_id = str(getattr(source, "parent_chat_id", "") or "")
     parent_id = source_parent_id or str(getattr(parent, "id", getattr(source, "chat_id", "") or ""))
-    current_thread_id = source_thread_id or str(getattr(channel, "id", "") or "")
-    current_is_thread = bool(source_thread_id or (getattr(channel, "parent", None) is not None and current_thread_id))
     thread_name = _thread_name(command.goal)
+
+    thread = None
+    thread_id = ""
+    current_is_thread = False
+    if source_thread_id:
+        current_is_thread = True
+        thread_id = source_thread_id
+        thread = await _resolve_existing_discord_thread(raw_message, channel, adapter, source_thread_id, source_parent_id)
+        if thread is None:
+            await _safe_send(
+                adapter,
+                getattr(source, "chat_id", source_thread_id) or source_thread_id,
+                "Minerva: Discord thread 객체를 확인하지 못해 작업을 시작하지 않았습니다.",
+            )
+            return
+        parent_id = source_parent_id or _thread_parent_id(thread) or parent_id
+    elif getattr(channel, "parent", None) is not None and str(getattr(channel, "id", "") or ""):
+        current_is_thread = True
+        thread = channel
+        thread_id = str(getattr(channel, "id", "") or "")
+        parent_id = _thread_parent_id(thread) or parent_id
 
     from zeus_os.config import load_pipeline_config
     from zeus_os.minerva import MinervaWorkflow
@@ -216,15 +235,12 @@ async def _handle_minerva_command(event: Any, gateway: Any, command: MinervaComm
         command.goal,
         origin_platform="discord",
         origin_channel_id=parent_id,
-        origin_thread_id=current_thread_id if current_is_thread else source_thread_id,
+        origin_thread_id=thread_id if current_is_thread else "",
         origin_message_id=str(getattr(raw_message, "id", "") or ""),
         auto_open_thread=not current_is_thread,
-        thread_name=getattr(channel, "name", "") if current_is_thread else thread_name,
+        thread_name=getattr(thread, "name", "") if current_is_thread and thread is not None else thread_name,
     )
-    if current_is_thread:
-        thread = channel
-        thread_id = current_thread_id
-    else:
+    if not current_is_thread:
         thread = await _create_sibling_thread(parent, raw_message, thread_name)
         thread_id = str(getattr(thread, "id", ""))
     status = service.mark_thread_created(
@@ -237,6 +253,94 @@ async def _handle_minerva_command(event: Any, gateway: Any, command: MinervaComm
     await _render_latest_card(thread, service, status["run_id"])
     if not current_is_thread:
         await _safe_send(adapter, getattr(source, "chat_id", parent_id), f"Minerva thread 생성: <#{thread_id}> (`{status['run_id']}`)")
+
+
+def _as_discord_id(value: str) -> int | str:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return value
+
+
+def _thread_parent_id(thread: Any) -> str:
+    parent_id = getattr(thread, "parent_id", None)
+    if parent_id:
+        return str(parent_id)
+    parent = getattr(thread, "parent", None)
+    return str(getattr(parent, "id", "") or "")
+
+
+def _valid_resolved_thread(candidate: Any, thread_id: str, parent_id: str = "") -> Any | None:
+    if candidate is None or str(getattr(candidate, "id", "") or "") != str(thread_id):
+        return None
+    if parent_id and _thread_parent_id(candidate) and _thread_parent_id(candidate) != str(parent_id):
+        return None
+    # Discord Thread objects expose send(); tests may use lightweight thread doubles.
+    class_name = candidate.__class__.__name__.lower()
+    if class_name.endswith("channel") and getattr(candidate, "parent", None) is None and not getattr(candidate, "parent_id", None):
+        return None
+    return candidate
+
+
+async def _maybe_await(value: Any) -> Any:
+    if hasattr(value, "__await__"):
+        return await value
+    return value
+
+
+async def _resolve_existing_discord_thread(raw_message: Any, channel: Any, adapter: Any, thread_id: str, parent_id: str = "") -> Any | None:
+    """Resolve the actual Discord Thread object for a Hermes-spawned thread.
+
+    Hermes may normalize source.thread_id to the auto-created thread while the
+    raw Discord message still points at the parent channel. In that shape this
+    plugin must fetch the real thread object and must not render Minerva cards
+    into the parent channel.
+    """
+    if str(getattr(channel, "id", "") or "") == str(thread_id):
+        return _valid_resolved_thread(channel, thread_id, parent_id)
+
+    discord_id = _as_discord_id(thread_id)
+    guild = getattr(raw_message, "guild", None) or getattr(channel, "guild", None)
+    client = getattr(adapter, "_client", None) or getattr(adapter, "client", None)
+
+    async def try_once() -> Any | None:
+        parent_channel = channel
+        for owner, method in (
+            (parent_channel, "get_thread"),
+            (guild, "get_thread"),
+            (guild, "get_channel"),
+            (client, "get_channel"),
+        ):
+            fn = getattr(owner, method, None) if owner is not None else None
+            if fn is None:
+                continue
+            try:
+                candidate = await _maybe_await(fn(discord_id))
+            except Exception:
+                continue
+            valid = _valid_resolved_thread(candidate, thread_id, parent_id)
+            if valid is not None:
+                return valid
+        for owner in (guild, client):
+            fn = getattr(owner, "fetch_channel", None) if owner is not None else None
+            if fn is None:
+                continue
+            try:
+                candidate = await _maybe_await(fn(discord_id))
+            except Exception:
+                continue
+            valid = _valid_resolved_thread(candidate, thread_id, parent_id)
+            if valid is not None:
+                return valid
+        return None
+
+    for delay in (0, 0.2, 0.5):
+        if delay:
+            await asyncio.sleep(delay)
+        resolved = await try_once()
+        if resolved is not None:
+            return resolved
+    return None
 
 
 async def _create_sibling_thread(parent: Any, raw_message: Any, name: str) -> Any:
