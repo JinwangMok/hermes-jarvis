@@ -178,14 +178,46 @@ def test_latest_card_reads_last_jsonl_record(tmp_path):
     assert plugin._latest_card(service, "run-1") == {"card_revision": 2}
 
 
+def test_gateway_semantic_client_calls_hermes_cli_and_parses_json(monkeypatch):
+    plugin = load_plugin()
+    captured = {}
+
+    def fake_run(cmd, **kwargs):
+        captured["cmd"] = cmd
+        captured["kwargs"] = kwargs
+        return type("Completed", (), {
+            "returncode": 0,
+            "stdout": json.dumps({
+                "intent_summary": "semantic pass",
+                "signals": ["llm"],
+                "proposal_overrides": {},
+            }),
+            "stderr": "",
+        })()
+
+    monkeypatch.setattr(plugin.subprocess, "run", fake_run)
+    result = plugin.HermesSubprocessSemanticUnderstandingClient().understand_minerva_goal({"goal": "x"})
+
+    assert captured["cmd"][:3] == ["hermes", "chat", "-q"]
+    assert "Return JSON only" in captured["cmd"][3]
+    assert captured["kwargs"]["timeout"] == 60
+    assert result["intent_summary"] == "semantic pass"
+    assert result["provider"] == "hermes-cli"
+
+
 def test_handle_minerva_command_reserves_run_before_creating_live_thread(monkeypatch):
     plugin = load_plugin()
     calls: list[str] = []
 
     class FakeService:
+        def __init__(self):
+            self.semantic_client = None
+
         def start(self, *args, **kwargs):
             calls.append("start")
             assert kwargs["auto_open_thread"] is True
+            assert self.semantic_client is not None
+            assert hasattr(self.semantic_client, "understand_minerva_goal")
             return {"run_id": "minerva-20260502-order"}
 
         def mark_thread_created(self, run_id, **kwargs):
@@ -208,7 +240,12 @@ def test_handle_minerva_command_reserves_run_before_creating_live_thread(monkeyp
 
     import zeus_os.minerva as minerva
 
-    monkeypatch.setattr(minerva.MinervaWorkflow, "from_config", classmethod(lambda cls, config: FakeService()))
+    def fake_from_config(cls, config, semantic_client=None):
+        service = FakeService()
+        service.semantic_client = semantic_client
+        return service
+
+    monkeypatch.setattr(minerva.MinervaWorkflow, "from_config", classmethod(fake_from_config))
 
     parent = type("Parent", (), {"id": "parent-1"})()
     channel = type("ThreadChannel", (), {"parent": parent})()

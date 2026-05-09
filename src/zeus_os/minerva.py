@@ -117,13 +117,18 @@ _SEMANTIC_SIGNAL_CATALOG = {
 
 @dataclass(frozen=True)
 class GoalSemanticFrame:
-    """Deterministic meaning frame inferred from a goal without model/API calls."""
+    """Deterministic local frame used as pre/post evidence around model understanding."""
 
     signals: tuple[str, ...]
     evidence: tuple[str, ...]
 
     def has(self, *signals: str) -> bool:
         return any(signal in self.signals for signal in signals)
+
+
+class SemanticUnderstandingClient(Protocol):
+    def understand_minerva_goal(self, request: dict[str, Any]) -> dict[str, Any]:
+        """Return model/API semantic understanding for a Minerva goal."""
 
 
 def _goal_excerpt(goal: str, limit: int = 96) -> str:
@@ -197,8 +202,35 @@ def _proposal_overrides_for_goal(goal: str) -> dict[str, tuple[tuple[str, str, s
     return merged
 
 
-def _interview_proposals_for_goal(dimension: str, goal: str) -> tuple[tuple[str, str, str], ...]:
+def _proposal_tuples_from_state(state: dict[str, Any] | None) -> dict[str, tuple[tuple[str, str, str], ...]]:
+    semantic = state.get("semantic_understanding") if isinstance(state, dict) else None
+    overrides = semantic.get("proposal_overrides") if isinstance(semantic, dict) else None
+    if not isinstance(overrides, dict):
+        return {}
+    normalized: dict[str, tuple[tuple[str, str, str], ...]] = {}
+    for dimension, raw_proposals in overrides.items():
+        if dimension not in INTERVIEW_DIMENSIONS or not isinstance(raw_proposals, list) or len(raw_proposals) != 3:
+            continue
+        tuples: list[tuple[str, str, str]] = []
+        for expected_id, proposal in zip(PROPOSAL_OPTION_IDS, raw_proposals, strict=False):
+            if not isinstance(proposal, dict):
+                tuples = []
+                break
+            option_id = str(proposal.get("option_id") or expected_id).lower()
+            label = _redact_text(str(proposal.get("label") or "")).strip()
+            value = _redact_text(str(proposal.get("value") or "")).strip()
+            if option_id != expected_id or not label or not value:
+                tuples = []
+                break
+            tuples.append((option_id, label[:80], value[:240]))
+        if len(tuples) == 3:
+            normalized[dimension] = tuple(tuples)
+    return normalized
+
+
+def _interview_proposals_for_goal(dimension: str, goal: str, state: dict[str, Any] | None = None) -> tuple[tuple[str, str, str], ...]:
     overrides = _proposal_overrides_for_goal(goal)
+    overrides.update(_proposal_tuples_from_state(state))
     proposals = overrides.get(dimension, INTERVIEW_PROPOSALS[dimension])
     excerpt = _goal_excerpt(goal)
     return tuple((option_id, label, value.format(goal=excerpt)) for option_id, label, value in proposals)
@@ -303,14 +335,15 @@ def load_run(db_path: Path, run_id: str) -> dict[str, Any]:
 class MinervaWorkflow:
     workspace_root: Path
     db_path: Path
+    semantic_client: SemanticUnderstandingClient | None = None
 
     @classmethod
-    def from_config(cls, config: PipelineConfig) -> "MinervaWorkflow":
-        return cls(workspace_root=config.workspace_root, db_path=config.workspace_root / "state" / "minerva.db")
+    def from_config(cls, config: PipelineConfig, semantic_client: SemanticUnderstandingClient | None = None) -> "MinervaWorkflow":
+        return cls(workspace_root=config.workspace_root, db_path=config.workspace_root / "state" / "minerva.db", semantic_client=semantic_client)
 
     @classmethod
-    def from_config_path(cls, config_path: Path | str) -> "MinervaWorkflow":
-        return cls.from_config(load_pipeline_config(Path(config_path)))
+    def from_config_path(cls, config_path: Path | str, semantic_client: SemanticUnderstandingClient | None = None) -> "MinervaWorkflow":
+        return cls.from_config(load_pipeline_config(Path(config_path)), semantic_client=semantic_client)
 
     def start(
         self,
@@ -827,7 +860,7 @@ class MinervaWorkflow:
 
 
     def _initial_interview_state(self, run_id: str, goal: str) -> dict[str, Any]:
-        return {
+        state = {
             "run_id": run_id,
             "goal": goal,
             "threshold": AMBIGUITY_THRESHOLD,
@@ -840,6 +873,97 @@ class MinervaWorkflow:
             "alignment_checkpoints": [],
             "updated_at": _now(),
         }
+        semantic = self._understand_goal_with_quality_gates(run_id, goal)
+        if semantic:
+            state["semantic_understanding"] = semantic
+        return state
+
+    def _semantic_request_for_goal(self, goal: str) -> dict[str, Any]:
+        frame = _semantic_frame_for_goal(goal)
+        return {
+            "goal": _goal_excerpt(goal, limit=500),
+            "local_frame": {"signals": list(frame.signals), "evidence": list(frame.evidence)},
+            "dimensions": list(INTERVIEW_DIMENSIONS),
+            "schema": {
+                "intent_summary": "string",
+                "signals": ["string"],
+                "proposal_overrides": {
+                    "<dimension>": [
+                        {"option_id": "a", "label": "string", "value": "string"},
+                        {"option_id": "b", "label": "string", "value": "string"},
+                        {"option_id": "c", "label": "string", "value": "string"},
+                    ]
+                },
+                "confidence": "0.0..1.0",
+            },
+            "quality_contract": {
+                "pre_call": ["redact_secret_like_text", "bound_goal_excerpt", "fixed_json_schema"],
+                "post_call": ["parse_json_only", "validate_allowed_dimensions", "validate_three_options", "redact_secret_like_text", "fallback_on_invalid"],
+            },
+        }
+
+    def _understand_goal_with_quality_gates(self, run_id: str, goal: str) -> dict[str, Any]:
+        request = self._semantic_request_for_goal(goal)
+        if self.semantic_client is None:
+            artifact = {
+                "mode": "deterministic_fallback",
+                "request": request,
+                "quality_gate": {"pre_call": {"passed": True}, "post_call": {"passed": True, "fallback": True}},
+                "local_frame": request["local_frame"],
+                "proposal_overrides": {},
+            }
+            self._write_json(run_id, "semantic_understanding.json", artifact)
+            return artifact
+        raw: dict[str, Any] = {}
+        error = ""
+        try:
+            raw = self.semantic_client.understand_minerva_goal(request)
+        except Exception as exc:  # pragma: no cover - defensive fallback
+            error = str(exc)
+        normalized, passed, errors = self._normalize_semantic_understanding(raw)
+        artifact = {
+            "mode": "llm_with_deterministic_gates" if passed else "deterministic_fallback",
+            "request": request,
+            "provider": _redact_text(str(raw.get("provider", ""))) if isinstance(raw, dict) else "",
+            "model": _redact_text(str(raw.get("model", ""))) if isinstance(raw, dict) else "",
+            "raw_response_redacted": self._redact_jsonable(raw),
+            "quality_gate": {
+                "pre_call": {"passed": True},
+                "post_call": {"passed": passed, "errors": errors, "fallback": not passed, "error": _redact_text(error)},
+            },
+            "local_frame": request["local_frame"],
+            **normalized,
+        }
+        self._write_json(run_id, "semantic_understanding.json", artifact)
+        return artifact
+
+    def _normalize_semantic_understanding(self, raw: dict[str, Any]) -> tuple[dict[str, Any], bool, list[str]]:
+        errors: list[str] = []
+        if not isinstance(raw, dict):
+            return {"intent_summary": "", "signals": [], "proposal_overrides": {}}, False, ["response_not_object"]
+        summary = _redact_text(str(raw.get("intent_summary") or "").strip())[:500]
+        signals = [_redact_text(str(item)).strip()[:80] for item in raw.get("signals") or [] if str(item).strip()]
+        overrides = _proposal_tuples_from_state({"semantic_understanding": {"proposal_overrides": raw.get("proposal_overrides")}})
+        if not summary:
+            errors.append("missing_intent_summary")
+        if not overrides:
+            errors.append("missing_valid_proposal_overrides")
+        proposal_overrides = {
+            dimension: [{"option_id": option_id, "label": label, "value": value} for option_id, label, value in proposals]
+            for dimension, proposals in overrides.items()
+        }
+        return {"intent_summary": summary, "signals": signals, "proposal_overrides": proposal_overrides}, not errors, errors
+
+    def _redact_jsonable(self, value: Any) -> Any:
+        if isinstance(value, dict):
+            return {str(key): self._redact_jsonable(item) for key, item in value.items()}
+        if isinstance(value, list):
+            return [self._redact_jsonable(item) for item in value]
+        if isinstance(value, str):
+            return _redact_text(value)
+        if value is None or isinstance(value, (bool, int, float)):
+            return value
+        return _redact_text(str(value))
 
     def _load_interview_state(self, run_id: str, goal: str) -> dict[str, Any]:
         path = self._artifact_path(run_id, "interview_state.json")
@@ -857,8 +981,8 @@ class MinervaWorkflow:
                 return dimension
         return None
 
-    def _proposal_for(self, dimension: str, option_id: str, goal: str) -> dict[str, str]:
-        for candidate_id, label, value in _interview_proposals_for_goal(dimension, goal):
+    def _proposal_for(self, dimension: str, option_id: str, goal: str, state: dict[str, Any] | None = None) -> dict[str, str]:
+        for candidate_id, label, value in _interview_proposals_for_goal(dimension, goal, state):
             if candidate_id == option_id:
                 return {"option_id": candidate_id, "label": label, "value": value}
         raise ValueError(f"Unknown Minerva proposal option: {dimension}/{option_id}")
@@ -884,7 +1008,7 @@ class MinervaWorkflow:
         expected_dimension = self._next_unresolved_dimension(state)
         if expected_dimension != dimension:
             raise ValueError(f"Minerva proposal dimension mismatch: expected {expected_dimension or 'none'}, got {dimension}")
-        proposal = self._proposal_for(dimension, option_id, goal)
+        proposal = self._proposal_for(dimension, option_id, goal, state)
         decisions = dict(state.get("decisions") or {})
         decisions[dimension] = proposal["value"]
         resolved = set(state.get("resolved", []))
@@ -1040,7 +1164,7 @@ class MinervaWorkflow:
         card_id = f"minerva-interview:{run_id}"
         target_thread_id = origin.get("thread_id") or (origin.get("thread") or {}).get("thread_id")
         next_dimension = self._next_unresolved_dimension(state)
-        components = self._interview_components(run_id, revision, bool(state["seed_ready"]), next_dimension, run["goal"])
+        components = self._interview_components(run_id, revision, bool(state["seed_ready"]), next_dimension, run["goal"], state)
         card = {
             "action": "discord.interaction_message",
             "contract_version": 2,
@@ -1080,7 +1204,7 @@ class MinervaWorkflow:
                 "decisions": self._display_decisions(state.get("decisions", {})),
                 "alignment_checkpoint": (state.get("alignment_checkpoints") or [None])[-1],
                 "minerva_process_gate": self._minerva_process_gate_for_run(run_id, run, state),
-                "proposal_card": self._proposal_card(next_dimension, run["goal"]),
+                "proposal_card": self._proposal_card(next_dimension, run["goal"], state),
                 "buttons": [component["action"] for component in components],
                 "components": components,
             },
@@ -1088,12 +1212,12 @@ class MinervaWorkflow:
         self._append_jsonl(run_id, "discord_cards.jsonl", card)
         return card
 
-    def _proposal_card(self, dimension: str | None, goal: str = "") -> dict[str, Any] | None:
+    def _proposal_card(self, dimension: str | None, goal: str = "", state: dict[str, Any] | None = None) -> dict[str, Any] | None:
         if dimension is None:
             return None
         proposals = [
             {"option_id": option_id, "label": label, "value": value}
-            for option_id, label, value in _interview_proposals_for_goal(dimension, goal)
+            for option_id, label, value in _interview_proposals_for_goal(dimension, goal, state)
         ]
         return {
             "dimension": dimension,
@@ -1107,10 +1231,10 @@ class MinervaWorkflow:
             },
         }
 
-    def _interview_components(self, run_id: str, revision: int, seed_ready: bool, dimension: str | None, goal: str = "") -> list[dict[str, Any]]:
+    def _interview_components(self, run_id: str, revision: int, seed_ready: bool, dimension: str | None, goal: str = "", state: dict[str, Any] | None = None) -> list[dict[str, Any]]:
         if dimension is not None:
             components = []
-            for option_id, label, _value in _interview_proposals_for_goal(dimension, goal):
+            for option_id, label, _value in _interview_proposals_for_goal(dimension, goal, state):
                 custom_id = f"minerva:v2:select_proposal:{run_id}:r{revision}:d{dimension}:o{option_id}"
                 if len(custom_id) > 100:
                     raise ValueError(f"Discord custom_id too long for {run_id}: select_proposal")

@@ -12,6 +12,7 @@ from __future__ import annotations
 import asyncio
 import json
 import re
+import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -51,6 +52,54 @@ _MAX_THREAD_NAME = 80
 class MinervaCommand:
     goal: str
     explicit: bool = True
+
+
+class HermesSubprocessSemanticUnderstandingClient:
+    """Actual LLM/API semantic pass, wrapped by Minerva's deterministic validators."""
+
+    timeout_seconds = 60
+
+    def understand_minerva_goal(self, request: dict[str, Any]) -> dict[str, Any]:
+        prompt = (
+            "You are the semantic-understanding pass for ZeusOS Minerva. "
+            "Return JSON only, matching the requested schema. Do not execute tools or side effects.\n\n"
+            f"REQUEST_JSON:\n{json.dumps(request, ensure_ascii=False, sort_keys=True)}"
+        )
+        try:
+            completed = subprocess.run(
+                ["hermes", "chat", "-q", prompt],
+                check=False,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                timeout=self.timeout_seconds,
+            )
+        except Exception as exc:
+            return {
+                "provider": "hermes-cli",
+                "model": "configured-main-model",
+                "intent_summary": "",
+                "signals": [],
+                "proposal_overrides": {},
+                "error": _redact_text(str(exc)),
+            }
+        text = (completed.stdout or "").strip()
+        match = re.search(r"\{.*\}", text, re.S)
+        if completed.returncode != 0 or not match:
+            return {
+                "provider": "hermes-cli",
+                "model": "configured-main-model",
+                "intent_summary": "",
+                "signals": [],
+                "proposal_overrides": {},
+                "error": _redact_text((completed.stderr or text)[-500:]),
+            }
+        payload = json.loads(match.group(0))
+        if isinstance(payload, dict):
+            payload.setdefault("provider", "hermes-cli")
+            payload.setdefault("model", "configured-main-model")
+            return payload
+        return {"provider": "hermes-cli", "model": "configured-main-model", "intent_summary": "", "signals": [], "proposal_overrides": {}}
 
 
 def register(api: Any) -> None:
@@ -157,8 +206,9 @@ async def _handle_minerva_command(event: Any, gateway: Any, command: MinervaComm
     from zeus_os.config import load_pipeline_config
     from zeus_os.minerva import MinervaWorkflow
 
-    service = MinervaWorkflow.from_config(load_pipeline_config(DEFAULT_CONFIG))
-    status = service.start(
+    service = MinervaWorkflow.from_config(load_pipeline_config(DEFAULT_CONFIG), semantic_client=HermesSubprocessSemanticUnderstandingClient())
+    status = await asyncio.to_thread(
+        service.start,
         command.goal,
         origin_platform="discord",
         origin_channel_id=parent_id,

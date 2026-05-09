@@ -30,6 +30,28 @@ class FakeDiscordThreadClient:
         }
 
 
+class FakeSemanticUnderstandingClient:
+    def __init__(self):
+        self.requests = []
+
+    def understand_minerva_goal(self, request):
+        self.requests.append(request)
+        return {
+            "provider": "fake-llm",
+            "model": "fake-semantic-model",
+            "intent_summary": "LLM/API가 goal을 먼저 의미해석하고 deterministic gate가 결과를 검증한다.",
+            "signals": ["llm_semantic_understanding", "deterministic_quality_gate"],
+            "proposal_overrides": {
+                "scope": [
+                    {"option_id": "a", "label": "LLM interpreted workflow", "value": "Call the semantic model/API, then validate and normalize its interpretation for: {goal}"},
+                    {"option_id": "b", "label": "Deterministic guardrails", "value": "Run schema, safety, replay, and fallback gates around the model interpretation."},
+                    {"option_id": "c", "label": "Fallback if low confidence", "value": "Use local semantic profiles only when model interpretation is invalid or unavailable."},
+                ]
+            },
+            "confidence": 0.82,
+        }
+
+
 def _config_text(root: Path) -> str:
     return """
 workspace_root: {root}
@@ -780,6 +802,31 @@ def test_minerva_proposal_cards_use_deterministic_semantic_frame_beyond_keywords
     assert any("No-send" in proposal["label"] or "no-send" in proposal["value"].lower() for proposal in no_send_proposals)
     assert any("draft" in value.lower() or "초안" in value for value in no_send_values)
     assert adaptive_values != no_send_values
+
+
+def test_minerva_llm_semantic_understanding_is_wrapped_by_deterministic_quality_gates(tmp_path: Path):
+    config_file = _write_config(tmp_path)
+    client = FakeSemanticUnderstandingClient()
+    workflow = MinervaWorkflow.from_config_path(config_file, semantic_client=client)
+
+    started = workflow.start(
+        goal="실제 LLM/API로 의미를 이해하되, 앞뒤는 결정론적 워크플로우로 품질을 보장해줘",
+        origin_platform="discord",
+        origin_channel_id="parent",
+    )
+    run_id = started["run_id"]
+    card = _latest_card(tmp_path, run_id)
+    state = json.loads((tmp_path / "data" / "minerva" / run_id / "interview_state.json").read_text(encoding="utf-8"))
+    semantic_artifact = json.loads((tmp_path / "data" / "minerva" / run_id / "semantic_understanding.json").read_text(encoding="utf-8"))
+
+    assert len(client.requests) == 1
+    assert client.requests[0]["quality_contract"]["pre_call"] == ["redact_secret_like_text", "bound_goal_excerpt", "fixed_json_schema"]
+    assert client.requests[0]["quality_contract"]["post_call"] == ["parse_json_only", "validate_allowed_dimensions", "validate_three_options", "redact_secret_like_text", "fallback_on_invalid"]
+    assert state["semantic_understanding"]["mode"] == "llm_with_deterministic_gates"
+    assert semantic_artifact["quality_gate"]["post_call"]["passed"] is True
+    proposals = card["card"]["proposal_card"]["proposals"]
+    assert proposals[0]["label"] == "LLM interpreted workflow"
+    assert any("semantic model/API" in proposal["value"] for proposal in proposals)
 
 
 def test_minerva_proposal_cards_advance_each_unresolved_dimension(tmp_path: Path):
