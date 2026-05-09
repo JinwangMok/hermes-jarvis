@@ -348,6 +348,49 @@ def test_minerva_state_machine_creates_artifacts_and_preserves_seed(tmp_path: Pa
     assert export["interview"]
 
 
+def test_minerva_seed_and_workflow_design_project_pure_triadic_deliberation_contract(tmp_path: Path):
+    config_file = _write_config(tmp_path)
+    workflow = MinervaWorkflow.from_config_path(config_file)
+    started = workflow.start(goal="Materialize pure triadic council", origin_platform="discord", origin_channel_id="parent")
+    run_id = started["run_id"]
+    _make_seed_ready(workflow, run_id)
+
+    seeded = workflow.seed(run_id)
+    seed_json = json.loads((tmp_path / "data" / "minerva" / run_id / "seed.json").read_text(encoding="utf-8"))
+    workflow_design = json.loads((tmp_path / "data" / "minerva" / run_id / "workflow_design.json").read_text(encoding="utf-8"))
+
+    for artifact in (seeded["seed"], seed_json, workflow_design):
+        triadic = artifact["triadic_deliberation"]
+        assert triadic["agenda_router"] == "minerva"
+        assert triadic["agenda_router_role"] == "agenda_router"
+        assert triadic["debate_seat_count"] == 3
+        assert [(seat["stance"], seat["role"]) for seat in triadic["seats"]] == [
+            ("affirmative", "proponent"),
+            ("negative", "opponent"),
+            ("neutral", "arbiter"),
+        ]
+        assert {seat["id"] for seat in triadic["seats"]} == {
+            "affirmative_council_seat",
+            "negative_council_seat",
+            "neutral_arbiter",
+        }
+        assert "minerva" not in {seat["id"] for seat in triadic["seats"]}
+        assert all(seat["agenda_source"] == "minerva" for seat in triadic["seats"])
+        assert triadic["opposed_stances"] == ["affirmative", "negative"]
+        assert triadic["neutral_stance"] == "neutral"
+        assert triadic["persuasion_target"] == "neutral_arbiter"
+        assert triadic["executor_binding_required"] is False
+        assert triadic["optional_executor_binding_kind"] == "hermes_profile"
+        assert [seat["executor_binding"] for seat in triadic["seats"]] == [None, None, None]
+        assert artifact["triadic_deliberation_phase_ids"] == [
+            "idea_direction_explore",
+            "consensus_convergence",
+            "critic_for_plan",
+        ]
+
+    assert seeded["seed"]["workflow_design"]["triadic_deliberation"] == workflow_design["triadic_deliberation"]
+
+
 def test_minerva_run_blocks_when_workflow_design_gate_fails(tmp_path: Path):
     config_file = _write_config(tmp_path)
     workflow = MinervaWorkflow.from_config_path(config_file)

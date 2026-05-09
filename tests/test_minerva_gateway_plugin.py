@@ -27,6 +27,19 @@ def test_parse_minerva_command_accepts_aliases_and_defaults_goal():
     assert plugin.parse_minerva_command("hello /minerva") is None
 
 
+def test_parse_minerva_request_auto_delegates_nontrivial_boramae_messages():
+    plugin = load_plugin()
+    simple = ["A", "ok", "네", "ping", "/help"]
+    for text in simple:
+        assert plugin.parse_minerva_request(text) is None
+
+    command = plugin.parse_minerva_request("이 설계를 검증하고 적용한 다음 보고해줘")
+    assert command.goal == "이 설계를 검증하고 적용한 다음 보고해줘"
+    assert command.explicit is False
+    assert plugin.parse_minerva_request("짧아도 왜 실패했어?").explicit is False
+    assert plugin.parse_minerva_request("오늘은 날씨가 꽤 좋고 그냥 이런저런 긴 이야기를 이어가고 있어") is None
+
+
 def test_thread_name_is_bounded_sanitized_and_redacted():
     plugin = load_plugin()
     name = plugin._thread_name("<@123> `danger` / token=supersecret123 " + "x" * 200)
@@ -78,6 +91,43 @@ def test_pre_gateway_dispatch_returns_action_skip(monkeypatch):
     result = plugin._pre_gateway_dispatch(event, None)
 
     assert result == {"action": "skip", "reason": "minerva_gateway_bridge"}
+
+
+def test_pre_gateway_dispatch_auto_delegates_nontrivial_discord_message(monkeypatch):
+    plugin = load_plugin()
+    captured = []
+
+    async def fake_handle(event, gateway, command):
+        captured.append(command)
+
+    monkeypatch.setattr(plugin, "_handle_minerva_command", fake_handle)
+    source = type("Source", (), {"platform": "discord"})()
+    event = type("Event", (), {"text": "Minerva 기능 완성을 위해 기본 의뢰 정책을 적용하고 검증해줘", "source": source})()
+
+    result = plugin._pre_gateway_dispatch(event, None)
+
+    assert result == {"action": "skip", "reason": "minerva_default_delegate"}
+    assert captured[0].explicit is False
+    assert "기본 의뢰 정책" in captured[0].goal
+
+
+def test_pre_gateway_dispatch_does_not_auto_delegate_inside_minerva_thread_or_from_bot(monkeypatch):
+    plugin = load_plugin()
+
+    async def fake_handle(event, gateway, command):
+        raise AssertionError("auto-delegate should be guarded")
+
+    monkeypatch.setattr(plugin, "_handle_minerva_command", fake_handle)
+    source = type("Source", (), {"platform": "discord"})()
+    minerva_channel = type("Channel", (), {"name": "Minerva · existing task", "parent": None})()
+    raw_in_minerva_thread = type("RawMessage", (), {"channel": minerva_channel, "author": type("Author", (), {"bot": False})()})()
+    event = type("Event", (), {"text": "Acceptance: 충분한 검증과 보고까지 진행해줘", "source": source, "raw_message": raw_in_minerva_thread})()
+    assert plugin._pre_gateway_dispatch(event, None) is None
+
+    normal_channel = type("Channel", (), {"name": "보라매봇-기본", "parent": None})()
+    bot_raw = type("RawMessage", (), {"channel": normal_channel, "author": type("Author", (), {"bot": True})()})()
+    bot_event = type("Event", (), {"text": "이 작업을 검증하고 보고해줘", "source": source, "raw_message": bot_raw})()
+    assert plugin._pre_gateway_dispatch(bot_event, None) is None
 
 
 def test_interview_reply_lists_actionable_remaining_prompts():

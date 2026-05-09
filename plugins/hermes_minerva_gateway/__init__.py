@@ -29,12 +29,23 @@ if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 
 _COMMAND_RE = re.compile(r"^/minerva(?:\s+(?P<goal>.+))?$", re.I | re.S)
+_AUTO_DELEGATE_RE = re.compile(
+    r"(해줘|진행|구현|수정|고쳐|패치|검증|테스트|리뷰|조사|찾아|분석|설계|정리|비교|추천|"
+    r"왜|어떻게|무엇|뭐가|가능|해야|만들|적용|완성|보고|"
+    r"implement|fix|patch|verify|test|review|research|analy[sz]e|design|compare|recommend)",
+    re.I,
+)
+_SIMPLE_TEXT_RE = re.compile(
+    r"^(a|b|c|ㅇㅋ|오케이|ok|okay|네|넵|응|아니|ㄴㄴ|감사|고마워|hi|hello|ping|test|테스트)[.!?\s]*$",
+    re.I,
+)
 _MAX_THREAD_NAME = 80
 
 
 @dataclass(frozen=True)
 class MinervaCommand:
     goal: str
+    explicit: bool = True
 
 
 def register(api: Any) -> None:
@@ -48,7 +59,43 @@ def parse_minerva_command(text: str) -> MinervaCommand | None:
     goal = (match.group("goal") or "").strip()
     if not goal:
         goal = "Discord-origin Minerva task"
-    return MinervaCommand(goal=goal)
+    return MinervaCommand(goal=goal, explicit=True)
+
+
+def should_auto_delegate_to_minerva(text: str) -> bool:
+    """Default-route non-trivial Boramae Discord requests into Minerva.
+
+    This hook must stay deterministic and local: no model calls inside gateway
+    dispatch. Short acknowledgements/choice replies stay in the normal gateway;
+    task-like or question-like messages become Minerva agendas.
+    """
+    normalized = " ".join((text or "").strip().split())
+    if not normalized or normalized.startswith("/") or _SIMPLE_TEXT_RE.match(normalized):
+        return False
+    return bool("?" in normalized or _AUTO_DELEGATE_RE.search(normalized))
+
+
+def parse_minerva_request(text: str) -> MinervaCommand | None:
+    explicit = parse_minerva_command(text)
+    if explicit is not None:
+        return explicit
+    if should_auto_delegate_to_minerva(text):
+        return MinervaCommand(goal=text.strip(), explicit=False)
+    return None
+
+
+def _is_minerva_thread_event(event: Any) -> bool:
+    raw_message = getattr(event, "raw_message", None)
+    channel = getattr(raw_message, "channel", None)
+    name = str(getattr(channel, "name", "") or "")
+    parent_name = str(getattr(getattr(channel, "parent", None), "name", "") or "")
+    return name.startswith("Minerva ·") or parent_name.startswith("Minerva ·")
+
+
+def _is_bot_event(event: Any) -> bool:
+    raw_message = getattr(event, "raw_message", None)
+    author = getattr(raw_message, "author", None)
+    return bool(getattr(author, "bot", False) or getattr(event, "is_bot", False))
 
 
 def _redact_text(value: str) -> str:
@@ -65,8 +112,10 @@ def _thread_name(goal: str) -> str:
 
 
 def _pre_gateway_dispatch(event: Any = None, gateway: Any = None, **_: Any) -> dict[str, Any] | None:
-    command = parse_minerva_command(getattr(event, "text", ""))
+    command = parse_minerva_request(getattr(event, "text", ""))
     if not command:
+        return None
+    if not command.explicit and (_is_bot_event(event) or _is_minerva_thread_event(event)):
         return None
     source = getattr(event, "source", None)
     if str(getattr(getattr(source, "platform", None), "value", getattr(source, "platform", ""))) != "discord":
@@ -77,7 +126,8 @@ def _pre_gateway_dispatch(event: Any = None, gateway: Any = None, **_: Any) -> d
         asyncio.get_running_loop().create_task(_handle_minerva_command(event, gateway, command))
     except RuntimeError:
         asyncio.run(_handle_minerva_command(event, gateway, command))
-    return {"action": "skip", "reason": "minerva_gateway_bridge"}
+    reason = "minerva_gateway_bridge" if command.explicit else "minerva_default_delegate"
+    return {"action": "skip", "reason": reason}
 
 
 async def _handle_minerva_command(event: Any, gateway: Any, command: MinervaCommand) -> None:

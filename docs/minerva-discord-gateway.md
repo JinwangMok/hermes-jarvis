@@ -4,7 +4,9 @@ This document describes the ZeusOS-owned Hermes plugin bridge in `plugins/hermes
 
 ## What it does
 
-- Intercepts Discord text commands `/minerva ...` and `/minerva ...` through Hermes `pre_gateway_dispatch`.
+- Intercepts explicit Discord text commands `/minerva ...` through Hermes `pre_gateway_dispatch`.
+- Default-delegates non-trivial Boramae Discord requests into Minerva when they are task-like or question-like; short acknowledgements/choice replies such as `A`, `ok`, `네`, and unrelated slash commands stay on the normal gateway path.
+- Does not auto-delegate inside existing `Minerva · ...` task threads or from bot-authored messages, preventing nested Minerva thread loops.
 - Creates a sibling Discord task thread under the parent channel, even when invoked from an existing thread.
 - Starts a ZeusOS Minerva run with `origin_channel_id=<parent channel>` and `origin_thread_id=<new task thread>`.
 - Renders the latest `discord_cards.jsonl` record as a Discord message with proposal option buttons when an interview dimension is unresolved.
@@ -25,8 +27,8 @@ Only do this with operator approval because it changes Hermes runtime configurat
    `~/.hermes/plugins/hermes_minerva_gateway -> /home/jinwang/workspace/zeus-os/plugins/hermes_minerva_gateway`.
 2. Enable plugin key/name `hermes-minerva-gateway` in Hermes config (`plugins.enabled`).
 3. Restart gateway using the established Jinwang/Boramae restart handoff procedure.
-4. Smoke test in Discord: `/minerva <small goal>`.
-5. Verify a sibling thread appears, a Minerva card is posted, and button clicks produce an ephemeral acceptance/rejection message.
+4. Smoke test in Discord: `/minerva <small goal>` and one non-trivial normal Boramae request such as `이 설계를 검증하고 보고해줘`.
+5. Verify a sibling thread appears, a Minerva card is posted, normal simple replies like `A` are not auto-delegated, and button clicks produce an ephemeral acceptance/rejection message.
 
 Runtime activation is an operator-state check, not a repository fact: verify `~/.hermes/plugins/hermes_minerva_gateway`, `plugins.enabled`, and gateway restart status on the live machine before claiming `/minerva` is active.
 

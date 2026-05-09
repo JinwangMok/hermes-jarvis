@@ -11,7 +11,7 @@ from typing import Any, Protocol
 
 from .config import PipelineConfig, load_pipeline_config
 from .minerva_boardroom_adapter import MinervaBoardroomAdapter
-from .minerva_process import evaluate_phase_gate, phase_gate_card
+from .minerva_process import evaluate_phase_gate, phase_gate_card, process_contract
 
 
 PHASES = ("created", "interviewing", "seeded", "running", "evaluated", "evolved", "completed", "blocked", "failed")
@@ -97,6 +97,14 @@ def _json_dumps(value: Any) -> str:
 
 def _redact_text(value: str) -> str:
     return SECRET_VALUE_RE.sub(lambda match: f"{match.group(1)}=[REDACTED]", value)
+
+
+def _triadic_deliberation_artifact() -> dict[str, object]:
+    contract = process_contract()
+    return {
+        "triadic_deliberation": contract["triadic_deliberation"],
+        "triadic_deliberation_phase_ids": contract["triadic_deliberation_phase_ids"],
+    }
 
 
 def _validate_run_id(run_id: str) -> None:
@@ -284,6 +292,7 @@ class MinervaWorkflow:
             "goal": run["goal"],
             "created_at": _now(),
             "ambiguity_score": interview_state["ambiguity_score"],
+            **_triadic_deliberation_artifact(),
             "interview_gate": {"threshold": AMBIGUITY_THRESHOLD, "passed": True},
             "alignment_gate": {
                 "policy": "self_reflect_align_choose_next_before_each_step",
@@ -1217,6 +1226,7 @@ class MinervaWorkflow:
         return {
             "run_id": run_id,
             "goal": run["goal"],
+            **_triadic_deliberation_artifact(),
             "phase_gate": phase_gate_card("workload_parsing_workflow_designing", scores),
             "work_items": work_items,
             "workflow": ["seed", "execute", "evaluate", "evolve"],
