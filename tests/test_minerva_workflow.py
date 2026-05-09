@@ -735,6 +735,24 @@ def test_minerva_interview_choices_reduce_ambiguity_and_seed_records_decisions(t
     assert seed_json["interview_gate"]["threshold"] == 0.2
 
 
+def test_minerva_proposal_cards_are_contextual_to_goal(tmp_path: Path):
+    config_file = _write_config(tmp_path)
+    workflow = MinervaWorkflow.from_config_path(config_file)
+
+    discord_run = workflow.start(goal="Discord 버튼 후보를 질문에 맞게 동적으로 바꿔줘", origin_platform="discord", origin_channel_id="parent")
+    mail_run = workflow.start(goal="메일 답장 초안과 캘린더 후속조치 정리해줘", origin_platform="discord", origin_channel_id="parent")
+
+    discord_card = _latest_card(tmp_path, discord_run["run_id"])
+    mail_card = _latest_card(tmp_path, mail_run["run_id"])
+    discord_values = [proposal["value"] for proposal in discord_card["card"]["proposal_card"]["proposals"]]
+    mail_values = [proposal["value"] for proposal in mail_card["card"]["proposal_card"]["proposals"]]
+
+    assert any("Discord" in value or "gateway" in value for value in discord_values)
+    assert any("메일" in value or "calendar" in value for value in mail_values)
+    assert discord_values != mail_values
+    assert all("ZeusOS-owned implementation" not in proposal["label"] for proposal in discord_card["card"]["proposal_card"]["proposals"])
+
+
 def test_minerva_proposal_cards_advance_each_unresolved_dimension(tmp_path: Path):
     config_file = _write_config(tmp_path)
     workflow = MinervaWorkflow.from_config_path(config_file)

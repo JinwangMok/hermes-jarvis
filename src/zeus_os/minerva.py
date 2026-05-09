@@ -52,6 +52,81 @@ INTERVIEW_PROPOSALS = {
         ("c", "Read-only analysis", "Analyze and document the task without code changes until explicit approval."),
     ),
 }
+
+_GOAL_KEYWORD_PROFILES = (
+    (
+        ("discord", "button", "버튼", "스레드", "thread", "gateway", "게이트웨이", "minerva"),
+        {
+            "scope": (
+                ("a", "Discord-native Minerva UX", "Implement this request as a ZeusOS-owned Discord/Minerva UX change for: {goal}"),
+                ("b", "Routing and card behavior only", "Limit scope to gateway routing, card rendering, and interaction state for: {goal}"),
+                ("c", "Tests-first UX contract", "Lock the expected Discord button/card behavior with tests before runtime changes for: {goal}"),
+            ),
+            "acceptance": (
+                ("a", "Live Discord behavior verified", "A real or API-equivalent Discord flow shows context-specific A/B/C choices for this goal."),
+                ("b", "Regression locked", "Tests prove options are derived from the run goal and are not the old fixed ZeusOS-owned/Seed-only/Tests-only set."),
+                ("c", "Operator-readable report", "The final report explains what changed, how it was verified, and any remaining UX limits in plain Korean."),
+            ),
+            "constraint": (
+                ("a", "Source-untouched Hermes", "Do not patch Hermes core; keep the bridge and state under ZeusOS-owned files."),
+                ("b", "Deterministic gateway dispatch", "No model/API call inside gateway dispatch; derive choices locally from goal and state."),
+                ("c", "Safe restart boundary", "Gateway restart only after tests, commit/push, and the external recovery safety-belt."),
+            ),
+        },
+    ),
+    (
+        ("test", "pytest", "regression", "검증", "테스트", "회귀"),
+        {
+            "scope": (
+                ("a", "Regression-focused implementation", "Implement the smallest code path needed to reproduce and fix: {goal}"),
+                ("b", "Test harness only", "Add failing/passing tests and leave runtime behavior unchanged until reviewed."),
+                ("c", "Verification sweep", "Audit current tests and add coverage gaps for: {goal}"),
+            ),
+            "acceptance": (
+                ("a", "Targeted tests pass", "The new regression and adjacent targeted tests pass locally."),
+                ("b", "Full suite confidence", "The full pytest suite or documented subset passes without unrelated failures."),
+                ("c", "Diff hygiene", "git diff --check and secret scan show no unsafe or sloppy changes."),
+            ),
+        },
+    ),
+    (
+        ("mail", "메일", "calendar", "캘린더", "일정"),
+        {
+            "scope": (
+                ("a", "Secretary workflow leaf", "Implement this as a ZeusOS mail/calendar secretary workflow leaf for: {goal}"),
+                ("b", "Draft-only assistant", "Produce reviewable reply/calendar/task drafts without sending or mutating external services."),
+                ("c", "History/context audit", "Only inspect mailbox/wiki history and report prior handling patterns for: {goal}"),
+            ),
+            "constraint": (
+                ("a", "No-send default", "Do not send email/calendar invites without explicit final approval."),
+                ("b", "History-grounded", "Use mailbox and wiki history before claiming an action is new or already handled."),
+                ("c", "Credential-safe", "Never print or persist credentials, OAuth tokens, or raw secret-like content."),
+            ),
+        },
+    ),
+)
+
+
+def _goal_excerpt(goal: str, limit: int = 96) -> str:
+    text = _redact_text(" ".join(str(goal or "").split()))
+    return text if len(text) <= limit else text[: limit - 1] + "…"
+
+
+def _proposal_overrides_for_goal(goal: str) -> dict[str, tuple[tuple[str, str, str], ...]]:
+    lowered = str(goal or "").lower()
+    merged: dict[str, tuple[tuple[str, str, str], ...]] = {}
+    for keywords, overrides in _GOAL_KEYWORD_PROFILES:
+        if any(keyword.lower() in lowered for keyword in keywords):
+            merged.update(overrides)
+    return merged
+
+
+def _interview_proposals_for_goal(dimension: str, goal: str) -> tuple[tuple[str, str, str], ...]:
+    overrides = _proposal_overrides_for_goal(goal)
+    proposals = overrides.get(dimension, INTERVIEW_PROPOSALS[dimension])
+    excerpt = _goal_excerpt(goal)
+    return tuple((option_id, label, value.format(goal=excerpt)) for option_id, label, value in proposals)
+
 RUN_ID_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
 SECRET_VALUE_RE = re.compile(
     r"(?i)\b(api[_-]?key|secret|password|passwd|token|authorization)\b\s*[:=]\s*([^\s,;]+)"
@@ -706,8 +781,8 @@ class MinervaWorkflow:
                 return dimension
         return None
 
-    def _proposal_for(self, dimension: str, option_id: str) -> dict[str, str]:
-        for candidate_id, label, value in INTERVIEW_PROPOSALS[dimension]:
+    def _proposal_for(self, dimension: str, option_id: str, goal: str) -> dict[str, str]:
+        for candidate_id, label, value in _interview_proposals_for_goal(dimension, goal):
             if candidate_id == option_id:
                 return {"option_id": candidate_id, "label": label, "value": value}
         raise ValueError(f"Unknown Minerva proposal option: {dimension}/{option_id}")
@@ -733,7 +808,7 @@ class MinervaWorkflow:
         expected_dimension = self._next_unresolved_dimension(state)
         if expected_dimension != dimension:
             raise ValueError(f"Minerva proposal dimension mismatch: expected {expected_dimension or 'none'}, got {dimension}")
-        proposal = self._proposal_for(dimension, option_id)
+        proposal = self._proposal_for(dimension, option_id, goal)
         decisions = dict(state.get("decisions") or {})
         decisions[dimension] = proposal["value"]
         resolved = set(state.get("resolved", []))
@@ -889,7 +964,7 @@ class MinervaWorkflow:
         card_id = f"minerva-interview:{run_id}"
         target_thread_id = origin.get("thread_id") or (origin.get("thread") or {}).get("thread_id")
         next_dimension = self._next_unresolved_dimension(state)
-        components = self._interview_components(run_id, revision, bool(state["seed_ready"]), next_dimension)
+        components = self._interview_components(run_id, revision, bool(state["seed_ready"]), next_dimension, run["goal"])
         card = {
             "action": "discord.interaction_message",
             "contract_version": 2,
@@ -929,7 +1004,7 @@ class MinervaWorkflow:
                 "decisions": self._display_decisions(state.get("decisions", {})),
                 "alignment_checkpoint": (state.get("alignment_checkpoints") or [None])[-1],
                 "minerva_process_gate": self._minerva_process_gate_for_run(run_id, run, state),
-                "proposal_card": self._proposal_card(next_dimension),
+                "proposal_card": self._proposal_card(next_dimension, run["goal"]),
                 "buttons": [component["action"] for component in components],
                 "components": components,
             },
@@ -937,12 +1012,12 @@ class MinervaWorkflow:
         self._append_jsonl(run_id, "discord_cards.jsonl", card)
         return card
 
-    def _proposal_card(self, dimension: str | None) -> dict[str, Any] | None:
+    def _proposal_card(self, dimension: str | None, goal: str = "") -> dict[str, Any] | None:
         if dimension is None:
             return None
         proposals = [
             {"option_id": option_id, "label": label, "value": value}
-            for option_id, label, value in INTERVIEW_PROPOSALS[dimension]
+            for option_id, label, value in _interview_proposals_for_goal(dimension, goal)
         ]
         return {
             "dimension": dimension,
@@ -956,10 +1031,10 @@ class MinervaWorkflow:
             },
         }
 
-    def _interview_components(self, run_id: str, revision: int, seed_ready: bool, dimension: str | None) -> list[dict[str, Any]]:
+    def _interview_components(self, run_id: str, revision: int, seed_ready: bool, dimension: str | None, goal: str = "") -> list[dict[str, Any]]:
         if dimension is not None:
             components = []
-            for option_id, label, _value in INTERVIEW_PROPOSALS[dimension]:
+            for option_id, label, _value in _interview_proposals_for_goal(dimension, goal):
                 custom_id = f"minerva:v2:select_proposal:{run_id}:r{revision}:d{dimension}:o{option_id}"
                 if len(custom_id) > 100:
                     raise ValueError(f"Discord custom_id too long for {run_id}: select_proposal")
