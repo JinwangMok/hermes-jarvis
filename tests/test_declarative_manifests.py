@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from zeus_os.declarative import ManifestValidationError, list_registry, validate_repo_manifests
+from zeus_os.declarative import ManifestValidationError, RegistryEntry, list_registry, validate_repo_manifests
 from zeus_os.paths import ZeusPaths
 
 
@@ -52,11 +52,32 @@ def test_registry_entries_are_read_only_structured_view():
     assert by_key[("channel", "discord")].source_root == "channels"
 
 
+def test_registry_entry_positional_legacy_scripts_abi_is_preserved():
+    legacy_scripts = ({"path": "scripts/example.py", "role": "tool", "migration": "classify-only"},)
+
+    entry = RegistryEntry("app", "example", "tool", Path("apps/example"), "apps", "run.py", legacy_scripts)
+
+    assert entry.legacy_scripts == legacy_scripts
+    assert entry.compatibility_bridge is None
+
+
 def test_minerva_manifest_declares_legacy_hooo_bridge_without_runtime_wiring():
     result = validate_repo_manifests(paths=ZeusPaths(Path.cwd()))
     bridge = result.apps["minerva"].compatibility_bridge
 
     assert bridge == {
+        "legacy_root": "skills",
+        "legacy_name": "hooo",
+        "mode": "read-only-metadata",
+        "runtime_wiring": False,
+    }
+
+
+def test_registry_entry_exposes_minerva_compatibility_bridge_metadata():
+    entries = list_registry(paths=ZeusPaths(Path.cwd()))
+    by_key = {(entry.category, entry.name): entry for entry in entries}
+
+    assert by_key[("app", "minerva")].compatibility_bridge == {
         "legacy_root": "skills",
         "legacy_name": "hooo",
         "mode": "read-only-metadata",
