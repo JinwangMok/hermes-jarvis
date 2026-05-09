@@ -9,10 +9,13 @@ from zeus_os.minerva_process import (
     DIMENSIONS,
     MODEL_VERSION,
     PHASES,
+    TRIADIC_DELIBERATION_PHASE_IDS,
+    CouncilSeat,
     evaluate_phase_gate,
     get_phase,
     phase_gate_card,
     process_contract,
+    triadic_deliberation_contract,
 )
 
 
@@ -132,6 +135,71 @@ def test_phase_gate_card_combines_contract_and_quantitative_decision() -> None:
     assert card["discussion"]["disagree"].startswith("Disagree:")
     assert card["gate"]["allowed"] is False
     assert card["gate"]["next_phase"] == "idea_direction_explore"
+
+
+def test_triadic_deliberation_contract_has_exactly_three_pure_council_seats() -> None:
+    contract = triadic_deliberation_contract()
+
+    assert is_dataclass(contract)
+    assert contract.agenda_router == "minerva"
+    assert contract.debate_seat_count == 3
+    assert len(contract.seats) == 3
+    assert {seat.stance for seat in contract.seats} == {"affirmative", "negative", "neutral"}
+    assert {seat.role for seat in contract.seats} == {"proponent", "opponent", "arbiter"}
+    assert contract.opposed_stances == ("affirmative", "negative")
+    assert contract.neutral_stance == "neutral"
+    assert contract.persuasion_target == "neutral_arbiter"
+
+
+def test_minerva_routes_agenda_but_is_not_a_triadic_debate_seat() -> None:
+    contract = triadic_deliberation_contract()
+
+    assert contract.agenda_router == "minerva"
+    assert contract.agenda_router_role == "agenda_router"
+    assert "minerva" not in {seat.id for seat in contract.seats}
+    assert "minerva" not in {seat.role for seat in contract.seats}
+    assert all(seat.agenda_source == "minerva" for seat in contract.seats)
+
+
+def test_hermes_profiles_are_optional_executor_binding_metadata_not_model_requirement() -> None:
+    contract = triadic_deliberation_contract()
+
+    assert contract.executor_binding_required is False
+    assert all(seat.executor_binding is None for seat in contract.seats)
+
+    bound = CouncilSeat(
+        id="bound_proponent",
+        role="proponent",
+        stance="affirmative",
+        objective="Argue for the agenda direction.",
+        agenda_source="minerva",
+        executor_binding={"kind": "hermes_profile", "profile": "optimist"},
+    )
+
+    assert bound.executor_binding == {"kind": "hermes_profile", "profile": "optimist"}
+    with pytest.raises(TypeError):
+        bound.executor_binding["profile"] = "mutated"  # type: ignore[index]
+
+
+def test_process_contract_embeds_triadic_deliberation_for_deliberative_phases() -> None:
+    contract = process_contract()
+
+    assert contract["triadic_deliberation"]["debate_seat_count"] == 3
+    assert contract["triadic_deliberation"]["executor_binding_required"] is False
+    assert TRIADIC_DELIBERATION_PHASE_IDS == (
+        "idea_direction_explore",
+        "consensus_convergence",
+        "critic_for_plan",
+    )
+
+    phase_contracts = {phase["id"]: phase for phase in contract["phases"]}
+    for phase_id in TRIADIC_DELIBERATION_PHASE_IDS:
+        triadic = phase_contracts[phase_id]["triadic_deliberation"]
+        assert triadic["agenda_router"] == "minerva"
+        assert len(triadic["seats"]) == 3
+        assert [seat["executor_binding"] for seat in triadic["seats"]] == [None, None, None]
+
+    assert "triadic_deliberation" not in phase_contracts["execute"]
 
 
 def test_all_gates_are_side_effect_free_data_objects_and_dicts() -> None:

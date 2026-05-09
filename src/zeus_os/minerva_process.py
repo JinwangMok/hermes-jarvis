@@ -40,6 +40,99 @@ DIMENSIONS: tuple[str, ...] = (
     "self_heal",
 )
 
+TRIADIC_DELIBERATION_PHASE_IDS: tuple[str, ...] = (
+    "idea_direction_explore",
+    "consensus_convergence",
+    "critic_for_plan",
+)
+
+
+@dataclass(frozen=True)
+class CouncilSeat:
+    """Pure deliberation seat in Minerva's triadic council.
+
+    ``executor_binding`` is optional metadata for a runtime adapter (for example,
+    a Hermes profile name). It is deliberately not required by the process
+    model, so this contract can be reasoned about without live gateway/config
+    state.
+    """
+
+    id: str
+    role: str
+    stance: str
+    objective: str
+    agenda_source: str
+    executor_binding: Mapping[str, str] | None = None
+
+    def __post_init__(self) -> None:
+        if self.executor_binding is not None:
+            object.__setattr__(
+                self,
+                "executor_binding",
+                MappingProxyType(dict(self.executor_binding)),
+            )
+
+
+@dataclass(frozen=True)
+class TriadicDeliberationContract:
+    """Side-effect-free Minerva council contract for three-agent deliberation."""
+
+    model_version: str
+    agenda_router: str
+    agenda_router_role: str
+    seats: tuple[CouncilSeat, ...]
+    opposed_stances: tuple[str, str]
+    neutral_stance: str
+    persuasion_target: str
+    executor_binding_required: bool = False
+    optional_executor_binding_kind: str = "hermes_profile"
+
+    @property
+    def debate_seat_count(self) -> int:
+        return len(self.seats)
+
+
+TRIADIC_DELIBERATION = TriadicDeliberationContract(
+    model_version=MODEL_VERSION,
+    agenda_router="minerva",
+    agenda_router_role="agenda_router",
+    opposed_stances=("affirmative", "negative"),
+    neutral_stance="neutral",
+    persuasion_target="neutral_arbiter",
+    seats=(
+        CouncilSeat(
+            id="affirmative_council_seat",
+            role="proponent",
+            stance="affirmative",
+            objective=(
+                "Argue for advancing the agenda direction and persuade the "
+                "neutral arbiter."
+            ),
+            agenda_source="minerva",
+        ),
+        CouncilSeat(
+            id="negative_council_seat",
+            role="opponent",
+            stance="negative",
+            objective=(
+                "Argue against or stress-test the agenda direction and persuade "
+                "the neutral arbiter."
+            ),
+            agenda_source="minerva",
+        ),
+        CouncilSeat(
+            id="neutral_arbiter",
+            role="arbiter",
+            stance="neutral",
+            objective=(
+                "Remain neutral, weigh both opposed arguments, and identify the "
+                "best-supported convergence."
+            ),
+            agenda_source="minerva",
+        ),
+    ),
+)
+
 CORE_THRESHOLDS: Mapping[str, float] = MappingProxyType(
     {
         "alignment": 0.75,
@@ -213,8 +306,42 @@ PHASES: tuple[Phase, ...] = (
 _PHASE_BY_ID: Mapping[str, Phase] = MappingProxyType({phase.id: phase for phase in PHASES})
 
 
-def _phase_contract(phase: Phase) -> dict[str, object]:
+def _seat_contract(seat: CouncilSeat) -> dict[str, object]:
     return {
+        "id": seat.id,
+        "role": seat.role,
+        "stance": seat.stance,
+        "objective": seat.objective,
+        "agenda_source": seat.agenda_source,
+        "executor_binding": (
+            None if seat.executor_binding is None else dict(seat.executor_binding)
+        ),
+    }
+
+
+def _triadic_contract(contract: TriadicDeliberationContract) -> dict[str, object]:
+    return {
+        "model_version": contract.model_version,
+        "agenda_router": contract.agenda_router,
+        "agenda_router_role": contract.agenda_router_role,
+        "debate_seat_count": contract.debate_seat_count,
+        "seats": [_seat_contract(seat) for seat in contract.seats],
+        "opposed_stances": list(contract.opposed_stances),
+        "neutral_stance": contract.neutral_stance,
+        "persuasion_target": contract.persuasion_target,
+        "executor_binding_required": contract.executor_binding_required,
+        "optional_executor_binding_kind": contract.optional_executor_binding_kind,
+    }
+
+
+def triadic_deliberation_contract() -> TriadicDeliberationContract:
+    """Return the immutable pure triadic deliberation contract."""
+
+    return TRIADIC_DELIBERATION
+
+
+def _phase_contract(phase: Phase) -> dict[str, object]:
+    contract = {
         "id": phase.id,
         "label": phase.label,
         "self_questions": list(phase.self_questions),
@@ -233,6 +360,9 @@ def _phase_contract(phase: Phase) -> dict[str, object]:
             "discussion_mode": "agree_disagree",
         },
     }
+    if phase.id in TRIADIC_DELIBERATION_PHASE_IDS:
+        contract["triadic_deliberation"] = _triadic_contract(TRIADIC_DELIBERATION)
+    return contract
 
 
 def process_contract() -> dict[str, object]:
@@ -248,6 +378,8 @@ def process_contract() -> dict[str, object]:
             "evidence_required": True,
             "discussion_mode": "agree_disagree",
         },
+        "triadic_deliberation": _triadic_contract(TRIADIC_DELIBERATION),
+        "triadic_deliberation_phase_ids": list(TRIADIC_DELIBERATION_PHASE_IDS),
         "phases": [_phase_contract(phase) for phase in PHASES],
     }
 
