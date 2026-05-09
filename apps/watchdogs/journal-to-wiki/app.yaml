@@ -1,0 +1,7 @@
+apiVersion: zeus.os/v1alpha1
+kind: CapabilityApp
+metadata:
+  name: journal-to-wiki
+spec:
+  kind: watchdog
+  entrypoint: README.md
