@@ -235,8 +235,8 @@ async def _handle_minerva_command(event: Any, gateway: Any, command: MinervaComm
     )
     service._append_interview_card(status["run_id"], "thread.created")
     await _render_latest_card(thread, service, status["run_id"])
-    verb = "사용" if current_is_thread else "생성"
-    await _safe_send(adapter, getattr(source, "chat_id", parent_id), f"Minerva thread {verb}: <#{thread_id}> (`{status['run_id']}`)")
+    if not current_is_thread:
+        await _safe_send(adapter, getattr(source, "chat_id", parent_id), f"Minerva thread 생성: <#{thread_id}> (`{status['run_id']}`)")
 
 
 async def _create_sibling_thread(parent: Any, raw_message: Any, name: str) -> Any:
