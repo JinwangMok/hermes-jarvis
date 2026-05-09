@@ -20,6 +20,7 @@ from .config import PipelineConfig
 from .digest import generate_digest
 from .intelligence import generate_daily_intelligence_report
 from .mail import collect_mail_snapshots
+from .mail_secretary import generate_mail_secretary_cases
 from .knowledge import synthesize_knowledge
 from .proposals import generate_proposals
 from .review import generate_weekly_review
@@ -55,6 +56,10 @@ def run_pipeline_cycle(config: PipelineConfig) -> dict[str, Any]:
     classification_result = classify_messages(config)
     proposal_result = generate_proposals(config)
     knowledge_result = synthesize_knowledge(config, write_wiki=False)
+    try:
+        secretary_result = generate_mail_secretary_cases(config, since_minutes=30, limit=20)
+    except Exception as exc:  # pragma: no cover - defensive degradation for always-on loop
+        secretary_result = {"status": "degraded", "error": str(exc), "case_count": 0, "draft_count": 0, "needs_approval_count": 0}
     digest_result = generate_digest(config, proposal_result)
     intelligence_result = generate_daily_intelligence_report(config)
     briefing_result = generate_briefing(config)
@@ -64,6 +69,7 @@ def run_pipeline_cycle(config: PipelineConfig) -> dict[str, Any]:
         "classification": classification_result,
         "proposals": proposal_result,
         "knowledge": knowledge_result,
+        "secretary": secretary_result,
         "digest": digest_result,
         "intelligence": intelligence_result,
         "briefing": briefing_result,

@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from zeus_os.runtime import build_hermes_standby_unit_texts, build_systemd_unit_texts, check_hermes_zeusos_health
+from zeus_os.runtime import build_hermes_standby_unit_texts, build_systemd_unit_texts, check_hermes_zeusos_health, run_pipeline_cycle
 from zeus_os.config import load_pipeline_config
 
 
@@ -261,3 +261,30 @@ def test_hermes_health_check_restarts_active_but_not_ready_gateway(tmp_path: Pat
     assert result["status"] == "ok"
     assert result["actions"] == ["restarted hermes-gateway.service"]
     assert ["systemctl", "--user", "restart", "hermes-gateway.service"] in calls
+
+
+def test_run_pipeline_cycle_includes_mail_secretary_step(tmp_path: Path, monkeypatch):
+    config = load_pipeline_config(_write_runtime_config(tmp_path))
+    calls = []
+
+    monkeypatch.setattr("zeus_os.runtime.bootstrap_workspace", lambda config: calls.append("bootstrap"))
+    monkeypatch.setattr("zeus_os.runtime.collect_mail_snapshots", lambda config: {"ok": "mail"})
+    monkeypatch.setattr("zeus_os.runtime.collect_calendar_snapshots", lambda config: {"ok": "calendar"})
+    monkeypatch.setattr("zeus_os.runtime.classify_messages", lambda config: {"ok": "classify"})
+    monkeypatch.setattr("zeus_os.runtime.generate_proposals", lambda config: {"ok": "proposals"})
+    monkeypatch.setattr("zeus_os.runtime.synthesize_knowledge", lambda config, write_wiki=False: {"ok": "knowledge", "write_wiki": write_wiki})
+
+    def fake_secretary(config, since_minutes, limit):
+        calls.append(("secretary", since_minutes, limit))
+        return {"case_count": 1, "draft_count": 1, "needs_approval_count": 1}
+
+    monkeypatch.setattr("zeus_os.runtime.generate_mail_secretary_cases", fake_secretary)
+    monkeypatch.setattr("zeus_os.runtime.generate_digest", lambda config, proposal_result: {"ok": "digest", "proposal_result": proposal_result})
+    monkeypatch.setattr("zeus_os.runtime.generate_daily_intelligence_report", lambda config: {"ok": "intelligence"})
+    monkeypatch.setattr("zeus_os.runtime.generate_briefing", lambda config: {"ok": "briefing"})
+
+    result = run_pipeline_cycle(config)
+
+    assert result["secretary"] == {"case_count": 1, "draft_count": 1, "needs_approval_count": 1}
+    assert ("secretary", 30, 20) in calls
+    assert result["knowledge"]["write_wiki"] is False
