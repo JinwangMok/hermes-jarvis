@@ -24,6 +24,7 @@ from .intelligence import collect_knowledge_mail, generate_daily_intelligence_re
 from .knowledge import synthesize_knowledge
 from .mail import build_fake_mail_runner, collect_mail_snapshots
 from .mail_secretary import generate_mail_secretary_cases, review_mail_secretary_cases
+from .minerva_process import phase_gate_card, process_contract
 from .news_center import append_news_center_to_daily_report, collect_news_center, generate_podcast_script
 from .personal_radar import generate_personal_radar_coverage_verification, generate_personal_radar_source_audit
 from .proposals import generate_proposals
@@ -220,6 +221,12 @@ def build_parser(prog: str = "zeus-os") -> argparse.ArgumentParser:
     rearch_parser = subparsers.add_parser("rearchitecture-map-status", help="Validate and summarize the declaration-only ZeusOS rearchitecture migration map")
     rearch_parser.add_argument("--map", default="docs/migration/zeus-os-rearchitecture-map.yaml", help="Migration map YAML path")
 
+    subparsers.add_parser("minerva-process-contract", help="Show the deterministic Minerva phase contract with thresholds and prompts")
+
+    minerva_gate_parser = subparsers.add_parser("minerva-phase-gate", help="Evaluate one deterministic Minerva phase gate from explicit scores")
+    minerva_gate_parser.add_argument("--phase", required=True, help="Canonical Minerva phase id")
+    minerva_gate_parser.add_argument("--score", action="append", default=[], help="Score as name=value, repeatable")
+
     lifecycle_parser = subparsers.add_parser("hermes-skill-lifecycle-audit", help="Passively audit Hermes skill lifecycle metadata, staleness, archives, and negative-claim revalidation candidates")
     lifecycle_parser.add_argument("--hermes-home", default=str(Path.home() / ".hermes"), help="Hermes home directory")
     lifecycle_parser.add_argument("--hermes-config", default="", help="Hermes config.yaml path; defaults to <hermes-home>/config.yaml")
@@ -350,6 +357,22 @@ def build_parser(prog: str = "zeus-os") -> argparse.ArgumentParser:
     populate_zeus_subparsers(zeus_subparsers)
 
     return parser
+
+
+def _parse_minerva_scores(raw_scores: Sequence[str]) -> dict[str, float]:
+    scores: dict[str, float] = {}
+    for raw in raw_scores:
+        if "=" not in raw:
+            raise ValueError(f"invalid score {raw!r}: expected name=value")
+        name, value = raw.split("=", 1)
+        name = name.strip()
+        if not name:
+            raise ValueError(f"invalid score {raw!r}: expected non-empty name")
+        try:
+            scores[name] = float(value)
+        except ValueError as exc:
+            raise ValueError(f"invalid score {raw!r}: value must be numeric") from exc
+    return scores
 
 
 def main(argv: Sequence[str] | None = None, *, prog: str = "zeus-os") -> int:
@@ -744,6 +767,28 @@ def main(argv: Sequence[str] | None = None, *, prog: str = "zeus-os") -> int:
             "entries": [entry.__dict__ for entry in migration_map.entries],
             "runtime_truth": [entry.target for entry in migration_map.entries if entry.mode == "runtime-truth"],
             "approval_required": [entry.target for entry in migration_map.entries if entry.requires_approval],
+        }, ensure_ascii=False))
+        return 0
+
+    if args.command == "minerva-process-contract":
+        print(json.dumps({
+            "ok": True,
+            "side_effects": "read-only-contract",
+            "contract": process_contract(),
+        }, ensure_ascii=False))
+        return 0
+
+    if args.command == "minerva-phase-gate":
+        try:
+            scores = _parse_minerva_scores(args.score)
+            card = phase_gate_card(args.phase, scores)
+        except ValueError as exc:
+            print(json.dumps({"ok": False, "error": str(exc)}, ensure_ascii=False))
+            return 1
+        print(json.dumps({
+            "ok": True,
+            "side_effects": "read-only-evaluation",
+            "card": card,
         }, ensure_ascii=False))
         return 0
 
