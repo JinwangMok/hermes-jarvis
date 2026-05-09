@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any, Protocol
 
 from .config import PipelineConfig, load_pipeline_config
+from .minerva_boardroom_adapter import MinervaBoardroomAdapter
 from .minerva_process import evaluate_phase_gate, phase_gate_card
 
 
@@ -190,7 +191,11 @@ class MinervaWorkflow:
         self._write_origin(run_id, origin_platform, origin_channel_id, resolved_thread_id, thread)
         self._write_interview_state(run_id, self._initial_interview_state(run_id, goal))
         self._append_interview_card(run_id, "interview.started")
-        return self.status(run_id)
+        status = self.status(run_id)
+        run = load_run(self.db_path, run_id)
+        boardroom = self._boardroom_adapter().record_start(run, status["origin"])
+        status["boardroom"] = boardroom
+        return status
 
     def _reserve_run_row(
         self,
@@ -233,11 +238,15 @@ class MinervaWorkflow:
         run = load_run(self.db_path, run_id)
         self._require_phase(run_id, run["phase"], {"created", "interviewing"}, "record interview turn")
         self._append_jsonl(run_id, "interview.jsonl", {"at": _now(), "role": "user", "message": message})
+        turn_index = len(self._read_interview(run_id))
         self._update_interview_state_from_turn(run_id, run["goal"], message)
         self._append_interview_card(run_id, "interview.updated")
         if run["phase"] == "created":
             self._set_phase(run_id, "interviewing")
-        return self.status(run_id)
+        status = self.status(run_id)
+        refreshed_run = load_run(self.db_path, run_id)
+        status["boardroom"] = self._boardroom_adapter().record_turn(refreshed_run, message, turn_index)
+        return status
 
     def seed(self, run_id: str) -> dict[str, Any]:
         _validate_run_id(run_id)
@@ -246,9 +255,11 @@ class MinervaWorkflow:
         seed_json = self._artifact_path(run_id, "seed.json")
         seed_md = self._artifact_path(run_id, "seed.md")
         if seed_json.exists() and seed_md.exists():
+            seed = self._load_seed(run_id)
             result = self.status(run_id)
             result["created"] = False
-            result["seed_version"] = int(run["seed_version"] or 1)
+            result["seed_version"] = int(run["seed_version"] or seed.get("version") or 1)
+            result["boardroom"] = self._boardroom_adapter().record_seed(run, seed)
             return result
 
         interview = self._read_interview(run_id)
@@ -295,10 +306,12 @@ class MinervaWorkflow:
         self._write_json(run_id, "seed.json", seed)
         seed_md.write_text(self._seed_markdown(seed), encoding="utf-8")
         self._set_phase(run_id, "seeded", seed_version=1)
+        refreshed_run = load_run(self.db_path, run_id)
         result = self.status(run_id)
         result["created"] = True
         result["seed_version"] = 1
         result["seed"] = seed
+        result["boardroom"] = self._boardroom_adapter().record_seed(refreshed_run, seed)
         return result
 
     def run(self, run_id: str, executor: str = "") -> dict[str, Any]:
@@ -393,7 +406,7 @@ class MinervaWorkflow:
         run_dir = self._run_dir(run_id)
         artifacts = sorted(str(path.relative_to(self.workspace_root)) for path in run_dir.glob("*")) if run_dir.exists() else []
         drift_path = self._artifact_path(run_id, "drift.md")
-        return {
+        result = {
             "run_id": run_id,
             "goal": run["goal"],
             "phase": run["phase"],
@@ -409,6 +422,10 @@ class MinervaWorkflow:
             "created_at": run["created_at"],
             "updated_at": run["updated_at"],
         }
+        boardroom = self._boardroom_adapter().read_summary(run_id)
+        if boardroom:
+            result["boardroom"] = boardroom
+        return result
 
     def export(self, run_id: str) -> dict[str, Any]:
         _validate_run_id(run_id)
@@ -419,6 +436,7 @@ class MinervaWorkflow:
             "interview": self._read_interview(run_id),
             "seed": self._load_seed(run_id) if self._artifact_path(run_id, "seed.json").exists() else None,
             "artifacts": self._artifact_texts(run_id),
+            "boardroom": self._boardroom_adapter().read_snapshot(run_id),
         }
 
     def mark_thread_created(
@@ -456,7 +474,13 @@ class MinervaWorkflow:
         with sqlite3.connect(self.db_path) as conn:
             conn.execute("UPDATE minerva_runs SET origin_thread_id = ?, updated_at = ? WHERE run_id = ?", (thread_id, _now(), run_id))
             conn.commit()
-        return self.status(run_id)
+        refreshed_run = load_run(self.db_path, run_id)
+        refreshed_status = self.status(run_id)
+        refreshed_status["boardroom"] = self._boardroom_adapter().record_start(refreshed_run, refreshed_status["origin"])
+        return refreshed_status
+
+    def _boardroom_adapter(self) -> MinervaBoardroomAdapter:
+        return MinervaBoardroomAdapter.from_workspace(self.workspace_root)
 
     def _set_phase(self, run_id: str, phase: str, seed_version: int | None = None) -> None:
         if phase not in PHASES:

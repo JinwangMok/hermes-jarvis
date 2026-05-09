@@ -1,12 +1,14 @@
 from pathlib import Path
 
 import json
+import sqlite3
 
 import pytest
 
 from zeus_os.cli import main
 from zeus_os import minerva as minerva_module
 from zeus_os.minerva import MinervaWorkflow, load_run
+from zeus_os.zeus_os.store import StoreConfig, init_store
 
 
 class FakeDiscordThreadClient:
@@ -77,6 +79,175 @@ def _latest_card(tmp_path: Path, run_id: str) -> dict:
 
 def _proposal_components(card: dict) -> list[dict]:
     return [component for component in card["card"]["components"] if component["action"] == "select_proposal"]
+
+
+def _canonical_boardroom_for_run(workspace_root: Path, run_id: str) -> dict:
+    db_path = workspace_root / "state" / "zeus_os.db"
+    assert db_path.exists(), "Minerva must materialize its run in the ZeusOS canonical store"
+    with sqlite3.connect(db_path) as conn:
+        conn.row_factory = sqlite3.Row
+        sessions = [dict(row) for row in conn.execute("SELECT * FROM boardroom_sessions")]
+        matched = [session for session in sessions if json.loads(session["metadata_json"]).get("minerva_run_id") == run_id]
+        assert len(matched) == 1
+        session = matched[0]
+        context = dict(conn.execute("SELECT * FROM contexts WHERE context_id = ?", (session["context_id"],)).fetchone())
+        participants = [
+            dict(row)
+            for row in conn.execute(
+                "SELECT * FROM boardroom_participants WHERE session_id = ? ORDER BY agent_id",
+                (session["session_id"],),
+            )
+        ]
+        messages = [
+            dict(row)
+            for row in conn.execute(
+                "SELECT * FROM messages WHERE context_id = ? ORDER BY created_at, message_id",
+                (session["context_id"],),
+            )
+        ]
+    return {"context": context, "session": session, "participants": participants, "messages": messages}
+
+
+def test_minerva_projects_start_turn_seed_to_canonical_boardroom_runtime(tmp_path: Path):
+    config_file = _write_config(tmp_path)
+    workflow = MinervaWorkflow.from_config_path(config_file)
+
+    started = workflow.start(
+        goal="Canonical boardroom runtime",
+        origin_platform="discord",
+        origin_channel_id="parent",
+        origin_thread_id="thread-1",
+    )
+    run_id = started["run_id"]
+    assert started["boardroom"]["adapter"] == "minerva_boardroom_runtime/v1"
+
+    _make_seed_ready(workflow, run_id)
+    seeded = workflow.seed(run_id)
+    canonical_after_first_seed = _canonical_boardroom_for_run(tmp_path, run_id)
+    first_seed_session = canonical_after_first_seed["session"]
+    second_seed = workflow.seed(run_id)
+
+    canonical = _canonical_boardroom_for_run(tmp_path, run_id)
+    context = canonical["context"]
+    session = canonical["session"]
+    participants = canonical["participants"]
+    messages = canonical["messages"]
+    session_meta = json.loads(session["metadata_json"])
+
+    assert session["status"] == "open"
+    assert session["final_arbiter_agent_id"] == "minerva"
+    assert "Canonical boardroom runtime" in session["title"]
+    assert session_meta["adapter"] == "minerva_boardroom_runtime/v1"
+    assert session_meta["minerva_run_id"] == run_id
+    assert session_meta["origin_platform"] == "discord"
+    assert session_meta["origin_channel_id"] == "parent"
+    assert session_meta["origin_thread_id"] == "thread-1"
+    assert session["revision"] == first_seed_session["revision"]
+    assert session["updated_at"] == first_seed_session["updated_at"]
+    assert context["origin_platform"] == "discord"
+    assert context["origin_channel_id"] == "parent"
+    assert context["origin_thread_id"] == "thread-1"
+    assert json.loads(context["metadata_json"])["minerva_run_id"] == run_id
+
+    participant_roles = {row["agent_id"]: row["role"] for row in participants}
+    assert participant_roles == {
+        "apollo": "reviewer",
+        "artemis": "research_scout",
+        "athena": "plan_critic",
+        "boramae": "discord_conversation",
+        "hephaestus": "builder",
+        "janus": "memory_evolution",
+        "minerva": "command_governor",
+    }
+    assert all(json.loads(row["metadata_json"])["minerva_run_id"] == run_id for row in participants)
+
+    assert [row["idempotency_key"] for row in messages] == [
+        f"minerva:{run_id}:start",
+        f"minerva:{run_id}:turn:1",
+        f"minerva:{run_id}:turn:2",
+        f"minerva:{run_id}:turn:3",
+        f"minerva:{run_id}:turn:4",
+        f"minerva:{run_id}:turn:5",
+        f"minerva:{run_id}:seed:v1",
+    ]
+    assert [json.loads(row["metadata_json"])["minerva_stage"] for row in messages] == [
+        "start",
+        "turn",
+        "turn",
+        "turn",
+        "turn",
+        "turn",
+        "seed",
+    ]
+    assert messages[0]["role"] == "user"
+    assert messages[0]["sender_agent_id"] is None
+    assert "Canonical boardroom runtime" in json.dumps(json.loads(messages[0]["parts_json"]), ensure_ascii=False)
+    assert [row["role"] for row in messages[1:6]] == ["user"] * 5
+    assert "Permission: seed gate approved" in json.dumps(json.loads(messages[5]["parts_json"]), ensure_ascii=False)
+    assert messages[-1]["role"] == "assistant"
+    assert messages[-1]["sender_agent_id"] == "minerva"
+    assert json.loads(messages[-1]["metadata_json"])["seed_version"] == seeded["seed_version"] == second_seed["seed_version"] == 1
+
+    status = workflow.status(run_id)
+    assert status["boardroom"]["session_id"] == session["session_id"]
+    assert status["boardroom"]["participant_count"] == 7
+    assert status["boardroom"]["message_count"] == 7
+    exported = workflow.export(run_id)
+    assert exported["boardroom"]["session"]["session_id"] == session["session_id"]
+    assert len(exported["boardroom"]["participants"]) == 7
+    assert len(exported["boardroom"]["messages"]) == 7
+
+
+def test_minerva_boardroom_projection_preserves_existing_agent_cards_and_syncs_thread_created(tmp_path: Path):
+    config_file = _write_config(tmp_path)
+    workflow = MinervaWorkflow.from_config_path(config_file)
+    with init_store(StoreConfig.from_workspace(str(tmp_path))) as conn:
+        now = "2026-01-01T00:00:00+00:00"
+        conn.execute(
+            """
+            INSERT INTO agent_cards (
+                agent_id, name, persona_type, description, version, capabilities_json, skills_json,
+                protocols_json, registry_metadata_json, status, created_at, updated_at
+            ) VALUES ('minerva', 'Existing Minerva', 'custom_runtime', 'owned by runtime', '9.9.9', '[]', '[]', '[]', '{"owner":"runtime"}', 'active', ?, ?)
+            """,
+            (now, now),
+        )
+
+    started = workflow.start(
+        goal="Pending thread sync",
+        origin_platform="discord",
+        origin_channel_id="parent",
+        auto_open_thread=True,
+        origin_message_id="msg-1",
+    )
+    run_id = started["run_id"]
+    _make_seed_ready(workflow, run_id)
+    workflow.seed(run_id)
+    marked = workflow.mark_thread_created(run_id, thread_id="created-thread", thread_name="Created", message_id="msg-1")
+    canonical = _canonical_boardroom_for_run(tmp_path, run_id)
+    session_meta = json.loads(canonical["session"]["metadata_json"])
+
+    assert marked["boardroom"]["session_id"] == canonical["session"]["session_id"]
+    assert canonical["context"]["origin_thread_id"] == "created-thread"
+    assert session_meta["origin_thread_id"] == "created-thread"
+    assert session_meta["seed_version"] == 1
+    assert [row["idempotency_key"] for row in canonical["messages"]] == [
+        f"minerva:{run_id}:start",
+        f"minerva:{run_id}:turn:1",
+        f"minerva:{run_id}:turn:2",
+        f"minerva:{run_id}:turn:3",
+        f"minerva:{run_id}:turn:4",
+        f"minerva:{run_id}:turn:5",
+        f"minerva:{run_id}:seed:v1",
+    ]
+
+    with sqlite3.connect(tmp_path / "state" / "zeus_os.db") as conn:
+        conn.row_factory = sqlite3.Row
+        card = dict(conn.execute("SELECT * FROM agent_cards WHERE agent_id = 'minerva'").fetchone())
+    assert card["name"] == "Existing Minerva"
+    assert card["persona_type"] == "custom_runtime"
+    assert card["description"] == "owned by runtime"
+    assert json.loads(card["registry_metadata_json"]) == {"owner": "runtime"}
 
 
 def test_minerva_status_and_discord_card_expose_minerva_process_gate(tmp_path: Path):
