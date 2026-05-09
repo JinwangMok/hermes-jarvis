@@ -1,0 +1,3 @@
+worktree=/home/jinwang/workspace/jinwang-jarvis-minerva-worktree
+branch=feature/minerva-contract-runtime
+base=9d216cb

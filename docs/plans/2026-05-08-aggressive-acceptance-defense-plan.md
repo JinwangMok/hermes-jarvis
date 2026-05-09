@@ -18,7 +18,7 @@ The **final migration** is accepted only when every migrated ZeusOS-owned capabi
 
 - Do not move `data/` or `state/` until inventory + dry-run + rollback + smoke exist.
 - Do not touch Hermes source, `~/.hermes`, gateway, cron, systemd, raw wiki, or credentials without separate approval.
-- Minerva/HOOO bridge work may not modify `plugins/hermes_*gateway*`, Hermes core, or `~/.hermes`.
+- Minerva/Minerva bridge work may not modify `plugins/hermes_*gateway*`, Hermes core, or `~/.hermes`.
 - Resolver must be read-only by default. It must not implicitly `mkdir` `credentials`, `data`, `state`, `wiki`, `workspace`, or `vmem`.
 - Secret scans inspect staged/tracked declarative files and diffs only; they must not read `credentials/**` values.
 - Do not stage unrelated dirty work.
@@ -179,7 +179,7 @@ PYTHONPATH=src python3 -m zeus_os.cli repo validate-manifests --repo-root .
 
 ### Leaf 2.5a — Minerva read-only discovery bridge
 
-**Objective:** Make HOOO/Houroboros metadata discoverable through `apps/skill-sets/custom-skills/minerva/app.yaml` without changing runtime execution.
+**Objective:** Make Minerva/Minerva metadata discoverable through `apps/skill-sets/custom-skills/minerva/app.yaml` without changing runtime execution.
 
 **Allowed files:**
 - `src/zeus_os/declarative.py`
@@ -193,14 +193,14 @@ PYTHONPATH=src python3 -m zeus_os.cli repo validate-manifests --repo-root .
 - `data/`, `state/` contents
 
 **Tests:**
-- old `skills/hooo` remains discoverable as compatibility location through resolver.
+- old `skills/minerva` remains discoverable as compatibility location through resolver.
 - `minerva` manifest returns canonical metadata and points to compatibility alias, not moved files.
 
 **Rollback:** revert allowed-file diff only.
 
 ### Leaf 2.5b — Existing skill lifecycle caller consumes Minerva bridge with fallback
 
-**Objective:** A concrete ZeusOS-owned runtime caller reads Minerva metadata through registry first, then falls back to legacy `skills/hooo`/Hermes skill roots.
+**Objective:** A concrete ZeusOS-owned runtime caller reads Minerva metadata through registry first, then falls back to legacy `skills/minerva`/Hermes skill roots.
 
 **Exact caller:**
 - Modify: `src/zeus_os/hermes_skill_lifecycle.py`
@@ -208,7 +208,7 @@ PYTHONPATH=src python3 -m zeus_os.cli repo validate-manifests --repo-root .
   - `_find_skill_dir(...)` remains the fallback resolver for legacy skill dirs.
   - `audit_hermes_skill_lifecycle(...)` must expose whether a skill was discovered from declarative registry metadata or legacy roots.
 - Modify: `tests/test_hermes_skill_lifecycle.py`
-  - add `test_audit_skill_lifecycle_prefers_minerva_registry_metadata_with_legacy_hooo_fallback`.
+  - add `test_audit_skill_lifecycle_prefers_minerva_registry_metadata_with_legacy_minerva_fallback`.
 
 **Forbidden files:**
 - `plugins/hermes_*gateway*`
@@ -218,14 +218,14 @@ PYTHONPATH=src python3 -m zeus_os.cli repo validate-manifests --repo-root .
 
 **Acceptance:**
 - Test proves registry-first behavior for `apps/skill-sets/custom-skills/minerva/app.yaml` metadata.
-- Test proves legacy `skills/hooo/SKILL.md` remains usable when registry metadata is absent or placeholder-only.
+- Test proves legacy `skills/minerva/SKILL.md` remains usable when registry metadata is absent or placeholder-only.
 - Existing lifecycle tests still pass:
 ```bash
 PYTHONPATH=src pytest -q tests/test_hermes_skill_lifecycle.py tests/test_declarative_manifests.py tests/test_paths.py
 ```
-- HOOO status smoke remains unchanged:
+- Minerva status smoke remains unchanged:
 ```bash
-PYTHONPATH=src python3 -m zeus_os.cli hooo status --config config/pipeline.local.yaml --run-id hooo-20260508-1d0b544b5090
+PYTHONPATH=src python3 -m zeus_os.cli minerva status --config config/pipeline.local.yaml --run-id minerva-20260508-1d0b544b5090
 ```
 
 **Rollback:** revert `src/zeus_os/hermes_skill_lifecycle.py` and `tests/test_hermes_skill_lifecycle.py` changes only.
@@ -257,4 +257,4 @@ PYTHONPATH=src python3 -m zeus_os.cli hooo status --config config/pipeline.local
 
 ## Current recommended next action
 
-Start with **Leaf 2.1 + 2.2 only**. Do not begin Minerva/HOOO bridge until the path resolver and registry read-only surfaces pass review.
+Start with **Leaf 2.1 + 2.2 only**. Do not begin Minerva/Minerva bridge until the path resolver and registry read-only surfaces pass review.

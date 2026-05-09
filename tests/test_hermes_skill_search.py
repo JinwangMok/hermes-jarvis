@@ -191,7 +191,7 @@ def test_zeusos_central_telemetry_merges_into_search_index(tmp_path: Path) -> No
     assert result["rows"][0]["use_count"] == 9
 
 
-def test_build_skill_search_index_consumes_minerva_hooo_registry_bridge(tmp_path: Path) -> None:
+def test_build_skill_search_index_consumes_minerva_minerva_registry_bridge(tmp_path: Path) -> None:
     repo = tmp_path / "zeus-os"
     (repo / "agents").mkdir(parents=True)
     (repo / "agent-shim" / "hermes").mkdir(parents=True)
@@ -207,32 +207,32 @@ def test_build_skill_search_index_consumes_minerva_hooo_registry_bridge(tmp_path
         "  entrypoint: README.md\n"
         "  compatibilityBridge:\n"
         "    legacyRoot: skills\n"
-        "    legacyName: hooo\n"
+        "    legacyName: minerva\n"
         "    mode: read-only-metadata\n"
         "    runtimeWiring: false\n",
         encoding="utf-8",
     )
     _write_skill(
-        repo / "skills" / "hooo",
-        name="hooo",
-        description="HOOO workflow harness bridge search target",
-        body="Minerva compatibility bridge should make this legacy HOOO skill searchable.",
+        repo / "skills" / "minerva",
+        name="minerva",
+        description="Minerva workflow harness bridge search target",
+        body="Minerva compatibility bridge should make this legacy Minerva skill searchable.",
     )
     db_path = tmp_path / "skills.sqlite"
 
     index = build_skill_search_index(db_path, zeus_paths=ZeusPaths(repo))
-    result = search_skills(db_path, "minerva hooo bridge", top_k=1)
+    result = search_skills(db_path, "minerva minerva bridge", top_k=1)
 
     assert {
         "kind": "compatibility_bridge",
-        "path": str(repo / "skills" / "hooo"),
+        "path": str(repo / "skills" / "minerva"),
         "app": "minerva",
         "legacy_root": "skills",
-        "legacy_name": "hooo",
+        "legacy_name": "minerva",
         "mode": "read-only-metadata",
         "runtime_wiring": False,
     } in index["roots"]
-    assert result["rows"][0]["name"] == "hooo"
+    assert result["rows"][0]["name"] == "minerva"
 
 
 def test_empty_skill_roots_still_uses_default_hermes_root(tmp_path: Path) -> None:

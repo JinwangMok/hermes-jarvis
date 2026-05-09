@@ -63,13 +63,13 @@ def test_registry_entry_positional_legacy_scripts_abi_is_preserved():
     assert entry.compatibility_bridge is None
 
 
-def test_minerva_manifest_declares_legacy_hooo_bridge_without_runtime_wiring():
+def test_minerva_manifest_declares_legacy_minerva_bridge_without_runtime_wiring():
     result = validate_repo_manifests(paths=ZeusPaths(Path.cwd()))
     bridge = result.apps["minerva"].compatibility_bridge
 
     assert bridge == {
         "legacy_root": "skills",
-        "legacy_name": "hooo",
+        "legacy_name": "minerva",
         "mode": "read-only-metadata",
         "runtime_wiring": False,
     }
@@ -81,7 +81,7 @@ def test_registry_entry_exposes_minerva_compatibility_bridge_metadata():
 
     assert by_key[("app", "minerva")].compatibility_bridge == {
         "legacy_root": "skills",
-        "legacy_name": "hooo",
+        "legacy_name": "minerva",
         "mode": "read-only-metadata",
         "runtime_wiring": False,
     }

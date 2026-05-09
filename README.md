@@ -5,7 +5,7 @@ ZeusOS is the product/control-plane identity for the existing `zeus-os` reposito
 Compatibility-first naming during the transition:
 
 - **ZeusOS**: product/control-plane and Agent OS identity.
-- **ZeusOS**: personal-intelligence capability pack for mail, calendar, briefings, hot issues, opportunity radar, HOOO/Houroboros, and related workflows.
+- **ZeusOS**: personal-intelligence capability pack for mail, calendar, briefings, hot issues, opportunity radar, Minerva/Minerva, and related workflows.
 - **`zeus-os` / `zeus_os`**: existing repository, distribution, CLI, and Python import compatibility surfaces. They are intentionally not renamed yet.
 - **Hermes**: source-untouched gateway/runtime/tool host. ZeusOS integrates through plugins, sidecars, and CLI boundaries rather than Hermes core patches.
 - **Hermes profiles**: optional operational split for reducing context pollution and gateway queue contention. First candidate is a separate `zeus-os` profile for mail/calendar/news/report work; profiles are not security sandboxes.

@@ -14,5 +14,5 @@ Sanitized orchestration summary. Full transient OpenCode logs/prompts were inten
 - HTML fallback is metadata/listing only; no paid-login scraping or anti-bot bypass.
 
 ## Verification
-- Focused watch-source/HOOO regression suite passed during cleanup.
+- Focused watch-source/Minerva regression suite passed during cleanup.
 - Full suite passed: `240 passed`.

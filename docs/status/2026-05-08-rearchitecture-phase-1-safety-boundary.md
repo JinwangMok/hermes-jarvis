@@ -19,7 +19,7 @@ ZeusOS now has a non-destructive Agent OS-style repository frame:
 3. `ZeusPaths` defines the root path policy and blocks implicit creation of sensitive/runtime roots.
 4. The manifest validator can use `ZeusPaths` instead of hardcoded paths.
 5. `list_registry()` exposes a read-only structured view of registered capabilities.
-6. `minerva` declares a compatibility bridge to legacy `skills/hooo` as metadata only.
+6. `minerva` declares a compatibility bridge to legacy `skills/minerva` as metadata only.
 
 ## Commit chain
 
@@ -30,7 +30,7 @@ f0a9221 test: add declarative manifest validation
 594dba5 feat: add ZeusOS root path resolver
 a935321 feat: wire manifest validation to ZeusPaths
 2205b2d feat: add read-only declarative registry API
-087f2e4 feat: declare Minerva HOOO compatibility bridge
+087f2e4 feat: declare Minerva Minerva compatibility bridge
 ```
 
 ## Safety boundary
@@ -42,7 +42,7 @@ The completed work intentionally avoided the following:
 - No Hermes core, `~/.hermes`, gateway, systemd, or cron mutation.
 - No raw wiki rewrite.
 - No runtime caller migration.
-- No claim that `hooo` has been moved to `minerva`.
+- No claim that `minerva` has been moved to `minerva`.
 
 ## Current architecture meaning
 
@@ -54,7 +54,7 @@ The current result is a control-plane foundation, not an operational cutover:
 | Manifest validation | implemented | declarations can be checked |
 | Path policy | implemented | old/new roots have explicit safety rules |
 | Registry API | implemented | capability metadata can be read safely |
-| Minerva/HOOO bridge | declared only | future migration contract exists, runtime unchanged |
+| Minerva/Minerva bridge | declared only | future migration contract exists, runtime unchanged |
 
 ## Test and review evidence
 
@@ -64,7 +64,7 @@ Leaf-level verification was performed before each committed step:
 - `ZeusPaths`: resolver tests passed after RED/GREEN.
 - Manifest validator + `ZeusPaths`: targeted regression tests passed.
 - Read-only registry API: targeted regression tests passed.
-- Minerva/HOOO compatibility bridge: targeted regression tests passed.
+- Minerva/Minerva compatibility bridge: targeted regression tests passed.
 - Each implementation leaf used staged-diff review and kept unrelated dirty work excluded.
 
 Most recent targeted gate:
@@ -79,7 +79,7 @@ PYTHONPATH=src pytest -q tests/test_declarative_manifests.py tests/test_paths.py
 The following files were present outside this safety-boundary chain and must remain isolated from future rearchitecture commits unless explicitly selected:
 
 ```text
-skills/hooo/SKILL.md
+skills/minerva/SKILL.md
 src/zeus_os/bootstrap.py
 src/zeus_os/cli.py
 src/zeus_os/runtime.py
@@ -87,7 +87,7 @@ tests/test_runtime.py
 orchestration/2026-05-07-localhost-architecture-diagram/
 orchestration/2026-05-07-mail-preactive-secretary/
 scripts/mail-secretary-watchdog.py
-skills/hooo/references/zeusos-rearchitecture-leaf-pattern-2026-05-08.md
+skills/minerva/references/zeusos-rearchitecture-leaf-pattern-2026-05-08.md
 src/zeus_os/mail_secretary.py
 tests/test_mail_secretary.py
 ```
@@ -98,7 +98,7 @@ Do not proceed to destructive or runtime migration until a selected next leaf de
 
 Recommended next choices:
 
-1. **Runtime caller bridge, narrow scope:** one ZeusOS-owned caller reads the Minerva/HOOO compatibility metadata while keeping the legacy fallback.
+1. **Runtime caller bridge, narrow scope:** one ZeusOS-owned caller reads the Minerva/Minerva compatibility metadata while keeping the legacy fallback.
 2. **CLI registry view:** expose `registry list/validate` for operator visibility, but only after isolating existing `cli.py` dirty work.
 3. **Migration inventory:** produce a read-only inventory and migration map for `skills/`, `scripts/`, `data/`, and `state/` without moving anything.
 

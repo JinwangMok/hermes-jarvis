@@ -1,10 +1,10 @@
 # ZeusOS Rebrand / Migration Plan
 
-**Status:** Draft — awaiting Jinwang review before execution  
-**Date:** 2026-05-06  
-**Owner:** External contractor lane #1 (Sisyphus)  
-**Scope:** jinwang-jarvis → ZeusOS product/control-plane rebrand  
-**Constraint:** Read-only analysis; no production source edits under this lane  
+**Status:** Draft — awaiting Jinwang review before execution
+**Date:** 2026-05-06
+**Owner:** External contractor lane #1 (Sisyphus)
+**Scope:** jinwang-jarvis → ZeusOS product/control-plane rebrand
+**Constraint:** Read-only analysis; no production source edits under this lane
 
 ---
 
@@ -143,7 +143,7 @@
 - [ ] Update `bin/` scripts to use `zeus-os` module path
 - [ ] Update plugins:
   - `plugins/hermes_zeus_gateway/` — already named correctly
-  - `plugins/hermes_hooo_gateway/` — update description
+  - `plugins/hermes_minerva_gateway/` — update description
   - `plugins/hermes_jarvis_styled_voice_gateway/` → `plugins/hermes_zeusos_styled_voice_gateway/`
 
 **Rollback Plan:**
@@ -189,13 +189,13 @@ from zeus_os import *
 |---------|---------|---------|
 | `jinwang-jarvis collect-mail` | `jinwang-jarvis collect-mail` (primary) + `zeus-os collect-mail` (alias) | `zeos-os collect-mail` (primary) + `jinwang-jarvis` (alias) |
 | `jinwang-jarvis zeus task submit` | unchanged | `zeus-os zeus task submit` |
-| `jinwang-jarvis hooo start` | unchanged | `zeus-os hooo start` |
+| `jinwang-jarvis minerva start` | unchanged | `zeus-os minerva start` |
 
 ### 4.3 Plugins
 
 | Current Plugin | Phase 1 | Phase 3 |
 |----------------|---------|---------|
-| `hermes_hooo_gateway` | unchanged | unchanged |
+| `hermes_minerva_gateway` | unchanged | unchanged |
 | `hermes_zeus_gateway` | unchanged | unchanged |
 | `hermes_jarvis_styled_voice_gateway` | unchanged | rename to `hermes_zeusos_styled_voice_gateway` |
 
@@ -226,8 +226,8 @@ from zeus_os import *
 | Skill | Current | Phase 3 |
 |-------|---------|---------|
 | `discord-voice-stt-enhance` | unchanged | unchanged |
-| `hooo` | unchanged | update SKILL.md to reference ZeusOS |
-| `houroboros` | unchanged | update SKILL.md to reference ZeusOS |
+| `minerva` | unchanged | update SKILL.md to reference ZeusOS |
+| `minerva` | unchanged | update SKILL.md to reference ZeusOS |
 | `styled-voice` | unchanged | update SKILL.md to reference ZeusOS |
 
 ---
@@ -411,7 +411,7 @@ version_constraint: ">=2.0.0"
 
 | Point | File | Phase 3 Action |
 |-------|------|----------------|
-| Plugin: HOOO gateway | `plugins/hermes_hooo_gateway/` | No rename needed |
+| Plugin: Minerva gateway | `plugins/hermes_minerva_gateway/` | No rename needed |
 | Plugin: Zeus gateway | `plugins/hermes_zeus_gateway/` | No rename needed |
 | Plugin: Styled voice | `plugins/hermes_jarvis_styled_voice_gateway/` | Rename to `hermes_zeusos_styled_voice_gateway` |
 | systemd: Gateway service | `systemd/hermes-gateway.service` | **Never rename** |
@@ -425,7 +425,7 @@ version_constraint: ">=2.0.0"
 | `state/jarvis.sqlite3` | Yes | Rename or symlink to `state/zeusos.sqlite3` in Phase 3 |
 | `state/jinwang_jarvis.sqlite3` | Yes | Rename or symlink |
 | `state/personal_intel.db` | No | Keep as-is (data file) |
-| `state/houroboros.db` | No | Keep as-is |
+| `state/minerva.db` | No | Keep as-is |
 | `state/hermes-skill-usage.json` | No | Keep as-is |
 | `state/external_hot_issue_state.json` | No | Keep as-is |
 | `data/jarvis.sqlite` | Yes | Rename or symlink |

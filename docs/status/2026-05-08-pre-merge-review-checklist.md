@@ -21,7 +21,7 @@ f0a9221 test: add declarative manifest validation
 594dba5 feat: add ZeusOS root path resolver
 a935321 feat: wire manifest validation to ZeusPaths
 2205b2d feat: add read-only declarative registry API
-087f2e4 feat: declare Minerva HOOO compatibility bridge
+087f2e4 feat: declare Minerva Minerva compatibility bridge
 f59f28f docs: record rearchitecture phase 1 safety boundary
 b68b01a docs: add read-only migration inventory
 8acc7b8 feat: consume Minerva bridge in skill lifecycle audit
@@ -42,7 +42,7 @@ Later script-classification commits may append to this chain if they keep the sa
 - [ ] No gateway/systemd/cron changes.
 - [ ] No credentials read, moved, copied, summarized, or committed.
 - [ ] No `data/` or `state/` migration.
-- [ ] No physical move of `skills/hooo`.
+- [ ] No physical move of `skills/minerva`.
 - [ ] No script file move; classification-only metadata is allowed.
 
 ### 2. Dirty-work isolation gate
@@ -50,7 +50,7 @@ Later script-classification commits may append to this chain if they keep the sa
 Before merge, confirm these unrelated paths are either excluded or separately resolved:
 
 ```text
-skills/hooo/SKILL.md
+skills/minerva/SKILL.md
 src/zeus_os/bootstrap.py
 src/zeus_os/cli.py
 src/zeus_os/runtime.py
@@ -58,8 +58,8 @@ tests/test_runtime.py
 orchestration/2026-05-07-localhost-architecture-diagram/
 orchestration/2026-05-07-mail-preactive-secretary/
 scripts/mail-secretary-watchdog.py
-skills/hooo/references/zeusos-rearchitecture-leaf-pattern-2026-05-08.md
-skills/hooo/references/zeusos-script-classification-manifests-2026-05-08.md
+skills/minerva/references/zeusos-rearchitecture-leaf-pattern-2026-05-08.md
+skills/minerva/references/zeusos-script-classification-manifests-2026-05-08.md
 src/zeus_os/mail_secretary.py
 tests/test_mail_secretary.py
 ```
@@ -111,13 +111,13 @@ Docs-only commits can skip full code review but still need staged-file and secre
 
 Safe summary for reviewers:
 
-> This branch introduces an OS-style declarative map for ZeusOS and validates it. Minerva can now declare read-only compatibility with legacy HOOO, and two read-only callers consume that metadata for audit and search/index. No runtime cutover, file movement, data/state migration, credentials handling, gateway/systemd/cron change, or HOOO physical migration is included.
+> This branch introduces an OS-style declarative map for ZeusOS and validates it. Minerva can now declare read-only compatibility with legacy Minerva, and two read-only callers consume that metadata for audit and search/index. No runtime cutover, file movement, data/state migration, credentials handling, gateway/systemd/cron change, or Minerva physical migration is included.
 
 ## Explicit non-goals
 
 Do not merge this branch as if it completes:
 
-- HOOO-to-Minerva migration,
+- Minerva-to-Minerva migration,
 - runtime declarative execution,
 - credentials layout migration,
 - data/state migration,

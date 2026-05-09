@@ -1,0 +1,44 @@
+/ulw You are a senior engineering team implementing Jinwang's Minerva proposal-driven interview UX in the main jinwang-jarvis monorepo.
+
+Context:
+- Repo: /home/jinwang/workspace/jinwang-jarvis on branch main at base a228214.
+- User request: implement the Minerva UX contract now, as if assigned to a professional senior engineering team.
+- Existing dirty files before this implementation began:
+  - skills/minerva/SKILL.md
+  - skills/minerva/SKILL.md
+  - skills/minerva/references/live-smoke-and-cleanup.md
+  These are contract/reference changes from prior work. Preserve them; do not overwrite or revert them.
+- Core Minerva contract: future /minerva interview must NOT show only a blank "continue interview" prompt requiring Jinwang to manually write Scope/Acceptance/Constraint/Executor/Permission. For each unresolved dimension, Minerva must generate 3 concrete selectable proposals plus an Other/new-opinion path. Selection updates structured interview_state and advances to next unresolved dimension/options. Natural-language fallback remains supported but is not the default UX.
+- Safety: Jarvis-owned repo changes only. Do NOT modify Hermes source, ~/.hermes, systemd, cron, secrets, raw wiki, or external services. Do NOT restart Hermes gateway. Do NOT perform live Discord side effects. Do not access or persist secrets.
+
+Deliverable requirements:
+1. Inspect current Minerva/Minerva implementation and tests before editing.
+2. Implement a concrete proposal-driven interview card model and reducer path. Expected behavior:
+   - The next unresolved dimension is chosen deterministically from scope, acceptance, constraint, executor, permission.
+   - The interview card contains exactly three concrete proposals for that dimension plus an Other/new-opinion action.
+   - Button custom_ids are bounded and include enough run/card/revision/option identity to reject stale/mismatched interactions.
+   - Choosing proposal A/B/C records the selected value into structured interview state as that dimension, lowers ambiguity only for that dimension, and emits the next dimension card until seed_ready.
+   - Other/new-opinion must not magically resolve all dimensions; it should create/route a dimension-specific natural-language path, then require or accept a clearly mapped value for that dimension.
+   - Continue-interview can remain only as secondary/backward compatibility, not as the default first-class card when unresolved dimensions remain.
+3. Add/adjust tests that fail on the old blank continue-only behavior:
+   - card includes three options + Other for each unresolved dimension step;
+   - selecting an option updates only the intended dimension and advances;
+   - freeform text that is not structured does not resolve all ambiguity;
+   - stale/mismatched interaction is rejected;
+   - seed remains blocked until ambiguity <= 0.2;
+   - gateway plugin renderer, if present, renders option buttons rather than only continue.
+4. Update docs only where needed to match implemented runtime behavior. Do not overclaim physical Discord UI click testing.
+5. Run verification:
+   - python -m compileall -q src/jinwang_jarvis tests
+   - PYTHONPATH=src pytest -q tests/test_minerva.py tests/test_minerva_gateway_plugin.py (if plugin test exists)
+   - a broader relevant pytest set; if full suite has unrelated live-tool failure, document causal caveat.
+6. Write deterministic artifacts:
+   - /home/jinwang/workspace/jinwang-jarvis/orchestration/2026-05-03-opencode-minerva-proposal-interview/result.md with summary, files changed, tests run/results, remaining risks.
+   - If you change design details, include examples of card JSON/custom_id and interaction sequence in result.md.
+
+Important engineering standards:
+- Keep changes small, maintainable, and test-backed.
+- Preserve source-untouched Hermes boundary.
+- Avoid collision with unrelated dirty files; path-scope your edits and explain any touched pre-existing dirty files.
+- Do not commit or push; controller will review/verify/commit later.
+- Complete synchronously in this process. Do NOT stop after planning. Do NOT merely spawn background agents and wait. Implement directly now.

@@ -13,7 +13,7 @@
 ## 0. Non-negotiable boundaries
 
 1. **Hermes and ZeusOS remain separated.** Hermes core is not modified. ZeusOS/ZeusOS owns plugins, sidecars, state, skills, docs, and systemd templates.
-2. **ZeusOS is expanded into Zeus OS, not replaced abruptly.** Existing mail/calendar/hot-issue/HOOO features remain valid ZeusOS lanes under the broader Zeus OS control-plane model.
+2. **ZeusOS is expanded into Zeus OS, not replaced abruptly.** Existing mail/calendar/hot-issue/Minerva features remain valid ZeusOS lanes under the broader Zeus OS control-plane model.
 3. **Canonical state is DB + artifacts.** Discord/webhook/persona messages are projections only.
 4. **One Discord app/bot for MVP.** Personas are `agent_cards`, not separate bot accounts. Named webhooks may be added later only as rendering projection.
 5. **A2A is compatibility/projection/edge transport, not the internal source of truth.** Internal coordination remains typed durable tasks/events/work_orders.

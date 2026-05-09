@@ -12,7 +12,7 @@
 | Wiki generated paths | `queries/jinwang-jarvis-*` constants and tests exist | Generated paths remain compatibility surface until writer migration | Inventory only; no wiki path move | wiki write/migration explicit approval; no `raw/` rewrite |
 | Systemd units | active `jinwang-jarvis-hermes-health.timer`; `hermes-gateway.service` active; unit files embed repo path | No live unit rename in Phase 1; future migration requires backup/rollback | Read-only inventory only | `gateway_systemd` + recovery plan |
 | Hermes cron jobs | 7 jobs reference Jarvis workdir; several enabled | Cron workdir remains as-is | Inventory only | cron/update approval; no job mutation |
-| Hermes plugins | `hermes_hooo_gateway`, `hermes_jarvis_styled_voice_gateway` symlinks exist | Plugins treated as compatibility projections/adapters | Inventory only | `gateway_systemd` for live plugin change |
+| Hermes plugins | `hermes_minerva_gateway`, `hermes_jarvis_styled_voice_gateway` symlinks exist | Plugins treated as compatibility projections/adapters | Inventory only | `gateway_systemd` for live plugin change |
 | External repos/K-Skill/browser helpers | Docs say adapters, no vendoring; browser recipe stance is documented only | Adapter manifests + recipe registry later, dry-run first | Defer to adapter phase after Phase 1 cleanup | `external_repo_write` forbidden without explicit approval |
 | Canonical state | SQLite + registered filesystem artifacts in Zeus docs/runtime | Preserve canonical/projection split | No DB migration in Phase 1 | `local_db_write` only in test temp dirs; live migration blocked |
 | Projections | Discord/Markdown/A2A/wiki reports are projections | Render/dry-run only until approval | No live post | `external_post`/`credential_access` gates |

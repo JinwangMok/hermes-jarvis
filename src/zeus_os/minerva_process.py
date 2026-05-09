@@ -2,7 +2,7 @@
 
 This module intentionally contains only immutable data definitions and pure
 functions.  It does not read files, write files, call services, spawn processes,
-or depend on live Hermes/HOOO runtime state.
+or depend on live Hermes/Minerva runtime state.
 """
 
 from __future__ import annotations
@@ -121,7 +121,7 @@ PHASES: tuple[Phase, ...] = (
         "Idea/Direction Explore",
         (
             "What candidate interpretations or directions exist?",
-            "Which useful existing HOOO/Hermes concepts should be kept conceptually?",
+            "Which useful existing Minerva/Hermes concepts should be kept conceptually?",
         ),
         "consensus_convergence",
     ),
@@ -225,6 +225,13 @@ def _phase_contract(phase: Phase) -> dict[str, object]:
         "thresholds": dict(phase.thresholds),
         "next_phase": phase.next_phase,
         "failure_next_phase": phase.failure_next_phase,
+        "self_justification": {
+            "required": True,
+            "questions": list(phase.self_questions),
+            "thresholds": dict(phase.thresholds),
+            "evidence_required": True,
+            "discussion_mode": "agree_disagree",
+        },
     }
 
 
@@ -234,6 +241,13 @@ def process_contract() -> dict[str, object]:
     return {
         "model_version": MODEL_VERSION,
         "phase_ids": list(CANONICAL_PHASE_IDS),
+        "self_justification": {
+            "required_every_phase": True,
+            "minimum_questions": 2,
+            "quantitative_gate_required": True,
+            "evidence_required": True,
+            "discussion_mode": "agree_disagree",
+        },
         "phases": [_phase_contract(phase) for phase in PHASES],
     }
 

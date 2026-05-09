@@ -1,7 +1,7 @@
 # ZeusOS Rebrand Migration Contract
 
-**Status:** compatibility-first contract  
-**Date:** 2026-05-07  
+**Status:** compatibility-first contract
+**Date:** 2026-05-07
 **Scope:** product and architecture identity for `zeus-os` becoming ZeusOS without a big-bang rename
 
 ## Executive decision
@@ -15,7 +15,7 @@ The first step is to freeze the compatibility contract so future implementation 
 | Name | Meaning | Current handling |
 |---|---|---|
 | **ZeusOS** | Product identity and Agent OS/control-plane architecture | Forward-facing product/control-plane name |
-| **ZeusOS** | Personal-intelligence capability pack: mail, calendar, briefings, hot issues, opportunity radar, HOOO/Houroboros | Retained as a capability-pack and legacy compatibility name |
+| **ZeusOS** | Personal-intelligence capability pack: mail, calendar, briefings, hot issues, opportunity radar, Minerva/Minerva | Retained as a capability-pack and legacy compatibility name |
 | **`zeus-os`** | Existing repository/distribution/local workspace identity | Compatibility surface; do not rename in the first PR |
 | **`zeus_os`** | Existing Python import namespace | Compatibility surface; keep canonical until aliases are proven |
 | **Hermes** | Upstream host/gateway/runtime/tool surface | Source-untouched; integrated only by plugins, configs, sidecars, and CLI boundaries |

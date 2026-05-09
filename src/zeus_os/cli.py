@@ -18,7 +18,7 @@ from .feedback import record_proposal_feedback
 from .hermes_continuity import check_hermes_customizations
 from .hermes_skill_context import generate_skill_context
 from .hermes_skill_lifecycle import audit_hermes_skill_lifecycle, record_skill_telemetry
-from .houroboros import HouroborosWorkflow
+from .minerva import MinervaWorkflow
 from .hermes_skill_search import DEFAULT_SKILL_SEARCH_DB, build_skill_search_index, evaluate_skill_search, search_skills
 from .intelligence import collect_knowledge_mail, generate_daily_intelligence_report
 from .knowledge import synthesize_knowledge
@@ -303,52 +303,52 @@ def build_parser(prog: str = "zeus-os") -> argparse.ArgumentParser:
     samples_refs_parser.add_argument("--library-dir", default="", help="Sample library root; defaults to data/styled-voice-samples")
     samples_refs_parser.add_argument("--profile", default="default", help="Profile, e.g. default, jongwon, jongwon/calm")
 
-    houroboros_parser = subparsers.add_parser("houroboros", aliases=["hooo"], help="Run the ZeusOS-native Houroboros workflow harness")
-    houroboros_subparsers = houroboros_parser.add_subparsers(dest="houroboros_command", required=True)
+    minerva_parser = subparsers.add_parser("minerva", help="Run the ZeusOS-native Minerva workflow harness")
+    minerva_subparsers = minerva_parser.add_subparsers(dest="minerva_command", required=True)
 
-    houroboros_start_parser = houroboros_subparsers.add_parser("start", help="Start an interview-backed Houroboros run")
-    houroboros_start_parser.add_argument("--config", required=True, help="Path to pipeline.yaml")
-    houroboros_start_parser.add_argument("--goal", required=True, help="Workflow goal to crystallize")
-    houroboros_start_parser.add_argument("--origin-platform", default="", help="Optional origin platform, e.g. discord")
-    houroboros_start_parser.add_argument("--origin-channel-id", default="", help="Optional origin channel ID")
-    houroboros_start_parser.add_argument("--origin-thread-id", default="", help="Optional origin thread ID")
-    houroboros_start_parser.add_argument("--origin-message-id", default="", help="Optional origin Discord message ID")
-    houroboros_start_parser.add_argument("--auto-open-thread", action="store_true", help="Request Discord thread creation through the safe ZeusOS handoff adapter")
-    houroboros_start_parser.add_argument("--thread-name", default="", help="Optional Discord thread name for the handoff request")
+    minerva_start_parser = minerva_subparsers.add_parser("start", help="Start an interview-backed Minerva run")
+    minerva_start_parser.add_argument("--config", required=True, help="Path to pipeline.yaml")
+    minerva_start_parser.add_argument("--goal", required=True, help="Workflow goal to crystallize")
+    minerva_start_parser.add_argument("--origin-platform", default="", help="Optional origin platform, e.g. discord")
+    minerva_start_parser.add_argument("--origin-channel-id", default="", help="Optional origin channel ID")
+    minerva_start_parser.add_argument("--origin-thread-id", default="", help="Optional origin thread ID")
+    minerva_start_parser.add_argument("--origin-message-id", default="", help="Optional origin Discord message ID")
+    minerva_start_parser.add_argument("--auto-open-thread", action="store_true", help="Request Discord thread creation through the safe ZeusOS handoff adapter")
+    minerva_start_parser.add_argument("--thread-name", default="", help="Optional Discord thread name for the handoff request")
 
-    houroboros_mark_thread_parser = houroboros_subparsers.add_parser("mark-thread-created", help="Mark a pending Discord thread handoff as created")
-    houroboros_mark_thread_parser.add_argument("--config", required=True, help="Path to pipeline.yaml")
-    houroboros_mark_thread_parser.add_argument("--run-id", required=True, help="Houroboros run ID")
-    houroboros_mark_thread_parser.add_argument("--thread-id", required=True, help="Created Discord thread ID")
-    houroboros_mark_thread_parser.add_argument("--thread-name", default="", help="Created Discord thread name")
-    houroboros_mark_thread_parser.add_argument("--message-id", default="", help="Discord message ID associated with thread creation")
-    houroboros_mark_thread_parser.add_argument("--jump-url", default="", help="Discord jump URL for the created thread")
-    houroboros_mark_thread_parser.add_argument("--url", default="", help="Discord thread URL")
+    minerva_mark_thread_parser = minerva_subparsers.add_parser("mark-thread-created", help="Mark a pending Discord thread handoff as created")
+    minerva_mark_thread_parser.add_argument("--config", required=True, help="Path to pipeline.yaml")
+    minerva_mark_thread_parser.add_argument("--run-id", required=True, help="Minerva run ID")
+    minerva_mark_thread_parser.add_argument("--thread-id", required=True, help="Created Discord thread ID")
+    minerva_mark_thread_parser.add_argument("--thread-name", default="", help="Created Discord thread name")
+    minerva_mark_thread_parser.add_argument("--message-id", default="", help="Discord message ID associated with thread creation")
+    minerva_mark_thread_parser.add_argument("--jump-url", default="", help="Discord jump URL for the created thread")
+    minerva_mark_thread_parser.add_argument("--url", default="", help="Discord thread URL")
 
-    houroboros_turn_parser = houroboros_subparsers.add_parser("turn", help="Append an interview turn")
-    houroboros_turn_parser.add_argument("--config", required=True, help="Path to pipeline.yaml")
-    houroboros_turn_parser.add_argument("--run-id", required=True, help="Houroboros run ID")
-    houroboros_turn_parser.add_argument("--message", required=True, help="Interview message to append")
+    minerva_turn_parser = minerva_subparsers.add_parser("turn", help="Append an interview turn")
+    minerva_turn_parser.add_argument("--config", required=True, help="Path to pipeline.yaml")
+    minerva_turn_parser.add_argument("--run-id", required=True, help="Minerva run ID")
+    minerva_turn_parser.add_argument("--message", required=True, help="Interview message to append")
 
-    houroboros_interact_parser = houroboros_subparsers.add_parser("interact", help="Safely reduce a Discord button interaction into the ZeusOS state machine")
-    houroboros_interact_parser.add_argument("--config", required=True, help="Path to pipeline.yaml")
-    houroboros_interact_parser.add_argument("--run-id", required=True, help="Houroboros run ID")
-    houroboros_interact_parser.add_argument(
+    minerva_interact_parser = minerva_subparsers.add_parser("interact", help="Safely reduce a Discord button interaction into the ZeusOS state machine")
+    minerva_interact_parser.add_argument("--config", required=True, help="Path to pipeline.yaml")
+    minerva_interact_parser.add_argument("--run-id", required=True, help="Minerva run ID")
+    minerva_interact_parser.add_argument(
         "--action",
         choices=("select_proposal", "other_opinion", "continue_interview", "propose_seed", "cancel"),
         default="",
-        help="Logical HOOO interaction action; optional when --custom-id is provided",
+        help="Logical Minerva interaction action; optional when --custom-id is provided",
     )
-    houroboros_interact_parser.add_argument("--custom-id", default="", help="Discord component custom_id; when present it must match the run/action/revision")
-    houroboros_interact_parser.add_argument("--card-revision", type=int, default=None, help="Card revision seen by the Discord interaction")
-    houroboros_interact_parser.add_argument("--origin-channel-id", default="", help="Discord channel ID from the interaction callback")
-    houroboros_interact_parser.add_argument("--origin-thread-id", default="", help="Discord thread ID from the interaction callback")
-    houroboros_interact_parser.add_argument("--actor-id", default="", help="Discord actor/user ID from the interaction callback")
+    minerva_interact_parser.add_argument("--custom-id", default="", help="Discord component custom_id; when present it must match the run/action/revision")
+    minerva_interact_parser.add_argument("--card-revision", type=int, default=None, help="Card revision seen by the Discord interaction")
+    minerva_interact_parser.add_argument("--origin-channel-id", default="", help="Discord channel ID from the interaction callback")
+    minerva_interact_parser.add_argument("--origin-thread-id", default="", help="Discord thread ID from the interaction callback")
+    minerva_interact_parser.add_argument("--actor-id", default="", help="Discord actor/user ID from the interaction callback")
 
     for command_name in ("seed", "run", "evaluate", "evolve", "status", "export"):
-        command_parser = houroboros_subparsers.add_parser(command_name, help=f"Houroboros {command_name}")
+        command_parser = minerva_subparsers.add_parser(command_name, help=f"Minerva {command_name}")
         command_parser.add_argument("--config", required=True, help="Path to pipeline.yaml")
-        command_parser.add_argument("--run-id", required=True, help="Houroboros run ID")
+        command_parser.add_argument("--run-id", required=True, help="Minerva run ID")
         if command_name == "run":
             command_parser.add_argument("--executor", default="", help="Optional execution backend, e.g. claude-code")
 
@@ -885,10 +885,10 @@ def main(argv: Sequence[str] | None = None, *, prog: str = "zeus-os") -> int:
         print(json.dumps(result, ensure_ascii=False))
         return 0
 
-    if args.command in {"houroboros", "hooo"}:
-        workflow = HouroborosWorkflow.from_config_path(args.config)
+    if args.command == "minerva":
+        workflow = MinervaWorkflow.from_config_path(args.config)
         try:
-            if args.houroboros_command == "start":
+            if args.minerva_command == "start":
                 result = workflow.start(
                     goal=args.goal,
                     origin_platform=args.origin_platform,
@@ -898,9 +898,9 @@ def main(argv: Sequence[str] | None = None, *, prog: str = "zeus-os") -> int:
                     auto_open_thread=args.auto_open_thread,
                     thread_name=args.thread_name,
                 )
-            elif args.houroboros_command == "turn":
+            elif args.minerva_command == "turn":
                 result = workflow.turn(args.run_id, args.message)
-            elif args.houroboros_command == "interact":
+            elif args.minerva_command == "interact":
                 result = workflow.handle_interaction(
                     args.run_id,
                     args.action,
@@ -910,15 +910,15 @@ def main(argv: Sequence[str] | None = None, *, prog: str = "zeus-os") -> int:
                     origin_thread_id=args.origin_thread_id,
                     actor_id=args.actor_id,
                 )
-            elif args.houroboros_command == "seed":
+            elif args.minerva_command == "seed":
                 result = workflow.seed(args.run_id)
-            elif args.houroboros_command == "run":
+            elif args.minerva_command == "run":
                 result = workflow.run(args.run_id, executor=args.executor)
-            elif args.houroboros_command == "evaluate":
+            elif args.minerva_command == "evaluate":
                 result = workflow.evaluate(args.run_id)
-            elif args.houroboros_command == "evolve":
+            elif args.minerva_command == "evolve":
                 result = workflow.evolve(args.run_id)
-            elif args.houroboros_command == "mark-thread-created":
+            elif args.minerva_command == "mark-thread-created":
                 result = workflow.mark_thread_created(
                     args.run_id,
                     thread_id=args.thread_id,
@@ -927,12 +927,12 @@ def main(argv: Sequence[str] | None = None, *, prog: str = "zeus-os") -> int:
                     jump_url=args.jump_url,
                     url=args.url,
                 )
-            elif args.houroboros_command == "status":
+            elif args.minerva_command == "status":
                 result = workflow.status(args.run_id)
-            elif args.houroboros_command == "export":
+            elif args.minerva_command == "export":
                 result = workflow.export(args.run_id)
             else:  # pragma: no cover
-                parser.error(f"Unknown houroboros command: {args.houroboros_command}")
+                parser.error(f"Unknown minerva command: {args.minerva_command}")
         except (FileNotFoundError, KeyError, ValueError, sqlite3.IntegrityError) as exc:
             print(json.dumps({"ok": False, "error": str(exc)}, ensure_ascii=False))
             return 1

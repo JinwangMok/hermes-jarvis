@@ -1,6 +1,6 @@
 # ZeusOS Rearchitecture — Phase Review after Search/Index Bridge
 
-> Plain-language checkpoint: the new map is now read by two safe readers. One audit caller and one search/index caller can see that Minerva points to legacy HOOO, but the old runtime still has not moved.
+> Plain-language checkpoint: the new map is now read by two safe readers. One audit caller and one search/index caller can see that Minerva points to legacy Minerva, but the old runtime still has not moved.
 
 ## Status
 
@@ -20,7 +20,7 @@ f0a9221 test: add declarative manifest validation
 594dba5 feat: add ZeusOS root path resolver
 a935321 feat: wire manifest validation to ZeusPaths
 2205b2d feat: add read-only declarative registry API
-087f2e4 feat: declare Minerva HOOO compatibility bridge
+087f2e4 feat: declare Minerva Minerva compatibility bridge
 f59f28f docs: record rearchitecture phase 1 safety boundary
 b68b01a docs: add read-only migration inventory
 8acc7b8 feat: consume Minerva bridge in skill lifecycle audit
@@ -43,30 +43,30 @@ The rearchitecture no longer lives only as intention. It has:
 - capability manifests,
 - status documents.
 
-### 2. Minerva/HOOO is a validated compatibility bridge
+### 2. Minerva/Minerva is a validated compatibility bridge
 
 `apps/skill-sets/custom-skills/minerva/app.yaml` declares:
 
 ```yaml
 compatibilityBridge:
   legacyRoot: skills
-  legacyName: hooo
+  legacyName: minerva
   mode: read-only-metadata
   runtimeWiring: false
 ```
 
 Important meaning:
 
-- Minerva can point at legacy HOOO metadata.
-- HOOO has not been moved.
+- Minerva can point at legacy Minerva metadata.
+- Minerva has not been moved.
 - Runtime wiring is explicitly false.
 
 ### 3. Two read-only callers consume the bridge
 
 | Caller | What it does | Still safe because |
 |---|---|---|
-| `audit_hermes_skill_lifecycle(..., zeus_paths=...)` | includes `skills/hooo` as compatibility bridge source | audit/read-only only |
-| `build_skill_search_index(..., zeus_paths=...)` | indexes `skills/hooo` from Minerva bridge metadata | search/index only; no execution path change |
+| `audit_hermes_skill_lifecycle(..., zeus_paths=...)` | includes `skills/minerva` as compatibility bridge source | audit/read-only only |
+| `build_skill_search_index(..., zeus_paths=...)` | indexes `skills/minerva` from Minerva bridge metadata | search/index only; no execution path change |
 
 ### 4. Script classification has begun
 
@@ -95,7 +95,7 @@ The following are still intentionally untouched:
 - systemd/cron: unchanged
 - live runtime cutover: not started
 - script file moves: not started
-- `skills/hooo` physical migration: not started
+- `skills/minerva` physical migration: not started
 
 ## Review findings already handled
 
@@ -147,7 +147,7 @@ PASS
 Still unrelated and not part of this rearchitecture checkpoint unless explicitly selected:
 
 ```text
-skills/hooo/SKILL.md
+skills/minerva/SKILL.md
 src/zeus_os/bootstrap.py
 src/zeus_os/cli.py
 src/zeus_os/runtime.py
@@ -155,8 +155,8 @@ tests/test_runtime.py
 orchestration/2026-05-07-localhost-architecture-diagram/
 orchestration/2026-05-07-mail-preactive-secretary/
 scripts/mail-secretary-watchdog.py
-skills/hooo/references/zeusos-rearchitecture-leaf-pattern-2026-05-08.md
-skills/hooo/references/zeusos-script-classification-manifests-2026-05-08.md
+skills/minerva/references/zeusos-rearchitecture-leaf-pattern-2026-05-08.md
+skills/minerva/references/zeusos-script-classification-manifests-2026-05-08.md
 src/zeus_os/mail_secretary.py
 tests/test_mail_secretary.py
 ```
@@ -165,7 +165,7 @@ tests/test_mail_secretary.py
 
 Do not claim any of these yet:
 
-- “HOOO has migrated to Minerva.”
+- “Minerva has migrated to Minerva.”
 - “ZeusOS runtime is declarative now.”
 - “data/state migration is complete.”
 - “credentials are handled by the new layout.”
@@ -174,7 +174,7 @@ Do not claim any of these yet:
 
 The accurate claim is narrower:
 
-> ZeusOS has a validated declarative compatibility map, and two read-only callers now consume Minerva/HOOO bridge metadata with legacy fallback preserved.
+> ZeusOS has a validated declarative compatibility map, and two read-only callers now consume Minerva/Minerva bridge metadata with legacy fallback preserved.
 
 ## Best next gates
 

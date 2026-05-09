@@ -18,7 +18,7 @@ Hermes Discord gateway / ZeusOS plugin
   -> Discord threads/cards as projections only
 ```
 
-The repo already has the right primitives to evolve incrementally: `pyproject.toml`, `src/zeus_os/cli.py`, SQLite-backed modules, artifact directories under `data/`, deterministic HOOO/Houroboros workflow (`src/zeus_os/houroboros.py`), tests, and Hermes Discord plugins under `plugins/`. Reuse those patterns.
+The repo already has the right primitives to evolve incrementally: `pyproject.toml`, `src/zeus_os/cli.py`, SQLite-backed modules, artifact directories under `data/`, deterministic Minerva/Minerva workflow (`src/zeus_os/minerva.py`), tests, and Hermes Discord plugins under `plugins/`. Reuse those patterns.
 
 ## Personas: processes, DB agent cards, or Discord bots?
 
@@ -615,14 +615,14 @@ The Discord plugin should live in `plugins/hermes_zeus_gateway/` and enforce:
 
 Acceptance:
 
-- Inventory existing CLI, HOOO, plugin, state DB, artifact paths, and tests.
+- Inventory existing CLI, Minerva, plugin, state DB, artifact paths, and tests.
 - Produce this design and a migration checklist.
 - No runtime behavior changes.
 
 Tasks:
 
-1. Read `src/zeus_os/cli.py`, `runtime.py`, `houroboros.py`, existing plugins/tests.
-2. Confirm artifact roots: `state/`, `data/`, `data/houroboros/`.
+1. Read `src/zeus_os/cli.py`, `runtime.py`, `minerva.py`, existing plugins/tests.
+2. Confirm artifact roots: `state/`, `data/`, `data/minerva/`.
 3. Define Zeus invariants and acceptance criteria.
 
 ### Phase 1 — Schema/bootstrap/store
@@ -811,7 +811,7 @@ E2E scenario:
 
 ## Rollout plan
 
-1. **Shadow mode:** CLI-only, deterministic worker, no Discord live side effects. Store in `state/zeus_os.db` separate from `personal_intel.db` and `houroboros.db`.
+1. **Shadow mode:** CLI-only, deterministic worker, no Discord live side effects. Store in `state/zeus_os.db` separate from `personal_intel.db` and `minerva.db`.
 2. **Discord dry-run:** plugin renders payload artifacts rather than sending live messages; verify recovery and button payloads.
 3. **Single-channel pilot:** enable `/zeus start/status` and approval cards in a private boardroom channel; deterministic workers only.
 4. **One real adapter:** enable read-only Hermes/research adapter behind approval; no repo writes.

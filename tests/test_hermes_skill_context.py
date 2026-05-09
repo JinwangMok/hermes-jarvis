@@ -61,27 +61,27 @@ def test_generate_skill_context_marks_compatibility_bridge_read_only(tmp_path: P
         "  entrypoint: README.md\n"
         "  compatibilityBridge:\n"
         "    legacyRoot: skills\n"
-        "    legacyName: hooo\n"
+        "    legacyName: minerva\n"
         "    mode: read-only-metadata\n"
         "    runtimeWiring: false\n",
         encoding="utf-8",
     )
     _write_skill(
-        repo / "skills" / "hooo",
-        name="hooo",
-        body="Minerva HOOO compatibility bridge read-only metadata search context.",
+        repo / "skills" / "minerva",
+        name="minerva",
+        body="Minerva Minerva compatibility bridge read-only metadata search context.",
     )
     db_path = tmp_path / "skills.sqlite"
 
     build_skill_search_index(db_path, zeus_paths=ZeusPaths(repo))
-    result = generate_skill_context(db_path, "minerva hooo bridge", budget_tokens=300, top_k=1)
+    result = generate_skill_context(db_path, "minerva minerva bridge", budget_tokens=300, top_k=1)
 
     assert result["ok"] is True
     snippet = result["snippets"][0]
     assert snippet["source"] == "compatibility_bridge"
-    assert snippet["root"] == str(repo / "skills" / "hooo")
+    assert snippet["root"] == str(repo / "skills" / "minerva")
     assert "Source: compatibility_bridge" in result["context"]
-    assert f"Root: {repo / 'skills' / 'hooo'}" in result["context"]
+    assert f"Root: {repo / 'skills' / 'minerva'}" in result["context"]
     assert "Read-only metadata bridge" in result["context"]
     assert "runtime_wiring false" in result["context"]
 

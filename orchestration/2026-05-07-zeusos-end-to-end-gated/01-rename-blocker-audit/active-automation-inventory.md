@@ -21,5 +21,5 @@ cronjob inventory not available from shell: No module named 'hermes_tools'
 NOTE: Hermes cron inventory requires Hermes tool context; see controller summary if collected separately.
 
 ## Hermes plugin symlinks
-/home/jinwang/.hermes/plugins/hermes_hooo_gateway
+/home/jinwang/.hermes/plugins/hermes_minerva_gateway
 /home/jinwang/.hermes/plugins/hermes_jarvis_styled_voice_gateway

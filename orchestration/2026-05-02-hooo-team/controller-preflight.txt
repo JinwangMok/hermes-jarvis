@@ -1,3 +1,0 @@
-worktree=/home/jinwang/workspace/jinwang-jarvis-hooo-worktree
-branch=feature/hooo-contract-runtime
-base=9d216cb

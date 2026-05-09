@@ -1,10 +1,10 @@
 # ZeusOS End-to-End Replay / Gap Audit & Gated Execution Plan
 
-**Date:** 2026-05-07  
-**Auditor:** Kimi (Sisyphus)  
-**Scope:** Read-only replay of the current Discord session, gap analysis against AS-IS -> TO-BE diagrams/checklists, and gated substage execution plan.  
-**Constraint:** No production source edits. Hermes untouched. No gateway/systemd restart.  
-**Commits on record:** `05d7b12` (browser recipe stance), `1a70959` (compatibility migration contract).  
+**Date:** 2026-05-07
+**Auditor:** Kimi (Sisyphus)
+**Scope:** Read-only replay of the current Discord session, gap analysis against AS-IS -> TO-BE diagrams/checklists, and gated substage execution plan.
+**Constraint:** No production source edits. Hermes untouched. No gateway/systemd restart.
+**Commits on record:** `05d7b12` (browser recipe stance), `1a70959` (compatibility migration contract).
 
 ---
 
@@ -39,7 +39,7 @@
 | Name | Meaning | Handling |
 |---|---|---|
 | **ZeusOS** | Product/control-plane and Agent OS identity | Forward-facing |
-| **Jarvis** | Personal-intelligence capability pack (mail, calendar, briefing, radar, HOOO) | Retained; not erased |
+| **Jarvis** | Personal-intelligence capability pack (mail, calendar, briefing, radar, Minerva) | Retained; not erased |
 | **`jinwang-jarvis`** | Repo/distribution/local workspace identity | Compatibility surface; do not rename yet |
 | **`jinwang_jarvis`** | Python import namespace | Compatibility surface; keep canonical until aliases proven |
 | **Hermes** | Gateway/runtime/tool host | Source-untouched; integrate via plugins/configs/CLI |
@@ -98,7 +98,7 @@ The committed docs and contractor lanes provide **narrative plans** and **impact
 
 #### G. Data Backup / Rollback Procedures
 - **Status:** Mentioned as Gate 6 in migration doc, but **not documented**.
-- **Gap:** No explicit backup commands for `state/` and `data/`. No rollback script. No verification that `personal_intel.db`, `houroboros.db`, `zeus_os.db` can be restored.
+- **Gap:** No explicit backup commands for `state/` and `data/`. No rollback script. No verification that `personal_intel.db`, `minerva.db`, `zeus_os.db` can be restored.
 - **Impact:** Cannot safely proceed to any phase that touches live data.
 
 #### H. Zeus CLI Parser Drift Fix Plan

@@ -1,6 +1,6 @@
 # ZeusOS Rearchitecture — Runtime Caller Bridge Checkpoint
 
-> Plain-language checkpoint: the map is no longer just on paper. One ZeusOS-owned read-only caller now looks at the Minerva/HOOO bridge contract, but it still does not move the old HOOO runtime.
+> Plain-language checkpoint: the map is no longer just on paper. One ZeusOS-owned read-only caller now looks at the Minerva/Minerva bridge contract, but it still does not move the old Minerva runtime.
 
 ## Status
 
@@ -18,7 +18,7 @@ The `minerva` manifest already declared this compatibility contract:
 ```yaml
 compatibilityBridge:
   legacyRoot: skills
-  legacyName: hooo
+  legacyName: minerva
   mode: read-only-metadata
   runtimeWiring: false
 ```
@@ -29,14 +29,14 @@ This checkpoint made one ZeusOS-owned caller consume that metadata:
 audit_hermes_skill_lifecycle(..., zeus_paths=ZeusPaths(repo_root))
 ```
 
-When `zeus_paths` is provided, the audit can now discover the declarative `minerva -> skills/hooo` bridge and include the legacy HOOO skill as a `compatibility_bridge` source in the audit result.
+When `zeus_paths` is provided, the audit can now discover the declarative `minerva -> skills/minerva` bridge and include the legacy Minerva skill as a `compatibility_bridge` source in the audit result.
 
 ## What did not change
 
 This is intentionally not a runtime migration:
 
-- `skills/hooo` was not moved.
-- HOOO execution still uses the existing legacy runtime path.
+- `skills/minerva` was not moved.
+- Minerva execution still uses the existing legacy runtime path.
 - Hermes core, gateway, systemd, cron, and `~/.hermes` were not changed.
 - `data/`, `state/`, and `credentials/` were not moved or rewritten.
 - No external service call or live gateway restart was performed.
@@ -50,7 +50,7 @@ f0a9221 test: add declarative manifest validation
 594dba5 feat: add ZeusOS root path resolver
 a935321 feat: wire manifest validation to ZeusPaths
 2205b2d feat: add read-only declarative registry API
-087f2e4 feat: declare Minerva HOOO compatibility bridge
+087f2e4 feat: declare Minerva Minerva compatibility bridge
 f59f28f docs: record rearchitecture phase 1 safety boundary
 b68b01a docs: add read-only migration inventory
 8acc7b8 feat: consume Minerva bridge in skill lifecycle audit
@@ -62,7 +62,7 @@ b68b01a docs: add read-only migration inventory
 |---|---|---|---|
 | Path policy | `ZeusPaths` existed | caller can receive `ZeusPaths` | no global path rewrite |
 | Registry metadata | readable | consumed by one caller | not consumed everywhere |
-| Minerva/HOOO bridge | declared only | audit reads it | HOOO not moved to Minerva |
+| Minerva/Minerva bridge | declared only | audit reads it | Minerva not moved to Minerva |
 | Runtime truth | legacy roots | unchanged | no `data/state` migration |
 
 ## Safety fix from review
@@ -102,7 +102,7 @@ python3 -m compileall -q \
 
 PYTHONPATH=src pytest -q \
   tests/test_declarative_manifests.py::test_compatibility_bridge_legacy_name_cannot_escape_skills_root \
-  tests/test_hermes_skill_lifecycle.py::test_audit_hermes_skill_lifecycle_consumes_minerva_hooo_registry_bridge \
+  tests/test_hermes_skill_lifecycle.py::test_audit_hermes_skill_lifecycle_consumes_minerva_minerva_registry_bridge \
   tests/test_hermes_skill_lifecycle.py \
   tests/test_declarative_manifests.py \
   tests/test_paths.py
@@ -125,7 +125,7 @@ PASS
 The following unrelated dirty work remained outside the committed bridge leaf and must not be mixed into future rearchitecture commits unless explicitly selected:
 
 ```text
-skills/hooo/SKILL.md
+skills/minerva/SKILL.md
 src/zeus_os/bootstrap.py
 src/zeus_os/cli.py
 src/zeus_os/runtime.py
@@ -133,7 +133,7 @@ tests/test_runtime.py
 orchestration/2026-05-07-localhost-architecture-diagram/
 orchestration/2026-05-07-mail-preactive-secretary/
 scripts/mail-secretary-watchdog.py
-skills/hooo/references/zeusos-rearchitecture-leaf-pattern-2026-05-08.md
+skills/minerva/references/zeusos-rearchitecture-leaf-pattern-2026-05-08.md
 src/zeus_os/mail_secretary.py
 tests/test_mail_secretary.py
 ```

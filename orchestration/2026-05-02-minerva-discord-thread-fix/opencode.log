@@ -1,0 +1,430 @@
+[0m
+> ​Sisyphus - Ultraworker · gpt-5.5
+[0m
+ULTRAWORK MODE ENABLED!
+
+I detect implementation intent: the current message explicitly asks to finish missing core requirements for the Jarvis-native `/minerva`/`/minerva` workflow harness. My approach: parallel codebase exploration plus targeted reads, then implement only the requested Jarvis-owned Discord thread handoff/adapter, state guards, tests, docs, and evidence artifacts.
+[0m# [0mTodos
+[ ] Inspect existing Minerva CLI/runtime/tests/docs and define pass/fail acceptance criteria for requested Discord thread workflow additions
+[ ] Implement Jarvis-owned Discord thread adapter/handoff metadata support without live side effects by default
+[ ] Implement CLI support for safe thread request/mark-created flows and `/minerva` alias coverage
+[ ] Fix phase guard/state machine integrity with deterministic nonzero CLI errors
+[ ] Update and expand tests for fake adapter/pending handoff/thread metadata/invalid transitions/export/status
+[ ] Update docs and minerva/minerva skills to document Discord thread auto-open -> Interview -> Seed -> Execute -> Evaluate -> Evolve
+[ ] Write orchestration result.md and evidence.json with verification outputs
+[ ] Run required pytest, compileall, manual temp CLI smoke, static unsafe-call scan, and changed-file diagnostics
+[0m
+[0m→ [0mSkill "omc-reference"
+[0m• [0mMap Minerva runtime[90m Explore Agent[0m
+[0m• [0mFind tests docs gaps[90m Explore Agent[0m
+[0m✓ [0mMap Minerva runtime[90m Explore Agent[0m
+[0m✓ [0mFind tests docs gaps[90m Explore Agent[0m
+[0m→ [0mRead src/jinwang_jarvis/minerva.py[90m [offset=1, limit=2400][0m
+[0m→ [0mRead tests/test_minerva.py[90m [offset=1, limit=2400][0m
+[0m→ [0mRead tests/test_cli.py[90m [offset=1, limit=1600][0m
+[0m→ [0mRead tests/test_bootstrap.py[90m [offset=1, limit=1200][0m
+[0m→ [0mRead docs/minerva-workflow.md[90m [offset=1, limit=1600][0m
+[0m→ [0mRead src/jinwang_jarvis/cli.py[90m [offset=1, limit=2000][0m
+[0m→ [0mRead skills/minerva/SKILL.md[90m [offset=1, limit=1200][0m
+[0m→ [0mRead skills/minerva/SKILL.md[90m [offset=1, limit=1200][0m
+The background agents failed due to provider credits, so I’m switching to direct inspection and implementation in this worktree only; the needed files are already localized to `minerva.py`, `cli.py`, tests, docs, and skills.
+[0m
+[0m# [0mTodos
+[x] Inspect existing Minerva CLI/runtime/tests/docs and define pass/fail acceptance criteria for requested Discord thread workflow additions
+[ ] Implement Jarvis-owned Discord thread adapter/handoff metadata support without live side effects by default
+[ ] Implement CLI support for safe thread request/mark-created flows and `/minerva` alias coverage
+[ ] Fix phase guard/state machine integrity with deterministic nonzero CLI errors
+[ ] Update and expand tests for fake adapter/pending handoff/thread metadata/invalid transitions/export/status
+[ ] Update docs and minerva/minerva skills to document Discord thread auto-open -> Interview -> Seed -> Execute -> Evaluate -> Evolve
+[ ] Write orchestration result.md and evidence.json with verification outputs
+[ ] Run required pytest, compileall, manual temp CLI smoke, static unsafe-call scan, and changed-file diagnostics
+[0m
+[0m⚙ [0mapply_patch Success. Updated the following files:
+M src/jinwang_jarvis/minerva.py
+Implemented the Jarvis-owned thread boundary in `src/jinwang_jarvis/minerva.py`: starts can now use a safe pending Discord handoff by default when requested, injected fake/live adapters are testable, and thread metadata is included in origin/status/export. Next I’m wiring the CLI commands and deterministic transition errors.
+[0m
+[0m# [0mTodos
+[x] Inspect existing Minerva CLI/runtime/tests/docs and define pass/fail acceptance criteria for requested Discord thread workflow additions
+[x] Implement Jarvis-owned Discord thread adapter/handoff metadata support without live side effects by default
+[ ] Implement CLI support for safe thread request/mark-created flows and `/minerva` alias coverage
+[ ] Fix phase guard/state machine integrity with deterministic nonzero CLI errors
+[ ] Update and expand tests for fake adapter/pending handoff/thread metadata/invalid transitions/export/status
+[ ] Update docs and minerva/minerva skills to document Discord thread auto-open -> Interview -> Seed -> Execute -> Evaluate -> Evolve
+[ ] Write orchestration result.md and evidence.json with verification outputs
+[ ] Run required pytest, compileall, manual temp CLI smoke, static unsafe-call scan, and changed-file diagnostics
+[0m
+[0m⚙ [0mapply_patch Success. Updated the following files:
+M src/jinwang_jarvis/cli.py
+Updated the `minerva`/`minerva` CLI in `src/jinwang_jarvis/cli.py` with `--auto-open-thread`, thread naming/message metadata, and `mark-thread-created`; invalid workflow actions now return JSON with exit code `1` instead of tracebacks.
+[0m
+[0m# [0mTodos
+[x] Inspect existing Minerva CLI/runtime/tests/docs and define pass/fail acceptance criteria for requested Discord thread workflow additions
+[x] Implement Jarvis-owned Discord thread adapter/handoff metadata support without live side effects by default
+[x] Implement CLI support for safe thread request/mark-created flows and `/minerva` alias coverage
+[x] Fix phase guard/state machine integrity with deterministic nonzero CLI errors
+[ ] Update and expand tests for fake adapter/pending handoff/thread metadata/invalid transitions/export/status
+[ ] Update docs and minerva/minerva skills to document Discord thread auto-open -> Interview -> Seed -> Execute -> Evaluate -> Evolve
+[ ] Write orchestration result.md and evidence.json with verification outputs
+[ ] Run required pytest, compileall, manual temp CLI smoke, static unsafe-call scan, and changed-file diagnostics
+[0m
+[0m⚙ [0mapply_patch Success. Updated the following files:
+M tests/test_minerva.py
+Expanded `tests/test_minerva.py` to cover the fake thread adapter, pending handoff contract, `/minerva` alias thread flow, status/export metadata, and invalid transition exit codes. Now I’m updating the operator-facing docs and skills to match the actual Discord-thread-first workflow.
+[0m
+[0m# [0mTodos
+[x] Inspect existing Minerva CLI/runtime/tests/docs and define pass/fail acceptance criteria for requested Discord thread workflow additions
+[x] Implement Jarvis-owned Discord thread adapter/handoff metadata support without live side effects by default
+[x] Implement CLI support for safe thread request/mark-created flows and `/minerva` alias coverage
+[x] Fix phase guard/state machine integrity with deterministic nonzero CLI errors
+[x] Update and expand tests for fake adapter/pending handoff/thread metadata/invalid transitions/export/status
+[ ] Update docs and minerva/minerva skills to document Discord thread auto-open -> Interview -> Seed -> Execute -> Evaluate -> Evolve
+[ ] Write orchestration result.md and evidence.json with verification outputs
+[ ] Run required pytest, compileall, manual temp CLI smoke, static unsafe-call scan, and changed-file diagnostics
+[0m
+[0m⚙ [0mapply_patch Success. Updated the following files:
+M docs/minerva-workflow.md
+[0m⚙ [0mapply_patch Success. Updated the following files:
+M skills/minerva/SKILL.md
+[0m⚙ [0mapply_patch Success. Updated the following files:
+M skills/minerva/SKILL.md
+Docs and skills now state the actual Discord-thread-first flow and the Jarvis-side handoff boundary: plain CLI writes `thread_handoff.json`, while live Discord creation must happen through an explicit adapter/gateway and be marked back with `mark-thread-created`.
+[0m
+[0m# [0mTodos
+[x] Inspect existing Minerva CLI/runtime/tests/docs and define pass/fail acceptance criteria for requested Discord thread workflow additions
+[x] Implement Jarvis-owned Discord thread adapter/handoff metadata support without live side effects by default
+[x] Implement CLI support for safe thread request/mark-created flows and `/minerva` alias coverage
+[x] Fix phase guard/state machine integrity with deterministic nonzero CLI errors
+[x] Update and expand tests for fake adapter/pending handoff/thread metadata/invalid transitions/export/status
+[x] Update docs and minerva/minerva skills to document Discord thread auto-open -> Interview -> Seed -> Execute -> Evaluate -> Evolve
+[ ] Write orchestration result.md and evidence.json with verification outputs
+[ ] Run required pytest, compileall, manual temp CLI smoke, static unsafe-call scan, and changed-file diagnostics
+[0m
+[0m⚙ [0mlsp_diagnostics {"filePath":"/home/jinwang/workspace/jinwang-jarvis-minerva-worktree/tests/test_minerva.py","severity":"all"}
+[0m⚙ [0mlsp_diagnostics {"filePath":"/home/jinwang/workspace/jinwang-jarvis-minerva-worktree/src/jinwang_jarvis/minerva.py","severity":"all"}
+[0m⚙ [0mlsp_diagnostics {"filePath":"/home/jinwang/workspace/jinwang-jarvis-minerva-worktree/src/jinwang_jarvis/cli.py","severity":"all"}
+[0m
+[0m$ [0mPYTHONPATH=src pytest -q tests/test_minerva.py
+........                                                                 [100%]
+8 passed in 1.25s
+[0m
+Focused Minerva tests passed (`8 passed`), so the thread handoff and transition coverage is green. I’m running the broader required suite and compile check next.
+[0m$ [0mPYTHONPATH=src python -m compileall -q src/jinwang_jarvis tests/test_minerva.py
+(no output)
+[0m
+[0m$ [0mPYTHONPATH=src pytest -q tests/test_minerva.py tests/test_cli.py tests/test_bootstrap.py
+.......................                                                  [100%]
+23 passed in 67.27s (0:01:07)
+[0m
+[0m$ [0mPYTHONPATH=src python - <<'PY'
+import contextlib, io, json, tempfile
+from pathlib import Path
+from jinwang_jarvis.cli import main
+
+with tempfile.TemporaryDirectory(prefix='minerva-smoke-') as d:
+    root = Path(d)
+    config = root / 'pipeline.yaml'
+    config.write_text(f'''
+workspace_root: {root.as_posix()}
+wiki_root: /home/jinwang/wiki
+accounts:
+  - personal
+mail:
+  snapshot_dir: data/snapshots/mail
+calendar:
+  snapshot_dir: data/snapshots/calendar
+  calendar_id: primary
+state:
+  database: state/personal_intel.db
+  checkpoints: state/checkpoints.json
+hermes:
+  integration_mode: boundary-cli
+  deliver_channel: discord-origin
+reproducibility:
+  packaging: pyproject
+  config_format: yaml
+  project_name: jinwang-jarvis
+''', encoding='utf-8')
+
+    def call(args):
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            code = main(args)
+        payload = json.loads(buf.getvalue())
+        if code != 0:
+            raise SystemExit(f'command failed {args}: {payload}')
+        return payload
+
+    start = call(['minerva', 'start', '--config', str(config), '--goal', 'Manual smoke Discord thread flow', '--origin-platform', 'discord', '--origin-channel-id', 'smoke-channel', '--origin-message-id', 'smoke-message', '--auto-open-thread', '--thread-name', 'smoke thread'])
+    run_id = start['run_id']
+    call(['minerva', 'turn', '--config', str(config), '--run-id', run_id, '--message', 'Acceptance: smoke evidence is recorded'])
+    call(['minerva', 'seed', '--config', str(config), '--run-id', run_id])
+    call(['minerva', 'run', '--config', str(config), '--run-id', run_id])
+    call(['minerva', 'evaluate', '--config', str(config), '--run-id', run_id])
+    evolve = call(['minerva', 'evolve', '--config', str(config), '--run-id', run_id])
+    status = call(['minerva', 'status', '--config', str(config), '--run-id', run_id])
+    export = call(['minerva', 'export', '--config', str(config), '--run-id', run_id])
+    handoff = root / 'data' / 'minerva' / run_id / 'thread_handoff.json'
+    print(json.dumps({
+        'run_id': run_id,
+        'final_phase': evolve['phase'],
+        'status_phase': status['phase'],
+        'thread_state': status['origin']['thread']['state'],
+        'handoff_exists': handoff.exists(),
+        'export_has_thread_metadata': export['status']['origin']['thread']['state'] == 'pending',
+        'artifact_count': len(status['artifacts']),
+    }, ensure_ascii=False, sort_keys=True))
+PY
+{"artifact_count": 9, "export_has_thread_metadata": true, "final_phase": "evolved", "handoff_exists": true, "run_id": "minerva-20260502-9ab25ac538b6", "status_phase": "evolved", "thread_state": "pending"}
+[0m
+[0m✱ [0mGrep "subprocess|socket|requests|urllib|http\.client|aiohttp|discord|create_thread|systemctl|curl|wget"[90m in src/jinwang_jarvis[0m
+[0m✱ [0mGrep "subprocess|socket|requests|urllib|http\.client|aiohttp|curl|wget|systemctl"[90m in src/jinwang_jarvis[0m
+[0m
+[0m$ [0mexport CI=true DEBIAN_FRONTEND=noninteractive GIT_TERMINAL_PROMPT=0 GCM_INTERACTIVE=never HOMEBREW_NO_AUTO_UPDATE=1 GIT_EDITOR=: EDITOR=: VISUAL='' GIT_SEQUENCE_EDITOR=: GIT_MERGE_AUTOEDIT=no GIT_PAGER=cat PAGER=cat npm_config_yes=true PIP_NO_INPUT=1 YARN_ENABLE_IMMUTABLE_INSTALLS=false; git status --short
+M src/jinwang_jarvis/cli.py
+?? docs/minerva-workflow.md
+?? orchestration/2026-05-02-minerva-discord-thread-fix/
+?? orchestration/2026-05-02-minerva-qa-team/
+?? orchestration/2026-05-02-minerva-team/
+?? skills/minerva/
+?? skills/minerva/
+?? src/jinwang_jarvis/minerva.py
+?? tests/test_minerva.py
+[0m
+[0m$ [0mexport CI=true DEBIAN_FRONTEND=noninteractive GIT_TERMINAL_PROMPT=0 GCM_INTERACTIVE=never HOMEBREW_NO_AUTO_UPDATE=1 GIT_EDITOR=: EDITOR=: VISUAL='' GIT_SEQUENCE_EDITOR=: GIT_MERGE_AUTOEDIT=no GIT_PAGER=cat PAGER=cat npm_config_yes=true PIP_NO_INPUT=1 YARN_ENABLE_IMMUTABLE_INSTALLS=false; git diff -- src/jinwang_jarvis/minerva.py src/jinwang_jarvis/cli.py tests/test_minerva.py docs/minerva-workflow.md skills/minerva/SKILL.md skills/minerva/SKILL.md
+diff --git a/src/jinwang_jarvis/cli.py b/src/jinwang_jarvis/cli.py
+index 37bcc52..a0704e2 100644
+--- a/src/jinwang_jarvis/cli.py
++++ b/src/jinwang_jarvis/cli.py
+@@ -15,6 +15,7 @@ from .digest import generate_digest
+ from .feedback import record_proposal_feedback
+ from .hermes_continuity import check_hermes_customizations
+ from .hermes_skill_lifecycle import audit_hermes_skill_lifecycle, record_skill_telemetry
++from .minerva import MinervaWorkflow
+ from .intelligence import collect_knowledge_mail, generate_daily_intelligence_report
+ from .knowledge import synthesize_knowledge
+ from .mail import build_fake_mail_runner, collect_mail_snapshots
+@@ -234,6 +235,38 @@ def build_parser() -> argparse.ArgumentParser:
+     samples_refs_parser.add_argument("--library-dir", default="", help="Sample library root; defaults to data/styled-voice-samples")
+     samples_refs_parser.add_argument("--profile", default="default", help="Profile, e.g. default, jongwon, jongwon/calm")
+
++    minerva_parser = subparsers.add_parser("minerva", aliases=["minerva"], help="Run the Jarvis-native Minerva workflow harness")
++    minerva_subparsers = minerva_parser.add_subparsers(dest="minerva_command", required=True)
++
++    minerva_start_parser = minerva_subparsers.add_parser("start", help="Start an interview-backed Minerva run")
++    minerva_start_parser.add_argument("--config", required=True, help="Path to pipeline.yaml")
++    minerva_start_parser.add_argument("--goal", required=True, help="Workflow goal to crystallize")
++    minerva_start_parser.add_argument("--origin-platform", default="", help="Optional origin platform, e.g. discord")
++    minerva_start_parser.add_argument("--origin-channel-id", default="", help="Optional origin channel ID")
++    minerva_start_parser.add_argument("--origin-thread-id", default="", help="Optional origin thread ID")
++    minerva_start_parser.add_argument("--origin-message-id", default="", help="Optional origin Discord message ID")
++    minerva_start_parser.add_argument("--auto-open-thread", action="store_true", help="Request Discord thread creation through the safe Jarvis handoff adapter")
++    minerva_start_parser.add_argument("--thread-name", default="", help="Optional Discord thread name for the handoff request")
++
++    minerva_mark_thread_parser = minerva_subparsers.add_parser("mark-thread-created", help="Mark a pending Discord thread handoff as created")
++    minerva_mark_thread_parser.add_argument("--config", required=True, help="Path to pipeline.yaml")
++    minerva_mark_thread_parser.add_argument("--run-id", required=True, help="Minerva run ID")
++    minerva_mark_thread_parser.add_argument("--thread-id", required=True, help="Created Discord thread ID")
++    minerva_mark_thread_parser.add_argument("--thread-name", default="", help="Created Discord thread name")
++    minerva_mark_thread_parser.add_argument("--message-id", default="", help="Discord message ID associated with thread creation")
++    minerva_mark_thread_parser.add_argument("--jump-url", default="", help="Discord jump URL for the created thread")
++    minerva_mark_thread_parser.add_argument("--url", default="", help="Discord thread URL")
++
++    minerva_turn_parser = minerva_subparsers.add_parser("turn", help="Append an interview turn")
++    minerva_turn_parser.add_argument("--config", required=True, help="Path to pipeline.yaml")
++    minerva_turn_parser.add_argument("--run-id", required=True, help="Minerva run ID")
++    minerva_turn_parser.add_argument("--message", required=True, help="Interview message to append")
++
++    for command_name in ("seed", "run", "evaluate", "evolve", "status", "export"):
++        command_parser = minerva_subparsers.add_parser(command_name, help=f"Minerva {command_name}")
++        command_parser.add_argument("--config", required=True, help="Path to pipeline.yaml")
++        command_parser.add_argument("--run-id", required=True, help="Minerva run ID")
++
+     return parser
+
+
+@@ -609,6 +642,50 @@ def main(argv: Sequence[str] | None = None) -> int:
+         print(json.dumps(result, ensure_ascii=False))
+         return 0
+
++    if args.command in {"minerva", "minerva"}:
++        workflow = MinervaWorkflow.from_config_path(args.config)
++        try:
++            if args.minerva_command == "start":
++                result = workflow.start(
++                    goal=args.goal,
++                    origin_platform=args.origin_platform,
++                    origin_channel_id=args.origin_channel_id,
++                    origin_thread_id=args.origin_thread_id,
++                    origin_message_id=args.origin_message_id,
++                    auto_open_thread=args.auto_open_thread,
++                    thread_name=args.thread_name,
++                )
++            elif args.minerva_command == "turn":
++                result = workflow.turn(args.run_id, args.message)
++            elif args.minerva_command == "seed":
++                result = workflow.seed(args.run_id)
++            elif args.minerva_command == "run":
++                result = workflow.run(args.run_id)
++            elif args.minerva_command == "evaluate":
++                result = workflow.evaluate(args.run_id)
++            elif args.minerva_command == "evolve":
++                result = workflow.evolve(args.run_id)
++            elif args.minerva_command == "mark-thread-created":
++                result = workflow.mark_thread_created(
++                    args.run_id,
++                    thread_id=args.thread_id,
++                    thread_name=args.thread_name,
++                    message_id=args.message_id,
++                    jump_url=args.jump_url,
++                    url=args.url,
++                )
++            elif args.minerva_command == "status":
++                result = workflow.status(args.run_id)
++            elif args.minerva_command == "export":
++                result = workflow.export(args.run_id)
++            else:  # pragma: no cover
++                parser.error(f"Unknown minerva command: {args.minerva_command}")
++        except (FileNotFoundError, KeyError, ValueError) as exc:
++            print(json.dumps({"ok": False, "error": str(exc)}, ensure_ascii=False))
++            return 1
++        print(json.dumps(result, ensure_ascii=False))
++        return 0
++
+     parser.error(f"Unknown command: {args.command}")
+     return 2
+[0m
+[0m→ [0mRead orchestration/2026-05-02-minerva-discord-thread-fix[90m [offset=1, limit=100][0m
+[0m⚙ [0mapply_patch Success. Updated the following files:
+A orchestration/2026-05-02-minerva-discord-thread-fix/result.md
+[0m⚙ [0mapply_patch Success. Updated the following files:
+A orchestration/2026-05-02-minerva-discord-thread-fix/evidence.json
+Wrote the required orchestration artifacts under `orchestration/2026-05-02-minerva-discord-thread-fix/`: `result.md` summarizes implementation and the remaining Hermes-side hook, and `evidence.json` records machine-readable verification evidence.
+[0m
+[0m# [0mTodos
+[x] Inspect existing Minerva CLI/runtime/tests/docs and define pass/fail acceptance criteria for requested Discord thread workflow additions
+[x] Implement Jarvis-owned Discord thread adapter/handoff metadata support without live side effects by default
+[x] Implement CLI support for safe thread request/mark-created flows and `/minerva` alias coverage
+[x] Fix phase guard/state machine integrity with deterministic nonzero CLI errors
+[x] Update and expand tests for fake adapter/pending handoff/thread metadata/invalid transitions/export/status
+[x] Update docs and minerva/minerva skills to document Discord thread auto-open -> Interview -> Seed -> Execute -> Evaluate -> Evolve
+[x] Write orchestration result.md and evidence.json with verification outputs
+[ ] Run required pytest, compileall, manual temp CLI smoke, static unsafe-call scan, and changed-file diagnostics
+[0m
+[0m$ [0mPYTHONPATH=src python -m json.tool orchestration/2026-05-02-minerva-discord-thread-fix/evidence.json
+{
+    "task": "minerva-discord-thread-fix",
+    "date": "2026-05-02",
+    "status": "passed",
+    "background_agents": {
+        "attempted": true,
+        "result": "failed_due_to_provider_credit_balance",
+        "fallback": "direct_codebase_inspection_and_local_verification"
+    },
+    "implementation": {
+        "jarvis_owned_only": true,
+        "hermes_source_modified": false,
+        "home_hermes_modified": false,
+        "live_discord_threads_created": false,
+        "thread_boundary": "Injected DiscordThreadClient protocol plus default PendingDiscordThreadClient handoff artifact",
+        "handoff_contract": {
+            "artifact": "data/minerva/<run_id>/thread_handoff.json",
+            "action": "discord.create_thread",
+            "contract_version": 1,
+            "completion_command": "minerva mark-thread-created --run-id <run_id> --thread-id <thread_id>"
+        },
+        "state_machine_guards": [
+            "turn allowed only in created/interviewing",
+            "seed allowed only in created/interviewing/seeded",
+            "run allowed only in seeded/running",
+            "evaluate allowed only in running/evaluated/blocked",
+            "evolve allowed only in evaluated/evolved"
+        ]
+    },
+    "verification": [
+        {
+            "command": "PYTHONPATH=src pytest -q tests/test_minerva.py",
+            "exit_code": 0,
+            "output": "........                                                                 [100%]\n8 passed in 1.25s"
+        },
+        {
+            "command": "PYTHONPATH=src pytest -q tests/test_minerva.py tests/test_cli.py tests/test_bootstrap.py",
+            "exit_code": 0,
+            "output": ".......................                                                  [100%]\n23 passed in 67.27s (0:01:07)"
+        },
+        {
+            "command": "PYTHONPATH=src python -m compileall -q src/jinwang_jarvis tests/test_minerva.py",
+            "exit_code": 0,
+            "output": ""
+        },
+        {
+            "command": "manual isolated temp CLI smoke: minerva start --auto-open-thread, turn, seed, run, evaluate, evolve, status, export",
+            "exit_code": 0,
+            "output_json": {
+                "artifact_count": 9,
+                "export_has_thread_metadata": true,
+                "final_phase": "evolved",
+                "handoff_exists": true,
+                "run_id": "minerva-20260502-9ab25ac538b6",
+                "status_phase": "evolved",
+                "thread_state": "pending"
+            }
+        },
+        {
+            "command": "static scan src/jinwang_jarvis/minerva.py for subprocess|socket|requests|urllib|http.client|aiohttp|curl|wget|systemctl",
+            "exit_code": 0,
+            "output": "No matches found"
+        },
+        {
+            "command": "lsp_diagnostics on modified Python files",
+            "exit_code": 0,
+            "output": "No diagnostics found"
+        }
+    ],
+    "remaining_external_gap": "Hermes/Boramae must consume the Jarvis handoff artifact and call discord.create_thread in the live gateway, then report the result with mark-thread-created. This was intentionally not implemented in Hermes source."
+}
+[0m
+[0m⚙ [0mlsp_diagnostics {"filePath":"/home/jinwang/workspace/jinwang-jarvis-minerva-worktree/src/jinwang_jarvis/minerva.py","severity":"all"}
+[0m⚙ [0mlsp_diagnostics {"filePath":"/home/jinwang/workspace/jinwang-jarvis-minerva-worktree/src/jinwang_jarvis/cli.py","severity":"all"}
+[0m⚙ [0mlsp_diagnostics {"filePath":"/home/jinwang/workspace/jinwang-jarvis-minerva-worktree/tests/test_minerva.py","severity":"all"}
+[0m
+[0m# [0mTodos
+[x] Inspect existing Minerva CLI/runtime/tests/docs and define pass/fail acceptance criteria for requested Discord thread workflow additions
+[x] Implement Jarvis-owned Discord thread adapter/handoff metadata support without live side effects by default
+[x] Implement CLI support for safe thread request/mark-created flows and `/minerva` alias coverage
+[x] Fix phase guard/state machine integrity with deterministic nonzero CLI errors
+[x] Update and expand tests for fake adapter/pending handoff/thread metadata/invalid transitions/export/status
+[x] Update docs and minerva/minerva skills to document Discord thread auto-open -> Interview -> Seed -> Execute -> Evaluate -> Evolve
+[x] Write orchestration result.md and evidence.json with verification outputs
+[x] Run required pytest, compileall, manual temp CLI smoke, static unsafe-call scan, and changed-file diagnostics
+[0m
+[0m$ [0mexport CI=true DEBIAN_FRONTEND=noninteractive GIT_TERMINAL_PROMPT=0 GCM_INTERACTIVE=never HOMEBREW_NO_AUTO_UPDATE=1 GIT_EDITOR=: EDITOR=: VISUAL='' GIT_SEQUENCE_EDITOR=: GIT_MERGE_AUTOEDIT=no GIT_PAGER=cat PAGER=cat npm_config_yes=true PIP_NO_INPUT=1 YARN_ENABLE_IMMUTABLE_INSTALLS=false; git status --short
+M src/jinwang_jarvis/cli.py
+?? docs/minerva-workflow.md
+?? orchestration/2026-05-02-minerva-discord-thread-fix/
+?? orchestration/2026-05-02-minerva-qa-team/
+?? orchestration/2026-05-02-minerva-team/
+?? skills/minerva/
+?? skills/minerva/
+?? src/jinwang_jarvis/minerva.py
+?? tests/test_minerva.py
+[0m
+Implemented the Jarvis-owned `/minerva`/`/minerva` Discord-thread workflow harness in this worktree only.
+
+What changed:
+- Added safe Discord thread handoff/adapter support in `src/jinwang_jarvis/minerva.py`.
+- Added CLI support for `--auto-open-thread`, thread metadata, and `mark-thread-created` in `src/jinwang_jarvis/cli.py`.
+- Added phase guards so illegal transitions return deterministic nonzero JSON errors.
+- Expanded `tests/test_minerva.py` for fake adapter, pending handoff, `/minerva` alias, metadata export/status, and invalid transitions.
+- Updated docs/skills to state: Discord thread auto-open -> Interview -> Seed -> Execute -> Evaluate -> Evolve.
+- Wrote:
+  - `orchestration/2026-05-02-minerva-discord-thread-fix/result.md`
+  - `orchestration/2026-05-02-minerva-discord-thread-fix/evidence.json`
+
+Verification passed:
+- `PYTHONPATH=src pytest -q tests/test_minerva.py` → `8 passed`
+- `PYTHONPATH=src pytest -q tests/test_minerva.py tests/test_cli.py tests/test_bootstrap.py` → `23 passed`
+- `PYTHONPATH=src python -m compileall -q src/jinwang_jarvis tests/test_minerva.py` → passed
+- Manual isolated temp CLI smoke completed through `start -> turn -> seed -> run -> evaluate -> evolve -> status -> export`
+- Static scan found no subprocess/shell/network calls added to `minerva.py`
+
+No Hermes source, `~/.hermes`, systemd, cron, secrets, external services, or real Discord threads were touched.

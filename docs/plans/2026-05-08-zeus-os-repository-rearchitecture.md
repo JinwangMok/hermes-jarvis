@@ -41,7 +41,7 @@ zeus-os/
       external-skills/
         k-skill/
       custom-skills/
-        minerva/                  # future rename target for hooo/houroboros
+        minerva/                  # future rename target for minerva/minerva
     mcps/
     tools/
       custom-defined-tools/
@@ -76,7 +76,7 @@ zeus-os/
 | `agent-shim/` | Adapter contracts for Hermes, Pi, OpenClaw, IronClaw, Roach-Pi | Do not move Hermes plugin yet; document interface first |
 | `apps/watchdogs/` | Cron/watch loop apps | Current `scripts/*watchdog*` and news/mail jobs migrate here after tests |
 | `apps/skill-sets/` | External/custom skills | Current `skills/` remains compatibility path until loader contract is rewritten |
-| `apps/skill-sets/custom-skills/minerva/` | Future HOOO/Houroboros home | Do not rename `skills/hooo` yet; create placeholder only |
+| `apps/skill-sets/custom-skills/minerva/` | Future Minerva/Minerva home | Do not rename `skills/minerva` yet; create placeholder only |
 | `apps/mcps/` | MCP server configs/adapters | Empty scaffold until native MCP contracts are known |
 | `apps/tools/custom-defined-tools/` | Tool adapters/managers | Future tmux/email/opencode/claude-code managers live here |
 | `apps/a2a/` | A2A blackboard/orchestrator capability | Align with ZeusOS Discord Boardroom A2A Blackboard concept |
@@ -154,8 +154,8 @@ Before each implementation leaf is accepted:
 - Acceptance for Phase 2: runtime can ask one resolver API for `data`, `state`, `skills`, `scripts`, `apps`, `channels`, `agents`, and `agent_shim` roots; no caller hardcodes migration assumptions.
 
 ### Phase 3 — Skill/app migration
-- Introduce `apps/skill-sets/custom-skills/minerva/` as canonical future HOOO location.
-- Keep compatibility bridge from `skills/hooo` until loader migration is verified.
+- Introduce `apps/skill-sets/custom-skills/minerva/` as canonical future Minerva location.
+- Keep compatibility bridge from `skills/minerva` until loader migration is verified.
 - Migrate one skill at a time.
 
 ### Phase 4 — Watchdog/app migration

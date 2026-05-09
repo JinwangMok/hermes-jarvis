@@ -1,0 +1,5 @@
+name: hermes-minerva-gateway
+version: 0.1.0
+description: Discord-native Minerva bridge for ZeusOS artifacts and interactions
+provides_hooks:
+  - pre_gateway_dispatch

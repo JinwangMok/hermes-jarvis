@@ -1,0 +1,67 @@
+/ulw Implement Jinwang Jarvis /minerva (/minerva) as a Hermes-source-untouched, Jarvis-native Ouroboros-style workflow harness. Treat this as a 5-person development team task: architecture lead, TDD implementer, integration engineer, regression/side-effect reviewer, documentation/wiki-contract reviewer. Work synchronously in this process; do not stop after planning; do not wait for background agents.
+
+CRITICAL USER CLARIFICATION:
+- The user explicitly says the result UX may look like deep interview, but the feature MUST be a full workflow, not interview-only.
+- Required conceptual workflow: Interview -> Seed -> Execute -> Evaluate -> Evolve/Ralph loop, with Status/Drift visibility.
+- Deep Interview is only the front-end requirement crystallization phase. The core value is spec-first workflow harness + execution/evaluation loop.
+
+Repository/worktree:
+- Workdir: /home/jinwang/workspace/jinwang-jarvis-minerva-worktree
+- Base branch: feature/minerva-contract-runtime
+- Do NOT touch /home/jinwang/workspace/jinwang-jarvis main dirty worktree.
+- Do NOT modify Hermes source, ~/.hermes config, ~/.hermes skills, wiki raw files, systemd, cron, secrets, or external services.
+- Allowed changes: this Jarvis worktree source/tests/docs/skills/orchestration artifacts only.
+
+Existing constraints:
+- Jarvis is Python argparse CLI under src/jinwang_jarvis/cli.py, config in config.py, bootstrap SQLite in bootstrap.py, tests in tests/.
+- Existing functions must keep working. Side effects/regressions are unacceptable.
+- Use strict TDD where feasible: tests first, then implementation.
+- Keep implementation deterministic and offline. No actual Discord API calls in tests.
+- External Hermes slash UX should be via Jarvis-owned external skills under skills/minerva and skills/minerva, not Hermes core.
+
+Required MVP behavior:
+1. Add Jarvis minerva workflow module/state machine.
+2. Add CLI namespace, likely:
+   - minerva start --config ... --goal ... [--origin-platform discord --origin-channel-id ... --origin-thread-id ...]
+   - minerva turn --config ... --run-id ... --message ...
+   - minerva seed --config ... --run-id ...
+   - minerva run --config ... --run-id ...
+   - minerva evaluate --config ... --run-id ...
+   - minerva evolve --config ... --run-id ...
+   - minerva status --config ... --run-id ...
+   - minerva export --config ... --run-id ...
+3. Store deterministic state/artifacts under workspace, e.g.:
+   - state/minerva.db
+   - data/minerva/<run_id>/interview.jsonl
+   - data/minerva/<run_id>/seed.json
+   - data/minerva/<run_id>/seed.md
+   - data/minerva/<run_id>/execution_log.md
+   - data/minerva/<run_id>/evaluation.md
+   - data/minerva/<run_id>/drift.md
+   - data/minerva/<run_id>/evolution.md
+4. Implement immutable Seed semantics: seed command should create v1 and not silently rewrite existing seed. If evolution needed, write evolution proposal/revision artifact, not hidden mutation.
+5. Implement workflow state phases at minimum: created/interviewing/seeded/running/evaluated/evolved/completed/blocked/failed. Status must expose phase, artifacts, latest drift, origin metadata.
+6. Implement simple deterministic execution/evaluation placeholder: no autonomous code execution yet unless command is explicitly given later. `run` should record workflow execution state/artifact, not mutate external systems. `evaluate` should compare seed acceptance criteria with recorded execution evidence in a deterministic way.
+7. Add external skill docs:
+   - skills/minerva/SKILL.md
+   - skills/minerva/SKILL.md
+   These should instruct Hermes to treat /minerva as full workflow harness: interview, seed, run, evaluate, evolve/status, Discord thread context, continue flow. Mention Hermes auto-thread preferred; do not require Hermes source changes.
+8. Add docs or orchestration result describing UX and safety model.
+
+Testing requirements:
+- Add focused tests for state machine, CLI JSON outputs, artifact creation, immutable seed behavior, status/export, and alias/skill files existing.
+- Run targeted tests first.
+- Run full pytest -q before final if feasible.
+- Ensure existing current functionality tests still pass.
+
+Deliverables:
+- Implement code/tests/skill docs.
+- Write orchestration/2026-05-02-minerva-team/result.md with:
+  - summary
+  - files changed
+  - workflow coverage: interview/seed/run/evaluate/evolve/status
+  - tests run and outputs
+  - side-effect safety notes
+  - remaining risks/phase 2 items
+
+Do not claim completion unless result.md exists and tests have been run or blockers are clearly evidenced.

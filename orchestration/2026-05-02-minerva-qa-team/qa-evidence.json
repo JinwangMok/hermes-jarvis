@@ -1,0 +1,81 @@
+{
+  "verdict": "PASS_WITH_NOTES",
+  "tests": [
+    {
+      "command": "PYTHONPATH=src pytest -q tests/test_minerva.py",
+      "result": "4 passed in 0.78s"
+    },
+    {
+      "command": "PYTHONPATH=src pytest -q tests/test_minerva.py tests/test_cli.py tests/test_bootstrap.py",
+      "result": "19 passed in 66.57s"
+    },
+    {
+      "command": "PYTHONPATH=src pytest -q",
+      "result": "189 passed, 1 failed in 141.64s",
+      "note": "Failure in tests/test_config.py::test_load_pipeline_config_exposes_reproducible_workspace_metadata expects canonical main checkout path rather than this worktree path; not caused by Minerva changes."
+    },
+    {
+      "command": "lsp_diagnostics on src/jinwang_jarvis/minerva.py, src/jinwang_jarvis/cli.py, tests/test_minerva.py",
+      "result": "No diagnostics found"
+    },
+    {
+      "command": "PYTHONPATH=src python -m compileall -q src/jinwang_jarvis tests/test_minerva.py",
+      "result": "exit 0, no output"
+    },
+    {
+      "command": "Custom AST security scan for subprocess/network/shell/eval patterns in changed Python files",
+      "result": "dangerous_patterns=[], ok=True"
+    },
+    {
+      "command": "python -m bandit -q src/jinwang_jarvis/minerva.py src/jinwang_jarvis/cli.py",
+      "result": "Not run: No module named bandit"
+    },
+    {
+      "command": "Isolated manual CLI workflow in /tmp/opencode/minerva-qa-manual-local: minerva start -> turn -> seed -> run -> evaluate -> evolve -> status -> export",
+      "result": "All commands exited 0; final phase evolved; origin metadata preserved; 8 artifacts under temp workspace; export included run/status/interview/seed/artifacts."
+    },
+    {
+      "command": "Isolated phase-order repro in /tmp/opencode/minerva-qa-order-repro: minerva start -> seed -> evolve",
+      "result": "All commands exited 0; final phase evolved despite missing execution_log.md, evaluation.md, and drift.md."
+    }
+  ],
+  "findings": [
+    {
+      "severity": "IMPORTANT",
+      "area": "src/jinwang_jarvis/minerva.py phase/state machine",
+      "summary": "Workflow phase order is not enforced; evolve can skip execution and evaluation.",
+      "reproduction": "Use an isolated config, then run: PYTHONPATH=src python -m jinwang_jarvis.cli minerva start --config /tmp/opencode/minerva-qa-order-repro/pipeline.yaml --goal 'Repro missing phase gating'; PYTHONPATH=src python -m jinwang_jarvis.cli minerva seed --config /tmp/opencode/minerva-qa-order-repro/pipeline.yaml --run-id <id>; PYTHONPATH=src python -m jinwang_jarvis.cli minerva evolve --config /tmp/opencode/minerva-qa-order-repro/pipeline.yaml --run-id <id>. Expected rejection because run/evaluate were not completed; actual exit 0 and phase evolved.",
+      "recommendation": "Add explicit transition guards and tests: evaluate requires running/execution evidence; evolve requires evaluated or blocked with drift/evaluation artifacts."
+    },
+    {
+      "severity": "IMPORTANT",
+      "area": "tests/test_minerva.py",
+      "summary": "Tests cover the happy path but not invalid transitions, alias execution, CLI error behavior, or partial artifact states.",
+      "reproduction": "Review tests/test_minerva.py: only ordered start/turn/seed/run/evaluate/evolve path and docs existence are asserted.",
+      "recommendation": "Add negative tests for skipped phases, unknown run via CLI, direct minerva alias invocation, corrupted/partial artifacts, and post-seed turn behavior."
+    },
+    {
+      "severity": "PHASE2",
+      "area": "Execute/Evaluate semantics",
+      "summary": "Execution is a deterministic placeholder that self-generates PASS evidence for all criteria.",
+      "reproduction": "Run normal CLI flow and inspect execution_log.md: it contains 'PASS evidence recorded for: <criterion>' for each acceptance criterion; evaluate passes by matching those strings.",
+      "recommendation": "For phase 2, define a real executor/evidence contract so evaluation cannot pass solely by string echo."
+    },
+    {
+      "severity": "PHASE2",
+      "area": "Operator/Discord UX",
+      "summary": "Origin metadata is sufficient for MVP thread reference but lacks richer resume/continuity fields.",
+      "reproduction": "status/export include platform, channel_id, thread_id, phase, artifacts, latest_drift; they do not include message ID, jump URL, actor/user ID, or next-action hint.",
+      "recommendation": "Add resume command hints and richer Discord origin metadata for phase 2 operator handoff."
+    },
+    {
+      "severity": "MINOR",
+      "area": "Static security tooling",
+      "summary": "Bandit is not installed in the local environment.",
+      "reproduction": "python -m bandit -q src/jinwang_jarvis/minerva.py src/jinwang_jarvis/cli.py -> No module named bandit.",
+      "recommendation": "Install Bandit or another security scanner in CI/dev dependencies if it is a required gate."
+    }
+  ],
+  "side_effects_observed": false,
+  "hermes_source_touched": false
+}

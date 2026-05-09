@@ -92,7 +92,7 @@ tests/fixtures/hermes_skill_gold_queries.json:21:      "expected_skill_names": [
 tests/test_hermes_skill_search.py:217:    _write_skill(root / "jinwang-jarvis", description="Jarvis source untouched sidecar", body="Source untouched Jarvis skill retrieval context budget.")
 tests/test_bootstrap.py:31:  project_name: jinwang-jarvis
 tests/test_classification_pipeline.py:50:  project_name: jinwang-jarvis
-tests/test_houroboros.py:49:  project_name: jinwang-jarvis
+tests/test_minerva.py:49:  project_name: jinwang-jarvis
 tests/test_watch.py:137:  project_name: jinwang-jarvis
 tests/test_unified_daily_report.py:585:  project_name: jinwang-jarvis
 tests/test_unified_daily_report.py:635:  project_name: jinwang-jarvis

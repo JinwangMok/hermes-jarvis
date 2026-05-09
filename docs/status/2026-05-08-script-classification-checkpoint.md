@@ -74,7 +74,7 @@ f0a9221 test: add declarative manifest validation
 594dba5 feat: add ZeusOS root path resolver
 a935321 feat: wire manifest validation to ZeusPaths
 2205b2d feat: add read-only declarative registry API
-087f2e4 feat: declare Minerva HOOO compatibility bridge
+087f2e4 feat: declare Minerva Minerva compatibility bridge
 f59f28f docs: record rearchitecture phase 1 safety boundary
 b68b01a docs: add read-only migration inventory
 8acc7b8 feat: consume Minerva bridge in skill lifecycle audit
@@ -125,7 +125,7 @@ shell/eval/pickle/sql risks: none
 The following unrelated dirty work remained outside the committed script-classification leaf and must not be mixed into future rearchitecture commits unless explicitly selected:
 
 ```text
-skills/hooo/SKILL.md
+skills/minerva/SKILL.md
 src/zeus_os/bootstrap.py
 src/zeus_os/cli.py
 src/zeus_os/runtime.py
@@ -133,8 +133,8 @@ tests/test_runtime.py
 orchestration/2026-05-07-localhost-architecture-diagram/
 orchestration/2026-05-07-mail-preactive-secretary/
 scripts/mail-secretary-watchdog.py
-skills/hooo/references/zeusos-rearchitecture-leaf-pattern-2026-05-08.md
-skills/hooo/references/zeusos-script-classification-manifests-2026-05-08.md
+skills/minerva/references/zeusos-rearchitecture-leaf-pattern-2026-05-08.md
+skills/minerva/references/zeusos-script-classification-manifests-2026-05-08.md
 src/zeus_os/mail_secretary.py
 tests/test_mail_secretary.py
 ```

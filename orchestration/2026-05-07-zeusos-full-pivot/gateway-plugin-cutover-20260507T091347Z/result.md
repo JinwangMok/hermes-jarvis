@@ -9,7 +9,7 @@
 - Gateway after restart: active.
 - MainPID after restart: recorded in live journal during the run; rechecked later as active.
 - Enabled plugin excerpt after cutover:
-  - `hermes-hooo-gateway`
+  - `hermes-minerva-gateway`
   - `hermes-zeus-styled-voice-gateway`
   - `jinwang-delivery-gate`
 - Legacy styled-voice plugin entry: not enabled.

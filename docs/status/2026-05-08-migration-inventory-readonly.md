@@ -41,22 +41,22 @@ Top-level entries:
 | Entry | Shape | Files | Bytes | Candidate target | Notes |
 |---|---|---:|---:|---|---|
 | `discord-voice-stt-enhance` | external/custom skill bundle | 35 | 57,830 | `apps/skill-sets/custom-skills/discord-voice-stt-enhance/` or external skill lane | Contains runtime/service/scripts/tests; needs separate service boundary review. |
-| `hooo` | custom workflow skill | 4 | 22,314 | `apps/skill-sets/custom-skills/minerva/` | Compatibility bridge already declared by `minerva`; runtime still legacy. |
-| `houroboros` | skill alias/legacy concept | 1 | 4,793 | bridge/alias metadata under `minerva` | Should not be moved before HOOO naming decision. |
+| `minerva` | custom workflow skill | 4 | 22,314 | `apps/skill-sets/custom-skills/minerva/` | Compatibility bridge already declared by `minerva`; runtime still legacy. |
+| `minerva` | skill alias/legacy concept | 1 | 4,793 | bridge/alias metadata under `minerva` | Should not be moved before Minerva naming decision. |
 | `styled-voice` | custom/external skill bundle | 11 | 55,621 | `apps/skill-sets/custom-skills/styled-voice/` or external skill lane | Has scripts/tests and external runtime expectations. |
 
-Tracked files include skills for `discord-voice-stt-enhance`, `hooo`, `houroboros`, and `styled-voice`.
+Tracked files include skills for `discord-voice-stt-enhance`, `minerva`, `minerva`, and `styled-voice`.
 
 Known untracked skill file:
 
 ```text
-skills/hooo/references/zeusos-rearchitecture-leaf-pattern-2026-05-08.md
+skills/minerva/references/zeusos-rearchitecture-leaf-pattern-2026-05-08.md
 ```
 
 Migration stance:
 
 - Do not bulk-move `skills/`.
-- First safe operational leaf is not a move; it is one runtime caller reading `minerva` compatibility metadata while falling back to `skills/hooo`.
+- First safe operational leaf is not a move; it is one runtime caller reading `minerva` compatibility metadata while falling back to `skills/minerva`.
 - Each future skill migration needs `app.yaml`, entrypoint, compatibility alias, tests, and rollback/no-op rollback note.
 
 ## `scripts/` inventory
@@ -90,7 +90,7 @@ digests
 exports
 feedback
 hermes-skill-lifecycle
-houroboros
+minerva
 intelligence
 jarvis.sqlite
 news-center
@@ -114,7 +114,7 @@ Approximate size profile:
 | `exports` | 22 | 78,412 | generated/export data |
 | `feedback` | 3 | 5,214 | user/runtime feedback |
 | `hermes-skill-lifecycle` | 4 | 275,762 | lifecycle runtime data |
-| `houroboros` | 60 | 197,523 | HOOO runtime artifacts |
+| `minerva` | 60 | 197,523 | Minerva runtime artifacts |
 | `intelligence` | 2,103 | 2,856,556 | intelligence generated/runtime data |
 | `jarvis.sqlite` | 1 | 0 | legacy placeholder/db |
 | `news-center` | 356 | 32,484,754 | news-center runtime data |
@@ -138,7 +138,7 @@ Migration stance:
   4. rollback command,
   5. post-move smoke test.
 - Likely future mapping is not a move yet:
-  - `data/houroboros` -> future `apps/skill-sets/custom-skills/minerva` runtime data reference.
+  - `data/minerva` -> future `apps/skill-sets/custom-skills/minerva` runtime data reference.
   - `data/news-center` and related reports -> `apps/watchdogs/news-center` runtime data reference.
   - `data/secretary` -> `apps/watchdogs/email-handler` runtime data reference.
 
@@ -154,7 +154,7 @@ discord_briefing_dispatch.log
 external_hot_issue_state.json
 hermes-skill-search.sqlite
 hermes-skill-usage.json
-houroboros.db
+minerva.db
 important_mail_report_state.json
 jarvis.sqlite3
 jinwang_jarvis.sqlite3
@@ -174,7 +174,7 @@ Approximate size profile:
 | `personal_intel.db` | 1 | 31,227,904 | runtime DB; no move |
 | `hermes-skill-search.sqlite` | 1 | 5,738,496 | runtime/index DB; no move |
 | `mail_action_watch_state.json` | 1 | 36,858 | watchdog state; no move |
-| `houroboros.db` | 1 | 12,288 | HOOO runtime DB; no move |
+| `minerva.db` | 1 | 12,288 | Minerva runtime DB; no move |
 | `cron_tmp` | 4 | 12,818 | cron temp state; no move |
 | `locks` | 0 | 0 | locking root; no move |
 | other JSON/log/hash files | 13 | small | runtime state; no move |
@@ -187,9 +187,9 @@ Migration stance:
 
 ## Proposed next leaves
 
-### A. Runtime caller bridge for Minerva/HOOO
+### A. Runtime caller bridge for Minerva/Minerva
 
-Goal: one ZeusOS-owned caller reads `minerva` compatibility metadata and falls back to `skills/hooo`.
+Goal: one ZeusOS-owned caller reads `minerva` compatibility metadata and falls back to `skills/minerva`.
 
 Why next:
 

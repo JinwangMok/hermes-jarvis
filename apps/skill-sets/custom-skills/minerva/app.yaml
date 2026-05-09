@@ -7,6 +7,6 @@ spec:
   entrypoint: README.md
   compatibilityBridge:
     legacyRoot: skills
-    legacyName: hooo
+    legacyName: minerva
     mode: read-only-metadata
     runtimeWiring: false

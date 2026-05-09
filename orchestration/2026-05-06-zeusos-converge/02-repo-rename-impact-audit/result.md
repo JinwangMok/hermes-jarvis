@@ -1,9 +1,9 @@
 # Repo Rename Impact Audit: jinwang-jarvis → ZeusOS
 
-**Date:** 2026-05-06  
-**Lane:** #2 (External Contractor)  
-**Scope:** Read-only impact mapping. No production source files modified.  
-**Controller Comparison Target:** Hermes MoA + Lane #1 artifact  
+**Date:** 2026-05-06
+**Lane:** #2 (External Contractor)
+**Scope:** Read-only impact mapping. No production source files modified.
+**Controller Comparison Target:** Hermes MoA + Lane #1 artifact
 
 ---
 
@@ -40,7 +40,7 @@ The safest migration path is a **phased compatibility strategy**: keep the Pytho
 | 13 | `README.md` | Clone URL `hermes-jarvis`, module path `jinwang_jarvis` | Update clone URL, examples, notes | **High** |
 | 14 | `skills/*/SKILL.md` (4 skill dirs) | `python -m jinwang_jarvis.cli ...` | Update CLI examples in skill docs | **Medium** |
 | 15 | `plugins/hermes_zeus_gateway/plugin.yaml` | `author: jinwang-jarvis`, requires `jinwang_jarvis >= 0.1.0` | Update to `zeusos` | **Medium** |
-| 16 | `plugins/hermes_hooo_gateway/__init__.py` | `JARVIS_ROOT = PLUGIN_ROOT.parents[1]` | Path-relative; safe if repo dir renamed | **Low** |
+| 16 | `plugins/hermes_minerva_gateway/__init__.py` | `JARVIS_ROOT = PLUGIN_ROOT.parents[1]` | Path-relative; safe if repo dir renamed | **Low** |
 | 17 | `src/jinwang_jarvis/styled_voice_samples.py` | `~/workspace/jinwang-jarvis/data/styled-voice-samples` | Hardcoded path; **breaks if repo dir renamed** | **High** |
 | 18 | `wiki/queries/jinwang-jarvis-*` (live wiki nodes) | `jinwang-jarvis-importance-shift-watchlist.md`, `jinwang-jarvis-memory/` | **Mass wiki link breakage**; rename + redirect needed | **Critical** |
 | 19 | `src/jinwang_jarvis/knowledge.py` | `WATCHLIST_NOTE_RELATIVE_PATH = "queries/jinwang-jarvis-importance-shift-watchlist.md"` | Update path constants | **High** |
@@ -81,7 +81,7 @@ The safest migration path is a **phased compatibility strategy**: keep the Pytho
 ### 2.4 Test Fixtures (🔴 Critical)
 - **Scope:** `tests/test_config.py` (hardcodes `/home/jinwang/workspace/jinwang-jarvis` in 10 assertions)
 - **Pattern:** Absolute path assertions; `project_name == "jinwang-jarvis"` assertion
-- **Breakage:** Tests fail if workspace path or project_name changes. Already fails in worktrees (observed in `2026-05-02-hooo-team` orchestration artifact).
+- **Breakage:** Tests fail if workspace path or project_name changes. Already fails in worktrees (observed in `2026-05-02-minerva-team` orchestration artifact).
 - **Mitigation:** Make tests path-agnostic or parametrize workspace root; update `project_name` assertion.
 
 ### 2.5 Cron Jobs / Systemd Units (🔴 Critical)
@@ -111,7 +111,7 @@ The safest migration path is a **phased compatibility strategy**: keep the Pytho
 - **Mitigation:** Batch-rename wiki files + update all path constants in source. Consider wiki symlink redirects for compatibility.
 
 ### 2.7 Skills (🟠 High)
-- **Scope:** `skills/houroboros/SKILL.md`, `skills/hooo/SKILL.md`, `skills/styled-voice/SKILL.md`
+- **Scope:** `skills/minerva/SKILL.md`, `skills/minerva/SKILL.md`, `skills/styled-voice/SKILL.md`
 - **Pattern:** CLI examples reference `python -m jinwang_jarvis.cli ...`
 - **Breakage:** Skill documentation becomes incorrect. Hermes skill search indexes may reference old names.
 - **Mitigation:** Update SKILL.md files. No runtime breakage if CLI shim is kept.
@@ -198,7 +198,7 @@ ls /home/jinwang/workspace/jinwang-jarvis/systemd/
 
 # Plugin configs
 ls /home/jinwang/workspace/jinwang-jarvis/plugins/
-# 3 plugins: hermes_hooo_gateway, hermes_jarvis_styled_voice_gateway, hermes_zeus_gateway
+# 3 plugins: hermes_minerva_gateway, hermes_jarvis_styled_voice_gateway, hermes_zeus_gateway
 
 # Live DB files in state/
 ls /home/jinwang/workspace/jinwang-jarvis/state/
@@ -303,7 +303,7 @@ git remote -v
 The following must **NOT** be modified, renamed, or deleted under any circumstances during the rename process:
 
 1. **`/home/jinwang/.hermes/` directory and all subpaths** — Hermes source-untouched contract. No modifications to Hermes agent, config, skills, or gateway.
-2. **Live SQLite databases under `state/`** — `personal_intel.db`, `houroboros.db`, `zeus_os.db` (if exists). Do not rename or move while processes may hold connections.
+2. **Live SQLite databases under `state/`** — `personal_intel.db`, `minerva.db`, `zeus_os.db` (if exists). Do not rename or move while processes may hold connections.
 3. **Historical `orchestration/` artifacts** — Past worktree results, QA evidence, and controller logs are immutable records. Do not retroactively edit.
 4. **Raw wiki content outside of `queries/jinwang-jarvis-*` paths** — Operator's personal wiki notes (`reports/`, other `queries/`) are user data.
 5. **`data/` artifact subdirectories with generic names** — `data/snapshots/`, `data/proposals/`, `data/briefings/`, etc. already use neutral names; do not rename.

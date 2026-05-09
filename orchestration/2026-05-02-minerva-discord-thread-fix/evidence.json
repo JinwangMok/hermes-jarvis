@@ -1,0 +1,73 @@
+{
+  "task": "minerva-discord-thread-fix",
+  "date": "2026-05-02",
+  "status": "passed_after_review_fixes",
+  "background_agents": {
+    "implementation_attempted": true,
+    "initial_background_result": "provider_credit_limit_for_some_child_agents_then_direct_opencode_work",
+    "review_attempted": true,
+    "review_result": "important_issues_found_and_fixed"
+  },
+  "implementation": {
+    "jarvis_owned_only": true,
+    "hermes_source_modified": false,
+    "home_hermes_modified": false,
+    "live_discord_threads_created": false,
+    "thread_boundary": "Injected DiscordThreadClient protocol plus default PendingDiscordThreadClient handoff artifact",
+    "handoff_contract": {
+      "artifact": "data/minerva/<run_id>/thread_handoff.json",
+      "action": "discord.create_thread",
+      "contract_version": 1,
+      "completion_command": "minerva mark-thread-created --run-id <run_id> --thread-id <thread_id>"
+    },
+    "review_fixes": [
+      "DB run row is reserved before any injected live Discord adapter side effect",
+      "Same-second/same-goal run_id collisions are avoided with bounded nonce retry",
+      "CLI handles sqlite3.IntegrityError as deterministic JSON error",
+      "Placeholder execution/evaluation modes are explicit in status/docs/artifacts",
+      "Negative blocked evaluation test added"
+    ],
+    "state_machine_guards": [
+      "turn allowed only in created/interviewing",
+      "seed allowed only in created/interviewing/seeded",
+      "run allowed only in seeded/running",
+      "evaluate allowed only in running/evaluated/blocked",
+      "evolve allowed only in evaluated/evolved"
+    ]
+  },
+  "verification": [
+    {
+      "command": "PYTHONPATH=src pytest -q tests/test_minerva.py",
+      "exit_code": 0,
+      "output": "...........                                                              [100%]\n11 passed in 1.50s"
+    },
+    {
+      "command": "PYTHONPATH=src pytest -q tests/test_minerva.py tests/test_cli.py tests/test_bootstrap.py",
+      "exit_code": 0,
+      "output": "..........................                                               [100%]\n26 passed in 52.29s"
+    },
+    {
+      "command": "PYTHONPATH=src python -m compileall -q src/jinwang_jarvis tests/test_minerva.py",
+      "exit_code": 0,
+      "output": ""
+    },
+    {
+      "command": "manual isolated temp CLI smoke: minerva start --auto-open-thread, turn, seed, run, evaluate, evolve, status",
+      "exit_code": 0,
+      "output_json": {
+        "artifact_count": 9,
+        "evaluation_mode": "placeholder_substring_match",
+        "execution_mode": "deterministic_placeholder",
+        "handoff_exists": true,
+        "phase": "evolved",
+        "thread_state": "pending"
+      }
+    },
+    {
+      "command": "AST static scan modified Python files for eval/exec/shell/subprocess/network calls",
+      "exit_code": 0,
+      "output": "{'dangerous_patterns': [], 'ok': True}"
+    }
+  ],
+  "remaining_external_gap": "Hermes/Boramae must consume the Jarvis handoff artifact and call discord.create_thread in the live gateway, then report the result with mark-thread-created. This was intentionally not implemented in Hermes source."
+}

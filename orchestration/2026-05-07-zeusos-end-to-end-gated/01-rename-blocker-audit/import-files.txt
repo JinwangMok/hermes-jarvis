@@ -7,7 +7,7 @@
 ./bin/pi_record_feedback.py
 ./bin/pi_run_cycle.py
 ./bin/pi_weekly_review.py
-./plugins/hermes_hooo_gateway/__init__.py
+./plugins/hermes_minerva_gateway/__init__.py
 ./skills/styled-voice/scripts/styled_voice_request.py
 ./src/jinwang_jarvis/news_crawlers/collector.py
 ./src/jinwang_jarvis/runtime.py
@@ -24,8 +24,8 @@
 ./tests/test_hermes_skill_context.py
 ./tests/test_hermes_skill_lifecycle.py
 ./tests/test_hermes_skill_search.py
-./tests/test_hooo_gateway_plugin.py
-./tests/test_houroboros.py
+./tests/test_minerva_gateway_plugin.py
+./tests/test_minerva.py
 ./tests/test_intelligence.py
 ./tests/test_knowledge.py
 ./tests/test_mail_collection.py

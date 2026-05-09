@@ -1,5 +1,0 @@
-name: hermes-hooo-gateway
-version: 0.1.0
-description: Discord-native HOOO bridge for ZeusOS artifacts and interactions
-provides_hooks:
-  - pre_gateway_dispatch

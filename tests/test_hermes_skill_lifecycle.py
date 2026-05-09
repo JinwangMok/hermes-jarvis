@@ -113,7 +113,7 @@ def test_audit_hermes_skill_lifecycle_includes_zeusos_external_dirs_from_config(
     assert result["skills"][0]["name"] == "zeusos-owned"
 
 
-def test_audit_hermes_skill_lifecycle_consumes_minerva_hooo_registry_bridge(tmp_path: Path) -> None:
+def test_audit_hermes_skill_lifecycle_consumes_minerva_minerva_registry_bridge(tmp_path: Path) -> None:
     repo_root = tmp_path / "zeus-os"
     hermes_home = tmp_path / "hermes"
     (repo_root / "agents").mkdir(parents=True)
@@ -121,7 +121,7 @@ def test_audit_hermes_skill_lifecycle_consumes_minerva_hooo_registry_bridge(tmp_
     minerva = repo_root / "apps" / "skill-sets" / "custom-skills" / "minerva"
     minerva.mkdir(parents=True)
     (repo_root / "channels").mkdir()
-    _write_skill(repo_root / "skills" / "hooo")
+    _write_skill(repo_root / "skills" / "minerva")
     (minerva / "app.yaml").write_text(
         "apiVersion: zeus.os/v1alpha1\n"
         "kind: CapabilityApp\n"
@@ -132,7 +132,7 @@ def test_audit_hermes_skill_lifecycle_consumes_minerva_hooo_registry_bridge(tmp_
         "  entrypoint: README.md\n"
         "  compatibilityBridge:\n"
         "    legacyRoot: skills\n"
-        "    legacyName: hooo\n"
+        "    legacyName: minerva\n"
         "    mode: read-only-metadata\n"
         "    runtimeWiring: false\n",
         encoding="utf-8",
@@ -147,12 +147,12 @@ def test_audit_hermes_skill_lifecycle_consumes_minerva_hooo_registry_bridge(tmp_
 
     assert any(root["kind"] == "compatibility_bridge" and root["name"] == "minerva" for root in result["roots"])
     entry = result["skills"][0]
-    assert entry["name"] == "hooo"
+    assert entry["name"] == "minerva"
     assert entry["source"] == "compatibility_bridge"
     assert entry["compatibility_bridge"] == {
         "app": "minerva",
         "legacy_root": "skills",
-        "legacy_name": "hooo",
+        "legacy_name": "minerva",
         "mode": "read-only-metadata",
         "runtime_wiring": False,
     }

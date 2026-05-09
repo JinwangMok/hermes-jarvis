@@ -2,7 +2,7 @@
 
 ## Plain meaning
 
-The worktree has been sorted into separate boxes: core mail-secretary code, runtime-cycle wiring, HOOO operating notes, local orchestration artifacts, and the watchdog wrapper. Nothing has restarted Hermes or changed live cron/systemd/gateway wiring yet.
+The worktree has been sorted into separate boxes: core mail-secretary code, runtime-cycle wiring, Minerva operating notes, local orchestration artifacts, and the watchdog wrapper. Nothing has restarted Hermes or changed live cron/systemd/gateway wiring yet.
 
 ## Commits created from dirty cleanup
 
@@ -13,7 +13,7 @@ The worktree has been sorted into separate boxes: core mail-secretary code, runt
   - Adds defensive runtime-cycle call to the local mail-secretary analyzer.
   - Failure degrades into a result object instead of breaking the pipeline loop.
 - `1f32832 docs: capture ZeusOS rearchitecture operating notes`
-  - Separates reusable HOOO/ZeusOS process knowledge from production code.
+  - Separates reusable Minerva/ZeusOS process knowledge from production code.
 - `104f2cf chore: ignore local orchestration artifacts`
   - Keeps private/generated orchestration outputs out of future dirty status.
 - `6440319 feat: add mail secretary watchdog wrapper`
@@ -24,7 +24,7 @@ The worktree has been sorted into separate boxes: core mail-secretary code, runt
 
 - Full test suite: `PYTHONPATH=src pytest -q` → `430 passed in 199.93s`.
 - Staged scans were run before each code/docs commit.
-- Independent reviewer subagents passed the mail-secretary core, runtime wiring, HOOO notes, and watchdog wrapper after requested fixes.
+- Independent reviewer subagents passed the mail-secretary core, runtime wiring, Minerva notes, and watchdog wrapper after requested fixes.
 
 ## Safety boundary status
 

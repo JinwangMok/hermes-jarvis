@@ -87,6 +87,20 @@ def test_execute_requires_parallel_safe_self_heal_before_review() -> None:
     assert allowed["next_phase"] == "review_align_to_goal"
 
 
+def test_each_phase_has_strengthened_self_justification_contract() -> None:
+    contract = process_contract()
+
+    assert contract["self_justification"]["required_every_phase"] is True
+    assert contract["self_justification"]["minimum_questions"] == 2
+    assert contract["self_justification"]["quantitative_gate_required"] is True
+    assert contract["self_justification"]["evidence_required"] is True
+    assert contract["self_justification"]["discussion_mode"] == "agree_disagree"
+    for phase in contract["phases"]:
+        assert phase["self_justification"]["required"] is True
+        assert len(phase["self_justification"]["questions"]) >= 2
+        assert phase["self_justification"]["thresholds"] == phase["thresholds"]
+
+
 def test_process_contract_exports_deterministic_thresholds_and_prompts() -> None:
     contract = process_contract()
 

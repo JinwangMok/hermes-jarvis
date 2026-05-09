@@ -18,7 +18,7 @@ Canonicalized active wiki surfaces from legacy naming to ZeusOS while leaving ra
   - `_meta/source-registry/zeusos-daily-hot-issues-template-style.md`
   - `_meta/source-registry/zeusos-pdf-tts-delivery.md`
   - `_meta/source-registry/zeusos-research-cloud-native-hot-issues.md`
-  - `queries/houroboros-zeusos-workflow-mvp-may-2026.md`
+  - `queries/minerva-zeusos-workflow-mvp-may-2026.md`
 - Renamed remaining active historical summary query filenames to ZeusOS names where safe.
 - Updated `/home/jinwang/wiki/index.md` active links to ZeusOS canonical pages.
 - Appended a migration note to `/home/jinwang/wiki/log.md`.
