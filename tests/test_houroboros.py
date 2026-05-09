@@ -899,6 +899,12 @@ def test_houroboros_alignment_checkpoint_is_visible_in_discord_card_and_seed(tmp
     assert seeded["phase"] == "seeded"
     assert seed_json["alignment_gate"]["checkpoint_count"] == 5
     assert seed_json["alignment_gate"]["latest_checkpoint"]["chosen_next_step"] == "propose_seed"
+    process_gate = seed_json["minerva_process_gate"]
+    assert process_gate["phase_id"] == "critic_for_plan"
+    assert process_gate["allowed"] is True
+    assert process_gate["next_phase"] == "workload_parsing_workflow_designing"
+    assert process_gate["scores"]["alignment"] == 1.0
+    assert process_gate["scores"]["clarity"] >= 0.8
 
 
 def test_houroboros_proposal_selection_records_alignment_checkpoint(tmp_path: Path):

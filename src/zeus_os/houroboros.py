@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any, Protocol
 
 from .config import PipelineConfig, load_pipeline_config
+from .minerva_process import evaluate_phase_gate
 
 
 PHASES = ("created", "interviewing", "seeded", "running", "evaluated", "evolved", "completed", "blocked", "failed")
@@ -264,6 +265,7 @@ class HouroborosWorkflow:
         if not interview_state.get("alignment_checkpoints"):
             raise ValueError(f"Cannot seed {run_id}: no self-alignment checkpoint exists; record at least one user-alignment turn before seeding")
         acceptance = self._acceptance_from_interview(interview)
+        minerva_process_gate = self._minerva_seed_process_gate(interview_state)
         seed = {
             "run_id": run_id,
             "version": 1,
@@ -277,6 +279,7 @@ class HouroborosWorkflow:
                 "latest_checkpoint": (interview_state.get("alignment_checkpoints") or [None])[-1],
                 "passed": bool(interview_state.get("alignment_checkpoints")),
             },
+            "minerva_process_gate": minerva_process_gate,
             "decisions": interview_state.get("decisions", {}),
             "acceptance_criteria": acceptance,
             "constraints": [
@@ -1132,6 +1135,16 @@ class HouroborosWorkflow:
             if message:
                 criteria.append(message)
         return criteria or ["Seed created for the stated goal", "Execution log records no external mutations", "Evaluation compares seed criteria to evidence"]
+
+    def _minerva_seed_process_gate(self, interview_state: dict[str, Any]) -> dict[str, object]:
+        scores = {
+            "alignment": 1.0 if interview_state.get("alignment_checkpoints") else 0.0,
+            "consensus": 1.0 if not interview_state.get("unresolved") else 0.0,
+            "clarity": max(0.0, min(1.0, 1.0 - float(interview_state.get("ambiguity_score", 1.0)))),
+            "safety": 1.0,
+            "evidence": 1.0 if interview_state.get("decisions") else 0.0,
+        }
+        return evaluate_phase_gate("critic_for_plan", scores)
 
     def _seed_markdown(self, seed: dict[str, Any]) -> str:
         lines = ["# Houroboros Seed v1", "", f"Goal: {seed['goal']}", "", "## Acceptance Criteria"]
