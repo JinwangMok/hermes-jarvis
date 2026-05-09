@@ -996,6 +996,37 @@ def test_minerva_auto_open_from_existing_thread_requests_sibling_thread(tmp_path
     assert handoff["request"]["reuse_current_thread"] is False
 
 
+def test_minerva_can_mark_already_reused_discord_thread_without_handoff(tmp_path: Path):
+    config_file = _write_config(tmp_path)
+    workflow = MinervaWorkflow.from_config_path(config_file)
+
+    status = workflow.start(
+        goal="Reuse Hermes spawned task thread",
+        origin_platform="discord",
+        origin_channel_id="parent-channel",
+        origin_thread_id="current-thread",
+        origin_message_id="message-1",
+        auto_open_thread=False,
+        thread_name="Hermes spawned thread",
+    )
+
+    run_id = status["run_id"]
+    assert not (tmp_path / "data" / "minerva" / run_id / "thread_handoff.json").exists()
+    assert status["origin"]["thread"]["state"] == "created"
+    assert status["origin"]["thread"]["thread_id"] == "current-thread"
+
+    marked = workflow.mark_thread_created(
+        run_id,
+        thread_id="current-thread",
+        thread_name="Hermes spawned thread",
+        jump_url="https://discord.com/channels/guild/current-thread",
+    )
+
+    assert marked["origin"]["thread"]["state"] == "created"
+    assert marked["origin"]["thread"]["thread_id"] == "current-thread"
+    assert marked["origin"]["thread"]["jump_url"] == "https://discord.com/channels/guild/current-thread"
+
+
 
 def test_minerva_redacts_secret_like_turns_before_artifacts(tmp_path: Path):
     config_file = _write_config(tmp_path)

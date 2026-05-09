@@ -647,7 +647,9 @@ class MinervaWorkflow:
         origin = self._origin_metadata(run_id, run)
         thread = dict(origin.get("thread") or {})
         handoff_path = self._artifact_path(run_id, "thread_handoff.json")
-        if thread.get("state") not in {"pending", "error"} and not handoff_path.exists():
+        existing_thread_id = str(thread.get("thread_id") or "")
+        already_created_same_thread = thread.get("state") == "created" and existing_thread_id == str(thread_id or "")
+        if thread.get("state") not in {"pending", "error"} and not handoff_path.exists() and not already_created_same_thread:
             raise ValueError(f"Cannot mark thread for {run_id}: no pending Discord thread handoff exists")
         thread.update(
             {
