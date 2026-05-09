@@ -261,6 +261,8 @@ class HouroborosWorkflow:
             raise ValueError(
                 f"Cannot seed {run_id}: ambiguity {interview_state['ambiguity_score']} is above threshold {AMBIGUITY_THRESHOLD}; continue the Discord interview first"
             )
+        if not interview_state.get("alignment_checkpoints"):
+            raise ValueError(f"Cannot seed {run_id}: no self-alignment checkpoint exists; record at least one user-alignment turn before seeding")
         acceptance = self._acceptance_from_interview(interview)
         seed = {
             "run_id": run_id,
@@ -269,6 +271,12 @@ class HouroborosWorkflow:
             "created_at": _now(),
             "ambiguity_score": interview_state["ambiguity_score"],
             "interview_gate": {"threshold": AMBIGUITY_THRESHOLD, "passed": True},
+            "alignment_gate": {
+                "policy": "self_reflect_align_choose_next_before_each_step",
+                "checkpoint_count": len(interview_state.get("alignment_checkpoints") or []),
+                "latest_checkpoint": (interview_state.get("alignment_checkpoints") or [None])[-1],
+                "passed": bool(interview_state.get("alignment_checkpoints")),
+            },
             "decisions": interview_state.get("decisions", {}),
             "acceptance_criteria": acceptance,
             "constraints": [
@@ -623,6 +631,7 @@ class HouroborosWorkflow:
             "unresolved": list(INTERVIEW_DIMENSIONS),
             "decisions": {},
             "decision_log": [],
+            "alignment_checkpoints": [],
             "updated_at": _now(),
         }
 
@@ -679,6 +688,12 @@ class HouroborosWorkflow:
         if state.get("pending_freeform_dimension") == dimension:
             state.pop("pending_freeform_dimension", None)
         self._recompute_interview_gate(state)
+        self._append_alignment_checkpoint(
+            state,
+            goal=goal,
+            user_instruction=f"{INTERVIEW_DIMENSION_LABELS[dimension]}: {proposal['value']}",
+            source="proposal_button",
+        )
         state.setdefault("decision_log", []).append({
             "at": _now(),
             "source": "proposal_button",
@@ -708,6 +723,12 @@ class HouroborosWorkflow:
         if expected_dimension != dimension:
             raise ValueError(f"HOOO proposal dimension mismatch: expected {expected_dimension or 'none'}, got {dimension}")
         state.setdefault("pending_freeform_dimension", dimension)
+        self._append_alignment_checkpoint(
+            state,
+            goal=goal,
+            user_instruction=f"Other opinion requested for {INTERVIEW_DIMENSION_LABELS[dimension]}",
+            source="other_opinion_button",
+        )
         state.setdefault("decision_log", []).append({
             "at": _now(),
             "source": "other_opinion_button",
@@ -718,6 +739,24 @@ class HouroborosWorkflow:
             "ambiguity_score": state.get("ambiguity_score", 1.0),
         })
         state["updated_at"] = _now()
+        self._write_interview_state(run_id, state)
+        return state
+
+    def _record_button_alignment(self, run_id: str, goal: str, *, action: str, user_instruction: str) -> dict[str, Any]:
+        state = self._load_interview_state(run_id, goal)
+        self._append_alignment_checkpoint(
+            state,
+            goal=goal,
+            user_instruction=user_instruction,
+            source=f"{action}_button",
+        )
+        state.setdefault("decision_log", []).append({
+            "at": _now(),
+            "source": f"{action}_button",
+            "message": user_instruction,
+            "resolved": state.get("resolved", []),
+            "ambiguity_score": state.get("ambiguity_score", 1.0),
+        })
         self._write_interview_state(run_id, state)
         return state
 
@@ -752,7 +791,40 @@ class HouroborosWorkflow:
             state.pop("pending_freeform_dimension", None)
         self._recompute_interview_gate(state)
         state.setdefault("decision_log", []).append({"at": _now(), "message": message, "resolved": state["resolved"], "ambiguity_score": state["ambiguity_score"]})
+        self._append_alignment_checkpoint(state, goal=goal, user_instruction=message, source="user_turn")
         self._write_interview_state(run_id, state)
+
+    def _append_alignment_checkpoint(self, state: dict[str, Any], *, goal: str, user_instruction: str, source: str) -> None:
+        unresolved = list(state.get("unresolved") or [])
+        seed_ready = bool(state.get("seed_ready"))
+        if seed_ready:
+            direction = "seed_ready_preserve_alignment"
+            chosen_next_step = "propose_seed"
+            requires_operator_decision = False
+        elif unresolved:
+            direction = "continue_interview_until_seed_ready"
+            chosen_next_step = "resolve_next_interview_dimension"
+            requires_operator_decision = True
+        else:
+            direction = "verify_before_execution"
+            chosen_next_step = "run_preflight_verification"
+            requires_operator_decision = False
+        checkpoints = list(state.get("alignment_checkpoints") or [])
+        checkpoints.append({
+            "at": _now(),
+            "source": source,
+            "user_instruction": _redact_text(user_instruction.strip()),
+            "active_goal": _redact_text(goal.strip()),
+            "alignment_question": "Does the next action still serve the user's latest instruction and the run goal?",
+            "direction": direction,
+            "chosen_next_step": chosen_next_step,
+            "resolved": list(state.get("resolved") or []),
+            "unresolved": unresolved,
+            "ambiguity_score": state.get("ambiguity_score", 1.0),
+            "requires_operator_decision": requires_operator_decision,
+            "stop_before_live_boundary": True,
+        })
+        state["alignment_checkpoints"] = checkpoints
 
     def _append_interview_card(self, run_id: str, event: str) -> dict[str, Any]:
         run = load_run(self.db_path, run_id)
@@ -800,6 +872,7 @@ class HouroborosWorkflow:
                 "seed_ready": state["seed_ready"],
                 "unresolved": state["unresolved"],
                 "decisions": self._display_decisions(state.get("decisions", {})),
+                "alignment_checkpoint": (state.get("alignment_checkpoints") or [None])[-1],
                 "proposal_card": self._proposal_card(next_dimension),
                 "buttons": [component["action"] for component in components],
                 "components": components,
@@ -1006,14 +1079,17 @@ class HouroborosWorkflow:
             }
             return result
         if action == "continue_interview":
+            self._record_button_alignment(run_id, run["goal"], action=action, user_instruction="Continue interview requested")
             card = self._append_interview_card(run_id, "interview.continue_requested")
             result = self.status(run_id)
             result["interaction"] = {"action": action, "handled": True, "card_revision": card["card_revision"], "next_unresolved": result["interview_state"].get("unresolved", [])}
             return result
         if action == "propose_seed":
+            self._record_button_alignment(run_id, run["goal"], action=action, user_instruction="Propose seed requested")
             result = self.seed(run_id)
             result["interaction"] = {"action": action, "handled": True, "gate_rechecked": True}
             return result
+        self._record_button_alignment(run_id, run["goal"], action=action, user_instruction="Cancel requested")
         self._set_phase(run_id, "blocked")
         self._append_interview_card(run_id, "interview.cancelled")
         result = self.status(run_id)

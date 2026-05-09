@@ -850,3 +850,129 @@ def test_houroboros_interaction_reducer_phase_and_thread_guards(tmp_path: Path):
         assert "Invalid HOOO interaction cancel from phase seeded" in str(exc)
     else:  # pragma: no cover
         raise AssertionError("cancel must be rejected after seeding")
+
+
+def test_houroboros_records_alignment_checkpoint_for_every_user_turn(tmp_path: Path):
+    config_file = _write_config(tmp_path)
+    workflow = HouroborosWorkflow.from_config_path(config_file)
+    started = workflow.start(goal="ZeusOS repo rearchitecture", origin_platform="discord", origin_channel_id="parent")
+    run_id = started["run_id"]
+
+    status = workflow.turn(run_id, "Scope: template-based extensible declarative ZeusOS repo")
+    state = status["interview_state"]
+
+    checkpoints = state["alignment_checkpoints"]
+    assert len(checkpoints) == 1
+    checkpoint = checkpoints[0]
+    assert checkpoint["source"] == "user_turn"
+    assert checkpoint["user_instruction"] == "Scope: template-based extensible declarative ZeusOS repo"
+    assert checkpoint["active_goal"] == "ZeusOS repo rearchitecture"
+    assert checkpoint["alignment_question"] == "Does the next action still serve the user's latest instruction and the run goal?"
+    assert checkpoint["direction"] == "continue_interview_until_seed_ready"
+    assert checkpoint["chosen_next_step"] == "resolve_next_interview_dimension"
+    assert checkpoint["requires_operator_decision"] is True
+    assert checkpoint["stop_before_live_boundary"] is True
+
+
+def test_houroboros_alignment_checkpoint_is_visible_in_discord_card_and_seed(tmp_path: Path):
+    config_file = _write_config(tmp_path)
+    workflow = HouroborosWorkflow.from_config_path(config_file)
+    started = workflow.start(goal="Build Minerva directional self-alignment", origin_platform="discord", origin_channel_id="parent")
+    run_id = started["run_id"]
+
+    for message in [
+        "Scope: Minerva must reflect on user instruction every turn",
+        "Acceptance: checkpoints are persisted and visible",
+        "Constraint: no Hermes source mutation",
+        "Executor: deterministic-placeholder",
+        "Permission: seed approved",
+    ]:
+        workflow.turn(run_id, message)
+
+    card = _latest_card(tmp_path, run_id)
+    latest = card["card"]["alignment_checkpoint"]
+    assert latest["user_instruction"] == "Permission: seed approved"
+    assert latest["chosen_next_step"] == "propose_seed"
+
+    seeded = workflow.seed(run_id)
+    seed_json = json.loads((tmp_path / "data" / "houroboros" / run_id / "seed.json").read_text(encoding="utf-8"))
+    assert seeded["phase"] == "seeded"
+    assert seed_json["alignment_gate"]["checkpoint_count"] == 5
+    assert seed_json["alignment_gate"]["latest_checkpoint"]["chosen_next_step"] == "propose_seed"
+
+
+def test_houroboros_proposal_selection_records_alignment_checkpoint(tmp_path: Path):
+    config_file = _write_config(tmp_path)
+    workflow = HouroborosWorkflow.from_config_path(config_file)
+    started = workflow.start(goal="Keep Minerva aligned", origin_platform="discord", origin_channel_id="parent")
+    run_id = started["run_id"]
+    card = _latest_card(tmp_path, run_id)
+    selected = _proposal_components(card)[0]
+
+    result = workflow.handle_interaction(run_id, custom_id=selected["custom_id"], origin_channel_id="parent")
+
+    checkpoint = result["interview_state"]["alignment_checkpoints"][-1]
+    assert checkpoint["source"] == "proposal_button"
+    assert checkpoint["user_instruction"].startswith("Scope:")
+    assert checkpoint["chosen_next_step"] == "resolve_next_interview_dimension"
+    latest_card = _latest_card(tmp_path, run_id)
+    assert latest_card["card"]["alignment_checkpoint"]["source"] == "proposal_button"
+
+
+def test_houroboros_seed_requires_alignment_checkpoint_not_just_resolved_dimensions(tmp_path: Path):
+    config_file = _write_config(tmp_path)
+    workflow = HouroborosWorkflow.from_config_path(config_file)
+    started = workflow.start(goal="Seed must be aligned", origin_platform="discord", origin_channel_id="parent")
+    run_id = started["run_id"]
+    state_path = tmp_path / "data" / "houroboros" / run_id / "interview_state.json"
+    state = json.loads(state_path.read_text(encoding="utf-8"))
+    state["resolved"] = ["scope", "acceptance", "constraint", "executor", "permission"]
+    state["unresolved"] = []
+    state["ambiguity_score"] = 0.0
+    state["seed_ready"] = True
+    state["decisions"] = {
+        "scope": "aligned scope",
+        "acceptance": "aligned acceptance",
+        "constraint": "aligned constraint",
+        "executor": "deterministic-placeholder",
+        "permission": "seed approved",
+    }
+    state["alignment_checkpoints"] = []
+    state_path.write_text(json.dumps(state), encoding="utf-8")
+
+    try:
+        workflow.seed(run_id)
+    except ValueError as exc:
+        assert "alignment checkpoint" in str(exc)
+    else:  # pragma: no cover
+        raise AssertionError("seed must require at least one alignment checkpoint")
+
+
+def test_houroboros_non_proposal_buttons_record_alignment_checkpoints(tmp_path: Path):
+    config_file = _write_config(tmp_path)
+    workflow = HouroborosWorkflow.from_config_path(config_file)
+    started = workflow.start(goal="Every button is a user turn", origin_platform="discord", origin_channel_id="parent")
+    run_id = started["run_id"]
+
+    other = next(component for component in _latest_card(tmp_path, run_id)["card"]["components"] if component["action"] == "other_opinion")
+    other_result = workflow.handle_interaction(run_id, custom_id=other["custom_id"], origin_channel_id="parent")
+    assert other_result["interview_state"]["alignment_checkpoints"][-1]["source"] == "other_opinion_button"
+
+    workflow.turn(run_id, "Scope: ZeusOS-owned only")
+    continue_button = next(component for component in _latest_card(tmp_path, run_id)["card"]["components"] if component["action"] == "select_proposal")
+    workflow.handle_interaction(run_id, custom_id=continue_button["custom_id"], origin_channel_id="parent")
+    # Finish remaining dimensions so final card exposes propose_seed.
+    while not workflow.status(run_id)["interview_state"]["seed_ready"]:
+        component = _proposal_components(_latest_card(tmp_path, run_id))[0]
+        workflow.handle_interaction(run_id, custom_id=component["custom_id"], origin_channel_id="parent")
+
+    final_card = _latest_card(tmp_path, run_id)
+    continue_action = next(component for component in final_card["card"]["components"] if component["action"] == "continue_interview")
+    continued = workflow.handle_interaction(run_id, custom_id=continue_action["custom_id"], origin_channel_id="parent")
+    assert continued["interview_state"]["alignment_checkpoints"][-1]["source"] == "continue_interview_button"
+
+    propose = next(component for component in _latest_card(tmp_path, run_id)["card"]["components"] if component["action"] == "propose_seed")
+    proposed = workflow.handle_interaction(run_id, custom_id=propose["custom_id"], origin_channel_id="parent")
+    assert proposed["interview_state"]["alignment_checkpoints"][-1]["source"] == "propose_seed_button"
+    seed_json = json.loads((tmp_path / "data" / "houroboros" / run_id / "seed.json").read_text(encoding="utf-8"))
+    assert seed_json["alignment_gate"]["latest_checkpoint"]["source"] == "propose_seed_button"
