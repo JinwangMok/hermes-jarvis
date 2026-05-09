@@ -33,10 +33,10 @@ Plain-language reporting rule: after executing a Minerva/ZeusOS leaf, explain it
 Operate through the ZeusOS CLI, not Hermes source. Prefer a dedicated Discord operating thread for every new `/minerva` run.
 
 Discord thread rule is mandatory:
-- If `/minerva` is invoked in a normal parent channel, start the run for that channel and let Hermes/Boramae auto-thread or create the task thread there.
-- If `/minerva` is invoked from inside an existing Discord thread, do **not** bind the new run to the current thread. Treat the current thread only as the request origin, resolve its parent channel, create a new sibling thread under that parent, and bind the run to the new sibling thread.
-- After creating the sibling thread, post the Minerva kickoff/status message into that new thread and tell the original thread to continue there.
-- For ZeusOS CLI state, use `--origin-channel-id <parent_channel_id>` and then record the new sibling thread via `mark-thread-created --thread-id <new_thread_id>`; do not pass the current thread as `--origin-thread-id` for a new run unless explicitly continuing an existing run.
+- If `/minerva` or auto-delegation is invoked in a normal parent channel, start the run for that channel and create/use one task thread there.
+- If Hermes/Boramae has already spawned a Discord thread for the user message, **reuse that current thread as the Minerva operating thread**. Do not create a nested/sibling Minerva thread from inside it.
+- For ZeusOS CLI state, use `--origin-channel-id <parent_channel_id>`, pass the current thread as `--origin-thread-id <current_thread_id>`, set `auto_open_thread=false` in the live gateway bridge, then record that same current thread via `mark-thread-created --thread-id <current_thread_id>`.
+- Only create a new thread when the event truly arrived in the parent text channel and no gateway-spawned current thread exists.
 
 In plain CLI mode this writes a safe pending `discord.create_thread` handoff artifact for Hermes/Boramae; when the real gateway creates the thread, mark it back into ZeusOS:
 
@@ -109,6 +109,6 @@ PYTHONPATH=src python3 -m zeus_os.cli minerva status --config config/pipeline.lo
 PYTHONPATH=src python3 -m zeus_os.cli minerva export --config config/pipeline.local.yaml --run-id "..."
 ```
 
-Discord thread context: use `--auto-open-thread` to request a task thread. New runs must always get a dedicated operating thread. If the command is invoked from an existing Discord thread, resolve the parent channel and create a new sibling thread under that parent; do not reuse/bind the current thread for the new run. Only reuse the current thread when explicitly continuing an existing `run_id`. Plain CLI writes a ZeusOS-owned pending `discord.create_thread` handoff artifact rather than creating a real Discord thread; an injected adapter or Hermes/Boramae gateway can perform the live side effect explicitly and then call `mark-thread-created`. Continuing a flow should use `status` or `export` first, then append `turn` messages or advance the deterministic phase. In implementation, preserve the old thread as `source_origin_thread_id`, set `reuse_current_thread: false`, and keep executor handoffs deferred unless Jinwang explicitly asks to run a worker.
+Discord thread context: use `--auto-open-thread` only when the event truly arrives in a parent text channel and no current task thread exists. If Hermes/Boramae already spawned a Discord thread for the user message, bind Minerva to that current thread instead of creating a nested/sibling thread. Plain CLI may still write a ZeusOS-owned pending `discord.create_thread` handoff artifact; the live gateway bridge should set `auto_open_thread=false` for current-thread reuse, call `mark-thread-created` with the same current thread id, and render Minerva cards there. Continuing a flow should use `status` or `export` first, then append `turn` messages or advance the deterministic phase. Keep executor handoffs deferred unless Jinwang explicitly asks to run a worker.
 
 Hermes source remains untouched. This skill is a ZeusOS-owned external skill contract; it must not require Hermes core changes, Hermes config rewrites, external API calls, or autonomous code execution. Deferred handoffs should be explicit and reviewable: require operator approval metadata, idempotency keys for repeat-safe consumption, strict validation for path-bearing IDs such as `run_id`, and secret redaction before writing user-originated goal/turn/card/handoff artifacts.

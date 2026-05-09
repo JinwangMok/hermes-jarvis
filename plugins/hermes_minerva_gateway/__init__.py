@@ -3,7 +3,8 @@
 Source-untouched integration: keep this in the ZeusOS repo and symlink/copy the
 plugin directory into ~/.hermes/plugins only when the operator approves a gateway
 restart. The plugin intercepts `/minerva ...` and `/minerva ...` Discord text
-commands, creates a sibling task thread, starts a ZeusOS Minerva run, renders the
+commands, reuses an already gateway-spawned Discord thread or creates a task
+thread from a parent channel, starts a ZeusOS Minerva run, renders the
 latest `discord_cards.jsonl` record as Discord buttons, and reduces button
 clicks through `MinervaWorkflow.handle_interaction()`.
 """
@@ -201,6 +202,8 @@ async def _handle_minerva_command(event: Any, gateway: Any, command: MinervaComm
 
     parent_id = str(getattr(parent, "id", getattr(source, "parent_chat_id", "") or getattr(source, "chat_id", "")))
     source_thread_id = str(getattr(source, "thread_id", "") or "")
+    current_thread_id = str(getattr(channel, "id", "") or source_thread_id)
+    current_is_thread = bool(getattr(channel, "parent", None) is not None and current_thread_id)
     thread_name = _thread_name(command.goal)
 
     from zeus_os.config import load_pipeline_config
@@ -212,13 +215,17 @@ async def _handle_minerva_command(event: Any, gateway: Any, command: MinervaComm
         command.goal,
         origin_platform="discord",
         origin_channel_id=parent_id,
-        origin_thread_id=source_thread_id,
+        origin_thread_id=current_thread_id if current_is_thread else source_thread_id,
         origin_message_id=str(getattr(raw_message, "id", "") or ""),
-        auto_open_thread=True,
-        thread_name=thread_name,
+        auto_open_thread=not current_is_thread,
+        thread_name=getattr(channel, "name", "") if current_is_thread else thread_name,
     )
-    thread = await _create_sibling_thread(parent, raw_message, thread_name)
-    thread_id = str(getattr(thread, "id", ""))
+    if current_is_thread:
+        thread = channel
+        thread_id = current_thread_id
+    else:
+        thread = await _create_sibling_thread(parent, raw_message, thread_name)
+        thread_id = str(getattr(thread, "id", ""))
     status = service.mark_thread_created(
         status["run_id"],
         thread_id=thread_id,
@@ -227,7 +234,8 @@ async def _handle_minerva_command(event: Any, gateway: Any, command: MinervaComm
     )
     service._append_interview_card(status["run_id"], "thread.created")
     await _render_latest_card(thread, service, status["run_id"])
-    await _safe_send(adapter, getattr(source, "chat_id", parent_id), f"Minerva thread 생성: <#{thread_id}> (`{status['run_id']}`)")
+    verb = "사용" if current_is_thread else "생성"
+    await _safe_send(adapter, getattr(source, "chat_id", parent_id), f"Minerva thread {verb}: <#{thread_id}> (`{status['run_id']}`)")
 
 
 async def _create_sibling_thread(parent: Any, raw_message: Any, name: str) -> Any:

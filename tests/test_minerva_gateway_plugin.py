@@ -205,7 +205,7 @@ def test_gateway_semantic_client_calls_hermes_cli_and_parses_json(monkeypatch):
     assert result["provider"] == "hermes-cli"
 
 
-def test_handle_minerva_command_reserves_run_before_creating_live_thread(monkeypatch):
+def test_handle_minerva_command_creates_thread_when_invoked_from_parent_channel(monkeypatch):
     plugin = load_plugin()
     calls: list[str] = []
 
@@ -216,6 +216,8 @@ def test_handle_minerva_command_reserves_run_before_creating_live_thread(monkeyp
         def start(self, *args, **kwargs):
             calls.append("start")
             assert kwargs["auto_open_thread"] is True
+            assert kwargs["origin_channel_id"] == "parent-1"
+            assert kwargs["origin_thread_id"] == ""
             assert self.semantic_client is not None
             assert hasattr(self.semantic_client, "understand_minerva_goal")
             return {"run_id": "minerva-20260502-order"}
@@ -223,6 +225,7 @@ def test_handle_minerva_command_reserves_run_before_creating_live_thread(monkeyp
         def mark_thread_created(self, run_id, **kwargs):
             calls.append("mark")
             assert calls == ["start", "create", "mark"]
+            assert kwargs["thread_id"] == "thread-1"
             return {"run_id": run_id}
 
         def _append_interview_card(self, run_id, event):
@@ -247,12 +250,66 @@ def test_handle_minerva_command_reserves_run_before_creating_live_thread(monkeyp
 
     monkeypatch.setattr(minerva.MinervaWorkflow, "from_config", classmethod(fake_from_config))
 
+    channel = type("ParentChannel", (), {"id": "parent-1", "parent": None})()
+    raw_message = type("RawMessage", (), {"channel": channel, "id": "message-1", "guild": type("Guild", (), {"id": "guild-1"})()})()
+    source = type("Source", (), {"thread_id": "", "chat_id": "parent-1", "platform": None})()
+    event = type("Event", (), {"raw_message": raw_message, "source": source})()
+
+    asyncio.run(plugin._handle_minerva_command(event, None, plugin.MinervaCommand(goal="credential smoke")))
+
+    assert calls == ["start", "create", "mark", "thread.created", "render"]
+
+
+def test_handle_minerva_command_reuses_gateway_spawned_current_thread(monkeypatch):
+    plugin = load_plugin()
+    calls: list[str] = []
+
+    class FakeService:
+        def __init__(self):
+            self.semantic_client = None
+
+        def start(self, *args, **kwargs):
+            calls.append("start")
+            assert kwargs["auto_open_thread"] is False
+            assert kwargs["origin_channel_id"] == "parent-1"
+            assert kwargs["origin_thread_id"] == "origin-thread"
+            return {"run_id": "minerva-20260509-reuse"}
+
+        def mark_thread_created(self, run_id, **kwargs):
+            calls.append("mark")
+            assert calls == ["start", "mark"]
+            assert kwargs["thread_id"] == "origin-thread"
+            assert kwargs["thread_name"] == "Hermes spawned thread"
+            return {"run_id": run_id}
+
+        def _append_interview_card(self, run_id, event):
+            calls.append(event)
+
+    async def fail_create_sibling_thread(parent, raw_message, name):
+        raise AssertionError("gateway-spawned current thread must be reused, not nested")
+
+    async def fake_render_latest_card(thread, service, run_id):
+        calls.append("render")
+        assert getattr(thread, "id") == "origin-thread"
+
+    monkeypatch.setattr(plugin, "_create_sibling_thread", fail_create_sibling_thread)
+    monkeypatch.setattr(plugin, "_render_latest_card", fake_render_latest_card)
+
+    import zeus_os.minerva as minerva
+
+    def fake_from_config(cls, config, semantic_client=None):
+        service = FakeService()
+        service.semantic_client = semantic_client
+        return service
+
+    monkeypatch.setattr(minerva.MinervaWorkflow, "from_config", classmethod(fake_from_config))
+
     parent = type("Parent", (), {"id": "parent-1"})()
-    channel = type("ThreadChannel", (), {"parent": parent})()
+    channel = type("ThreadChannel", (), {"id": "origin-thread", "name": "Hermes spawned thread", "parent": parent})()
     raw_message = type("RawMessage", (), {"channel": channel, "id": "message-1", "guild": type("Guild", (), {"id": "guild-1"})()})()
     source = type("Source", (), {"thread_id": "origin-thread", "chat_id": "origin-thread", "platform": None})()
     event = type("Event", (), {"raw_message": raw_message, "source": source})()
 
-    asyncio.run(plugin._handle_minerva_command(event, None, plugin.MinervaCommand(goal="token=supersecret123 smoke")))
+    asyncio.run(plugin._handle_minerva_command(event, None, plugin.MinervaCommand(goal="credential smoke")))
 
-    assert calls == ["start", "create", "mark", "thread.created", "render"]
+    assert calls == ["start", "mark", "thread.created", "render"]
