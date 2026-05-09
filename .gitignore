@@ -8,6 +8,8 @@ __pycache__/
 /.hermes/
 /orchestration/**/opencode*.log
 /orchestration/**/prompt*.txt
+/orchestration/2026-05-07-localhost-architecture-diagram/
+/orchestration/2026-05-07-mail-preactive-secretary/
 
 # ZeusOS rearchitecture local/private roots.
 /credentials/**
