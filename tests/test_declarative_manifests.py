@@ -84,6 +84,18 @@ def test_repository_ops_manifest_classifies_install_verify_and_wrapper_without_m
     assert all(script["migration"] == "classify-only" for script in scripts.values())
 
 
+def test_registry_entry_exposes_repository_ops_legacy_script_metadata():
+    entries = list_registry(paths=ZeusPaths(Path.cwd()))
+    by_key = {(entry.category, entry.name): entry for entry in entries}
+    scripts = {script["path"]: script for script in by_key[("app", "repository-ops")].legacy_scripts}
+
+    assert scripts["scripts/install.sh"] == {
+        "path": "scripts/install.sh",
+        "role": "installer",
+        "migration": "classify-only",
+    }
+
+
 def test_gateway_recovery_manifest_classifies_safety_critical_script_without_moving_it():
     result = validate_repo_manifests(paths=ZeusPaths(Path.cwd()))
     scripts = {script["path"]: script for script in result.apps["gateway-recovery"].legacy_scripts}

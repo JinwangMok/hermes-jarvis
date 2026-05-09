@@ -56,6 +56,7 @@ class RegistryEntry:
     path: Path
     source_root: str
     entrypoint: str | None = None
+    legacy_scripts: tuple[dict[str, str], ...] = ()
 
 
 def validate_repo_manifests(
@@ -122,6 +123,7 @@ def list_registry(
                 path=app.path,
                 source_root="channels" if is_channel else "apps",
                 entrypoint=app.entrypoint,
+                legacy_scripts=app.legacy_scripts,
             )
         )
     return tuple(sorted(entries, key=lambda entry: (entry.category, entry.name)))
