@@ -7,7 +7,8 @@ RECOVERY_ROOT="${HOME}/.hermes/recovery"
 NODE_BIN="${HOME}/.local/share/fnm/node-versions/v24.14.1/installation/bin"
 GUILD_ID="1487523027259490355"
 CHANNEL_ID="1493529569926578276"
-CONTEXT="Mok Lab. / #보라매봇-기본"
+THREAD_ID="1502253591082307685"
+CONTEXT="Mok Lab. / #보라매봇-기본 / HOOO — 새 작업 정교화"
 TRIGGER="${1:-systemd ExecStartPre for hermes-gateway.service}"
 STAMP="$(date -u +%Y%m%dT%H%M%SZ 2>/dev/null || date +%Y%m%dT%H%M%SZ)"
 RUN_DIR="${RECOVERY_ROOT}/${STAMP}-systemd-gateway-start"
@@ -52,6 +53,7 @@ You are an external OpenCode recovery worker. Do not modify source code. Sleep 1
 Origin Discord context:
 - Guild: ${GUILD_ID}
 - Channel: ${CHANNEL_ID}
+- Thread: ${THREAD_ID}
 - Context: ${CONTEXT}
 - Trigger: ${TRIGGER}
 - Run dir: ${RUN_DIR}
@@ -63,7 +65,7 @@ After sleep, run these checks:
 
 If inactive/failed, run minimal repair: systemctl --user restart hermes-gateway.service, then re-check active/PID/journal tail. If already active, do not restart.
 
-Write a concise Korean report to ~/.hermes/recovery/latest-opencode-recovery.report with active state, PID, whether repair was needed, and key journal evidence. If possible, send the same concise report back to Discord channel ${CHANNEL_ID}; the report file is mandatory.
+Write a concise Korean report to ~/.hermes/recovery/latest-opencode-recovery.report with active state, PID, whether repair was needed, and key journal evidence. If possible, send the same concise report back to Discord channel ${CHANNEL_ID} thread ${THREAD_ID}; the report file is mandatory.
 EOF
 
 PATH_PREFIX="${NODE_BIN}:${HOME}/.opencode/bin:${PATH}"
