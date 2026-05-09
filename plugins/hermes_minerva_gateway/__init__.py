@@ -39,6 +39,11 @@ _SIMPLE_TEXT_RE = re.compile(
     r"^(a|b|c|ㅇㅋ|오케이|ok|okay|네|넵|응|아니|ㄴㄴ|감사|고마워|hi|hello|ping|test|테스트)[.!?\s]*$",
     re.I,
 )
+_CONTINUE_RESUME_RE = re.compile(
+    r"(계속\s*(해|진행|이어|하라)|하던\s*거|하던거|이어\s*(가|서|줘|해)|이어서|일어나서\s*계속|"
+    r"resume|continue|pick\s+up|carry\s+on)",
+    re.I,
+)
 _MAX_THREAD_NAME = 80
 
 
@@ -71,6 +76,8 @@ def should_auto_delegate_to_minerva(text: str) -> bool:
     """
     normalized = " ".join((text or "").strip().split())
     if not normalized or normalized.startswith("/") or _SIMPLE_TEXT_RE.match(normalized):
+        return False
+    if _CONTINUE_RESUME_RE.search(normalized):
         return False
     return bool("?" in normalized or _AUTO_DELEGATE_RE.search(normalized))
 

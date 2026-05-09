@@ -37,6 +37,14 @@ def test_parse_minerva_request_auto_delegates_nontrivial_boramae_messages():
     assert command.goal == "이 설계를 검증하고 적용한 다음 보고해줘"
     assert command.explicit is False
     assert plugin.parse_minerva_request("짧아도 왜 실패했어?").explicit is False
+    continue_requests = [
+        "일어나서 하던거 계속 진행해",
+        "이 작업 이어서 해줘",
+        "resume the previous task",
+        "continue where we left off",
+    ]
+    for text in continue_requests:
+        assert plugin.parse_minerva_request(text) is None
     assert plugin.parse_minerva_request("오늘은 날씨가 꽤 좋고 그냥 이런저런 긴 이야기를 이어가고 있어") is None
 
 
