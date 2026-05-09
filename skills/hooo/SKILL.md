@@ -14,6 +14,8 @@ Core flow: Discord thread auto-open -> interactive Interview cards -> ambiguity 
 
 Minerva directional-control rule: every user turn must create a self-alignment checkpoint before the next action is treated as valid. The checkpoint records the latest user instruction, the active run goal, the question “does the next action still serve the instruction and goal?”, the chosen next step, unresolved dimensions, and live-boundary caution. This is not optional narration; it is runtime state so Minerva/HOOO cannot drift into a nearby but wrong task.
 
+Process-gate model pointer: the pure, reusable canonical Minerva phase/gate data model lives in `src/zeus_os/minerva_process.py` for future HOOO/Hermes integration; it is side-effect-free and not live runtime wiring.
+
 Scope-correction rule: when Minerva/HOOO is being used inside ZeusOS repository rearchitecture, the scope is the whole ZeusOS Agent OS platform unless Jinwang explicitly narrows it. Do not mistake Minerva itself, Mail Secretary, gateway recovery, or any other useful leaf for the main mission. Treat each as a leaf under the original target: a template-based, extensible, declarative ZeusOS. Before every next step, realign to the original instruction, the latest correction, and the safest next repo-wide leaf. See `references/minerva-zeusos-scope-correction-2026-05-09.md`.
 
 The seed gate is mandatory: `seed` should fail while `interview_state.json` reports `ambiguity_score > 0.2` **or any required interview dimension remains unresolved**. Do not treat the numeric threshold alone as sufficient; with five dimensions, `ambiguity_score == 0.2` can still mean one critical dimension such as `Permission` is missing.
