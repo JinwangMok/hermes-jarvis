@@ -1,0 +1,105 @@
+apiVersion: zeus.os/v1alpha1
+kind: RearchitectureMigrationMap
+metadata:
+  name: zeus-os-agent-os-layout
+spec:
+  sideEffects: declaration-only
+  entries:
+    - source: agents/
+      target: agents/
+      mode: declarative-root
+      migration: already-canonical
+      requiresApproval: false
+      runtimeWiring: false
+      notes: Agent persona definitions.
+    - source: agent-shim/
+      target: agent-shim/
+      mode: declarative-root
+      migration: already-canonical
+      requiresApproval: false
+      runtimeWiring: false
+      notes: Platform dependency handlers for Hermes/OpenClaw/Pi-style agents.
+    - source: apps/
+      target: apps/
+      mode: declarative-root
+      migration: already-canonical
+      requiresApproval: false
+      runtimeWiring: false
+      notes: Capability apps such as watchdogs, skill-sets, MCPs, tools, and A2A.
+    - source: channels/
+      target: channels/
+      mode: declarative-root
+      migration: already-canonical
+      requiresApproval: false
+      runtimeWiring: false
+      notes: Discord, KakaoTalk, mail, and other user-facing surfaces.
+    - source: skills/
+      target: apps/skill-sets/
+      mode: compatibility-root
+      migration: classify-only
+      requiresApproval: true
+      runtimeWiring: false
+      notes: Existing skills stay in place until loader migration is approved.
+    - source: scripts/
+      target: apps/tools/
+      mode: compatibility-root
+      migration: classify-only
+      requiresApproval: true
+      runtimeWiring: false
+      notes: Existing scripts are classified through manifests before any move.
+    - source: vmem/
+      target: vmem/
+      mode: declarative-root
+      migration: already-canonical
+      requiresApproval: false
+      runtimeWiring: false
+      notes: Volatile memory mount point.
+    - source: journals/
+      target: journals/
+      mode: declarative-root
+      migration: already-canonical
+      requiresApproval: false
+      runtimeWiring: false
+      notes: Staged knowledge before wiki promotion.
+    - source: wiki/
+      target: wiki/
+      mode: projection-root
+      migration: classify-only
+      requiresApproval: true
+      runtimeWiring: false
+      notes: In-repo projection only; canonical wiki remains ~/wiki until explicit approval.
+    - source: assets/
+      target: assets/
+      mode: declarative-root
+      migration: already-canonical
+      requiresApproval: false
+      runtimeWiring: false
+      notes: Attachments and generated artifacts.
+    - source: credentials/
+      target: credentials/
+      mode: runtime-truth
+      migration: no-move-without-explicit-approval
+      requiresApproval: true
+      runtimeWiring: false
+      notes: Secret material; values are never read by this map.
+    - source: workspace/
+      target: workspace/
+      mode: declarative-root
+      migration: already-canonical
+      requiresApproval: false
+      runtimeWiring: false
+      notes: Single user workspace mount point.
+    - source: data/
+      target: data/
+      mode: runtime-truth
+      migration: no-move-without-explicit-approval
+      requiresApproval: true
+      runtimeWiring: false
+      notes: Live/generated runtime artifacts; no move without dry-run, rollback, and smoke test.
+    - source: state/
+      target: state/
+      mode: runtime-truth
+      migration: no-move-without-explicit-approval
+      requiresApproval: true
+      runtimeWiring: false
+      notes: SQLite and runtime state; no move while live processes may hold handles.

@@ -27,6 +27,7 @@ from .mail_secretary import generate_mail_secretary_cases, review_mail_secretary
 from .news_center import append_news_center_to_daily_report, collect_news_center, generate_podcast_script
 from .personal_radar import generate_personal_radar_coverage_verification, generate_personal_radar_source_audit
 from .proposals import generate_proposals
+from .rearchitecture_map import load_rearchitecture_migration_map
 from .review import generate_weekly_review
 from .runtime import check_hermes_zeusos_health, install_hermes_standby_units, install_systemd_user_units, run_pipeline_cycle
 from .styled_voice_samples import add_samples as add_styled_voice_samples
@@ -215,6 +216,9 @@ def build_parser(prog: str = "zeus-os") -> argparse.ArgumentParser:
     registry_parser = subparsers.add_parser("registry-status", help="Show declarative ZeusOS registry and read-only live automation inventory")
     registry_parser.add_argument("--repo-root", default=".", help="ZeusOS repository root")
     registry_parser.add_argument("--hermes-jobs", default=str(Path.home() / ".hermes/cron/jobs.json"), help="Hermes cron jobs.json for read-only matching; empty disables live matching")
+
+    rearch_parser = subparsers.add_parser("rearchitecture-map-status", help="Validate and summarize the declaration-only ZeusOS rearchitecture migration map")
+    rearch_parser.add_argument("--map", default="docs/migration/zeus-os-rearchitecture-map.yaml", help="Migration map YAML path")
 
     lifecycle_parser = subparsers.add_parser("hermes-skill-lifecycle-audit", help="Passively audit Hermes skill lifecycle metadata, staleness, archives, and negative-claim revalidation candidates")
     lifecycle_parser.add_argument("--hermes-home", default=str(Path.home() / ".hermes"), help="Hermes home directory")
@@ -728,6 +732,18 @@ def main(argv: Sequence[str] | None = None, *, prog: str = "zeus-os") -> int:
             ],
             "automation_inventory": inventory,
             "side_effects": "read-only-inventory",
+        }, ensure_ascii=False))
+        return 0
+
+    if args.command == "rearchitecture-map-status":
+        migration_map = load_rearchitecture_migration_map(Path(args.map))
+        print(json.dumps({
+            "ok": True,
+            "name": migration_map.name,
+            "side_effects": migration_map.side_effects,
+            "entries": [entry.__dict__ for entry in migration_map.entries],
+            "runtime_truth": [entry.target for entry in migration_map.entries if entry.mode == "runtime-truth"],
+            "approval_required": [entry.target for entry in migration_map.entries if entry.requires_approval],
         }, ensure_ascii=False))
         return 0
 
