@@ -12,6 +12,9 @@ from types import MappingProxyType
 from typing import Mapping
 
 
+MODEL_VERSION = "minerva.process-gate/v1"
+
+
 CANONICAL_PHASE_IDS: tuple[str, ...] = (
     "user_question",
     "idea_direction_explore",
@@ -210,6 +213,50 @@ PHASES: tuple[Phase, ...] = (
 _PHASE_BY_ID: Mapping[str, Phase] = MappingProxyType({phase.id: phase for phase in PHASES})
 
 
+def _phase_contract(phase: Phase) -> dict[str, object]:
+    return {
+        "id": phase.id,
+        "label": phase.label,
+        "self_questions": list(phase.self_questions),
+        "discussion_prompts": {
+            "agree": phase.discussion_prompts.agree,
+            "disagree": phase.discussion_prompts.disagree,
+        },
+        "thresholds": dict(phase.thresholds),
+        "next_phase": phase.next_phase,
+        "failure_next_phase": phase.failure_next_phase,
+    }
+
+
+def process_contract() -> dict[str, object]:
+    """Return the deterministic Minerva process contract as plain data."""
+
+    return {
+        "model_version": MODEL_VERSION,
+        "phase_ids": list(CANONICAL_PHASE_IDS),
+        "phases": [_phase_contract(phase) for phase in PHASES],
+    }
+
+
+def phase_gate_card(phase_id: str, scores: Mapping[str, float]) -> dict[str, object]:
+    """Return display-ready phase contract plus quantitative gate decision."""
+
+    phase = get_phase(phase_id)
+    return {
+        "model_version": MODEL_VERSION,
+        "phase": {
+            "id": phase.id,
+            "label": phase.label,
+            "self_questions": list(phase.self_questions),
+        },
+        "discussion": {
+            "agree": phase.discussion_prompts.agree,
+            "disagree": phase.discussion_prompts.disagree,
+        },
+        "gate": evaluate_phase_gate(phase.id, scores),
+    }
+
+
 def get_phase(phase_id: str) -> Phase:
     """Return the immutable phase description for *phase_id*."""
 
@@ -235,11 +282,11 @@ def evaluate_phase_gate(phase_id: str, scores: Mapping[str, float]) -> dict[str,
     phase = get_phase(phase_id)
     copied_scores = {name: float(value) for name, value in scores.items()}
     thresholds = dict(phase.thresholds)
-    failed_dimensions = tuple(
+    failed_dimensions = [
         dimension
         for dimension, threshold in thresholds.items()
         if copied_scores.get(dimension, 0.0) < threshold
-    )
+    ]
     allowed = not failed_dimensions
     if allowed:
         next_phase = phase.next_phase

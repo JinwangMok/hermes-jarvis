@@ -77,6 +77,39 @@ def _proposal_components(card: dict) -> list[dict]:
     return [component for component in card["card"]["components"] if component["action"] == "select_proposal"]
 
 
+def test_houroboros_status_and_discord_card_expose_minerva_process_gate(tmp_path: Path):
+    config_file = _write_config(tmp_path)
+    workflow = HouroborosWorkflow.from_config_path(config_file)
+    started = workflow.start(goal="Minerva gate visible", origin_platform="discord", origin_channel_id="parent")
+    run_id = started["run_id"]
+
+    first_card = _latest_card(tmp_path, run_id)
+    first_gate = first_card["card"]["minerva_process_gate"]
+    assert first_gate["model_version"] == "minerva.process-gate/v1"
+    assert first_gate["phase"]["id"] == "clarifying"
+    assert first_gate["gate"]["allowed"] is False
+    assert "consensus" in first_gate["gate"]["failed_dimensions"]
+    assert started["minerva_process_gate"] == first_gate
+
+    _make_seed_ready(workflow, run_id)
+    ready_status = workflow.status(run_id)
+    ready_gate = ready_status["minerva_process_gate"]
+    assert ready_gate["phase"]["id"] == "critic_for_plan"
+    assert ready_gate["gate"]["allowed"] is True
+    assert ready_gate["gate"]["next_phase"] == "workload_parsing_workflow_designing"
+    assert ready_gate["gate"]["thresholds"] == {
+        "alignment": 0.75,
+        "consensus": 0.65,
+        "clarity": 0.70,
+        "safety": 0.80,
+        "evidence": 0.60,
+    }
+    assert ready_gate["discussion"]["agree"].startswith("Agree:")
+    assert ready_gate["discussion"]["disagree"].startswith("Disagree:")
+    latest_card = _latest_card(tmp_path, run_id)
+    assert latest_card["card"]["minerva_process_gate"] == ready_gate
+
+
 def test_houroboros_state_machine_creates_artifacts_and_preserves_seed(tmp_path: Path):
     config_file = _write_config(tmp_path)
     workflow = HouroborosWorkflow.from_config_path(config_file)

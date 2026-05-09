@@ -7,9 +7,12 @@ import pytest
 from zeus_os.minerva_process import (
     CANONICAL_PHASE_IDS,
     DIMENSIONS,
+    MODEL_VERSION,
     PHASES,
     evaluate_phase_gate,
     get_phase,
+    phase_gate_card,
+    process_contract,
 )
 
 
@@ -82,6 +85,39 @@ def test_execute_requires_parallel_safe_self_heal_before_review() -> None:
     allowed = evaluate_phase_gate("execute", passing_scores())
     assert allowed["allowed"] is True
     assert allowed["next_phase"] == "review_align_to_goal"
+
+
+def test_process_contract_exports_deterministic_thresholds_and_prompts() -> None:
+    contract = process_contract()
+
+    assert contract["model_version"] == MODEL_VERSION
+    assert [phase["id"] for phase in contract["phases"]] == EXPECTED_PHASE_IDS
+    execute = next(phase for phase in contract["phases"] if phase["id"] == "execute")
+    assert execute["thresholds"] == {
+        "alignment": 0.75,
+        "consensus": 0.65,
+        "clarity": 0.70,
+        "safety": 0.80,
+        "evidence": 0.60,
+        "parallel": 0.60,
+        "safe": 0.85,
+        "self_heal": 0.70,
+    }
+    assert execute["discussion_prompts"]["agree"].startswith("Agree:")
+    assert execute["discussion_prompts"]["disagree"].startswith("Disagree:")
+
+
+def test_phase_gate_card_combines_contract_and_quantitative_decision() -> None:
+    card = phase_gate_card("critic_for_plan", passing_scores(evidence=0.1))
+
+    assert card["model_version"] == MODEL_VERSION
+    assert card["phase"]["id"] == "critic_for_plan"
+    assert card["phase"]["label"] == "Critic for Plan"
+    assert len(card["phase"]["self_questions"]) >= 2
+    assert card["discussion"]["agree"].startswith("Agree:")
+    assert card["discussion"]["disagree"].startswith("Disagree:")
+    assert card["gate"]["allowed"] is False
+    assert card["gate"]["next_phase"] == "idea_direction_explore"
 
 
 def test_all_gates_are_side_effect_free_data_objects_and_dicts() -> None:

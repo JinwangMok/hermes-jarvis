@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any, Protocol
 
 from .config import PipelineConfig, load_pipeline_config
-from .minerva_process import evaluate_phase_gate
+from .minerva_process import evaluate_phase_gate, phase_gate_card
 
 
 PHASES = ("created", "interviewing", "seeded", "running", "evaluated", "evolved", "completed", "blocked", "failed")
@@ -392,6 +392,7 @@ class HouroborosWorkflow:
             "evaluation_mode": "placeholder_substring_match",
             "seed_version": run["seed_version"],
             "interview_state": self._load_interview_state(run_id, run["goal"]),
+            "minerva_process_gate": self._minerva_process_gate_for_run(run_id, run),
             "origin": self._origin_metadata(run_id, run),
             "warnings": self._status_warnings(run_id, run),
             "artifacts": artifacts,
@@ -876,6 +877,7 @@ class HouroborosWorkflow:
                 "unresolved": state["unresolved"],
                 "decisions": self._display_decisions(state.get("decisions", {})),
                 "alignment_checkpoint": (state.get("alignment_checkpoints") or [None])[-1],
+                "minerva_process_gate": self._minerva_process_gate_for_run(run_id, run, state),
                 "proposal_card": self._proposal_card(next_dimension),
                 "buttons": [component["action"] for component in components],
                 "components": components,
@@ -1145,6 +1147,59 @@ class HouroborosWorkflow:
             "evidence": 1.0 if interview_state.get("decisions") else 0.0,
         }
         return evaluate_phase_gate("critic_for_plan", scores)
+
+    def _minerva_process_gate_for_run(
+        self,
+        run_id: str,
+        run: dict[str, Any],
+        interview_state: dict[str, Any] | None = None,
+    ) -> dict[str, object]:
+        state = interview_state or self._load_interview_state(run_id, run["goal"])
+        phase_id = self._minerva_phase_id_for_run(run_id, run, state)
+        scores = self._minerva_scores_for_phase(run_id, run, state, phase_id)
+        return phase_gate_card(phase_id, scores)
+
+    def _minerva_phase_id_for_run(self, run_id: str, run: dict[str, Any], interview_state: dict[str, Any]) -> str:
+        phase = str(run.get("phase") or "")
+        if phase in {"created", "interviewing"}:
+            return "critic_for_plan" if interview_state.get("seed_ready") else "clarifying"
+        if phase == "seeded":
+            return "workload_parsing_workflow_designing"
+        if phase == "running":
+            return "execute"
+        if phase == "evaluated":
+            return "review_align_to_goal"
+        if phase in {"blocked", "failed"}:
+            return "recognize_missing_gap"
+        if phase in {"evolved", "completed"}:
+            return "evolving"
+        return "user_question"
+
+    def _minerva_scores_for_phase(
+        self,
+        run_id: str,
+        run: dict[str, Any],
+        interview_state: dict[str, Any],
+        phase_id: str,
+    ) -> dict[str, float]:
+        resolved = set(interview_state.get("resolved") or [])
+        unresolved = set(interview_state.get("unresolved") or [])
+        resolved_ratio = len(resolved) / len(INTERVIEW_DIMENSIONS)
+        scores = {
+            "alignment": 1.0 if interview_state.get("alignment_checkpoints") else 0.0,
+            "consensus": 1.0 if not unresolved else resolved_ratio,
+            "clarity": max(0.0, min(1.0, 1.0 - float(interview_state.get("ambiguity_score", 1.0)))),
+            "safety": 1.0,
+            "evidence": 1.0 if interview_state.get("decisions") else resolved_ratio,
+        }
+        if phase_id == "execute":
+            has_execution_log = self._artifact_path(run_id, "execution_log.md").exists()
+            scores.update({
+                "parallel": 1.0 if has_execution_log else 0.0,
+                "safe": 1.0,
+                "self_heal": 1.0 if self._artifact_path(run_id, "seed.json").exists() else 0.0,
+            })
+        return scores
 
     def _seed_markdown(self, seed: dict[str, Any]) -> str:
         lines = ["# Houroboros Seed v1", "", f"Goal: {seed['goal']}", "", "## Acceptance Criteria"]
