@@ -45,6 +45,8 @@ class SkillSearchResult:
     rank: int
     name: str
     path: str
+    root: str
+    source: str
     score: float
     bm25_rank: float
     purpose: str
@@ -64,6 +66,8 @@ class SkillSearchResult:
             "rank": self.rank,
             "name": self.name,
             "path": self.path,
+            "root": self.root,
+            "source": self.source,
             "score": self.score,
             "bm25_rank": self.bm25_rank,
             "purpose": self.purpose,
@@ -667,6 +671,8 @@ def _score_row(row: sqlite3.Row, terms: set[str], now: datetime) -> tuple[float,
         rank=0,
         name=row["name"],
         path=row["path"],
+        root=row["root"],
+        source=row["source"],
         score=round(score, 6),
         bm25_rank=round(bm25_rank, 6),
         purpose=row["purpose"],

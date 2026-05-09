@@ -21,8 +21,12 @@ def _snippet_text(snippet: dict[str, Any]) -> str:
     lines = [
         f"### {snippet['name']}",
         f"Path: {snippet['path']}",
+        f"Root: {snippet['root']}",
+        f"Source: {snippet['source']}",
         f"Score: {snippet['score']}",
     ]
+    if snippet.get("source") == "compatibility_bridge":
+        lines.append("Read-only metadata bridge: runtime_wiring false; not executable/live Hermes wiring")
     if snippet.get("purpose"):
         lines.append(f"Purpose: {snippet['purpose']}")
     if snippet.get("triggers"):
@@ -40,6 +44,8 @@ def _payload_from_row(row: dict[str, Any], snippet_text: str | None = None) -> d
     return {
         "name": row["name"],
         "path": row["path"],
+        "root": row.get("root", ""),
+        "source": row.get("source", ""),
         "score": row["score"],
         "purpose": row.get("purpose", ""),
         "triggers": list(row.get("triggers") or []),
