@@ -106,10 +106,84 @@ _GOAL_KEYWORD_PROFILES = (
     ),
 )
 
+_SEMANTIC_SIGNAL_CATALOG = {
+    "interactive_choice": ("선택지", "고를", "고르", "choice", "option", "proposal", "후보", "카드", "card", "화면", "ui", "버튼"),
+    "meaning_adaptation": ("뜻", "의미", "문맥", "맥락", "context", "semantic", "intent", "파악", "이해"),
+    "draft_artifact": ("초안", "draft", "reply", "답장", "검토 가능한", "산출물"),
+    "no_send_boundary": ("보내지", "보내지는", "발송", "전송", "send", "no-send", "금지", "without sending"),
+    "local_deterministic": ("결정론", "deterministic", "프로그래밍", "programmatic", "로컬", "local", "규칙"),
+}
+
+
+@dataclass(frozen=True)
+class GoalSemanticFrame:
+    """Deterministic meaning frame inferred from a goal without model/API calls."""
+
+    signals: tuple[str, ...]
+    evidence: tuple[str, ...]
+
+    def has(self, *signals: str) -> bool:
+        return any(signal in self.signals for signal in signals)
+
 
 def _goal_excerpt(goal: str, limit: int = 96) -> str:
     text = _redact_text(" ".join(str(goal or "").split()))
     return text if len(text) <= limit else text[: limit - 1] + "…"
+
+
+def _semantic_frame_for_goal(goal: str) -> GoalSemanticFrame:
+    lowered = str(goal or "").lower()
+    signals: list[str] = []
+    evidence: list[str] = []
+    for signal, markers in _SEMANTIC_SIGNAL_CATALOG.items():
+        matched = [marker for marker in markers if marker.lower() in lowered]
+        if matched:
+            signals.append(signal)
+            evidence.extend(matched[:2])
+    return GoalSemanticFrame(signals=tuple(signals), evidence=tuple(dict.fromkeys(evidence)))
+
+
+def _semantic_proposals_for_frame(frame: GoalSemanticFrame) -> dict[str, tuple[tuple[str, str, str], ...]]:
+    proposals: dict[str, tuple[tuple[str, str, str], ...]] = {}
+    evidence = ", ".join(frame.evidence[:4]) or "goal wording"
+
+    if frame.has("interactive_choice", "meaning_adaptation") and frame.has("meaning_adaptation"):
+        proposals["scope"] = (
+            ("a", "Semantic-frame choice UX", "Generate choices from a deterministic semantic frame for: {goal}"),
+            ("b", "Meaning evidence only", f"Extract intent/surface/artifact/safety signals first; evidence: {evidence}."),
+            ("c", "Fallback-preserving adapter", "Keep the fixed default proposals only when the semantic frame has no actionable signals."),
+        )
+        proposals["acceptance"] = (
+            ("a", "Semantic frame recorded", "Tests show the goal meaning frame changes proposals beyond literal keyword profiles."),
+            ("b", "Choice language adapts", "The rendered choices mention the inferred choice/selection surface for this goal."),
+            ("c", "Deterministic replay", "The same goal always yields the same semantic frame and proposal set without model/API calls."),
+        )
+
+    if frame.has("draft_artifact"):
+        no_send_prefix = "No-send " if frame.has("no_send_boundary") else ""
+        proposals["scope"] = (
+            ("a", f"{no_send_prefix}reviewable draft artifact", "Produce a reviewable draft/output artifact for: {goal}"),
+            ("b", "Context extraction first", "Infer recipient/action/safety context before drafting, then leave evidence in the artifact."),
+            ("c", "No external mutation", "Stop at local draft materialization unless a later explicit approval grants side effects."),
+        )
+
+    if frame.has("no_send_boundary"):
+        proposals["constraint"] = (
+            ("a", "No-send semantic boundary", "Treat the goal as no-send/no-external-mutation even if it does not name mail/calendar explicitly."),
+            ("b", "Local artifact only", "Write only local ZeusOS artifacts and do not call external delivery services."),
+            ("c", "Approval re-check", "Require a separate human approval turn before any action that could send, publish, or mutate outside ZeusOS."),
+        )
+
+    if frame.has("local_deterministic"):
+        proposals.setdefault(
+            "constraint",
+            (
+                ("a", "Deterministic semantic interpreter", "Interpret meaning through a local signal catalog and pure functions, not gateway-time LLM calls."),
+                ("b", "Replayable output", "Identical inputs must produce identical proposal IDs, labels, and values."),
+                ("c", "Auditable evidence", f"Expose the matched semantic evidence instead of hiding the routing reason; evidence: {evidence}."),
+            ),
+        )
+    return proposals
 
 
 def _proposal_overrides_for_goal(goal: str) -> dict[str, tuple[tuple[str, str, str], ...]]:
@@ -118,6 +192,8 @@ def _proposal_overrides_for_goal(goal: str) -> dict[str, tuple[tuple[str, str, s
     for keywords, overrides in _GOAL_KEYWORD_PROFILES:
         if any(keyword.lower() in lowered for keyword in keywords):
             merged.update(overrides)
+    for dimension, proposals in _semantic_proposals_for_frame(_semantic_frame_for_goal(goal)).items():
+        merged.setdefault(dimension, proposals)
     return merged
 
 

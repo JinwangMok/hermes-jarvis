@@ -753,6 +753,35 @@ def test_minerva_proposal_cards_are_contextual_to_goal(tmp_path: Path):
     assert all("ZeusOS-owned implementation" not in proposal["label"] for proposal in discord_card["card"]["proposal_card"]["proposals"])
 
 
+def test_minerva_proposal_cards_use_deterministic_semantic_frame_beyond_keywords(tmp_path: Path):
+    config_file = _write_config(tmp_path)
+    workflow = MinervaWorkflow.from_config_path(config_file)
+
+    adaptive_choice_run = workflow.start(
+        goal="사용자 말의 뜻을 파악해서 화면에서 고를 선택지를 문맥마다 다르게 만들어줘",
+        origin_platform="discord",
+        origin_channel_id="parent",
+    )
+    no_send_draft_run = workflow.start(
+        goal="외부로 보내지는 건 금지하고, 검토 가능한 초안 산출물만 남겨줘",
+        origin_platform="discord",
+        origin_channel_id="parent",
+    )
+
+    adaptive_card = _latest_card(tmp_path, adaptive_choice_run["run_id"])
+    no_send_card = _latest_card(tmp_path, no_send_draft_run["run_id"])
+    adaptive_proposals = adaptive_card["card"]["proposal_card"]["proposals"]
+    no_send_proposals = no_send_card["card"]["proposal_card"]["proposals"]
+    adaptive_values = [proposal["value"] for proposal in adaptive_proposals]
+    no_send_values = [proposal["value"] for proposal in no_send_proposals]
+
+    assert any("semantic frame" in value.lower() for value in adaptive_values)
+    assert any("choice" in value.lower() or "선택" in value for value in adaptive_values)
+    assert any("No-send" in proposal["label"] or "no-send" in proposal["value"].lower() for proposal in no_send_proposals)
+    assert any("draft" in value.lower() or "초안" in value for value in no_send_values)
+    assert adaptive_values != no_send_values
+
+
 def test_minerva_proposal_cards_advance_each_unresolved_dimension(tmp_path: Path):
     config_file = _write_config(tmp_path)
     workflow = MinervaWorkflow.from_config_path(config_file)
