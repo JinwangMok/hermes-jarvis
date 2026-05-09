@@ -200,10 +200,11 @@ async def _handle_minerva_command(event: Any, gateway: Any, command: MinervaComm
         await _safe_send(adapter, getattr(source, "chat_id", ""), "Minerva는 서버 텍스트 채널/스레드에서만 thread를 만들 수 있습니다.")
         return
 
-    parent_id = str(getattr(parent, "id", getattr(source, "parent_chat_id", "") or getattr(source, "chat_id", "")))
     source_thread_id = str(getattr(source, "thread_id", "") or "")
-    current_thread_id = str(getattr(channel, "id", "") or source_thread_id)
-    current_is_thread = bool(getattr(channel, "parent", None) is not None and current_thread_id)
+    source_parent_id = str(getattr(source, "parent_chat_id", "") or "")
+    parent_id = source_parent_id or str(getattr(parent, "id", getattr(source, "chat_id", "") or ""))
+    current_thread_id = source_thread_id or str(getattr(channel, "id", "") or "")
+    current_is_thread = bool(source_thread_id or (getattr(channel, "parent", None) is not None and current_thread_id))
     thread_name = _thread_name(command.goal)
 
     from zeus_os.config import load_pipeline_config

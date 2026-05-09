@@ -313,3 +313,51 @@ def test_handle_minerva_command_reuses_gateway_spawned_current_thread(monkeypatc
     asyncio.run(plugin._handle_minerva_command(event, None, plugin.MinervaCommand(goal="credential smoke")))
 
     assert calls == ["start", "mark", "thread.created", "render"]
+
+
+def test_handle_minerva_command_reuses_source_thread_even_when_channel_parent_is_missing(monkeypatch):
+    plugin = load_plugin()
+    calls: list[str] = []
+
+    class FakeService:
+        def start(self, *args, **kwargs):
+            calls.append("start")
+            assert kwargs["auto_open_thread"] is False
+            assert kwargs["origin_channel_id"] == "parent-1"
+            assert kwargs["origin_thread_id"] == "origin-thread"
+            return {"run_id": "minerva-20260509-source-thread"}
+
+        def mark_thread_created(self, run_id, **kwargs):
+            calls.append("mark")
+            assert kwargs["thread_id"] == "origin-thread"
+            return {"run_id": run_id}
+
+        def _append_interview_card(self, run_id, event):
+            calls.append(event)
+
+    async def fail_create_sibling_thread(parent, raw_message, name):
+        raise AssertionError("source.thread_id means Hermes already spawned the operating thread")
+
+    async def fake_render_latest_card(thread, service, run_id):
+        calls.append("render")
+        assert getattr(thread, "id") == "origin-thread"
+
+    monkeypatch.setattr(plugin, "_create_sibling_thread", fail_create_sibling_thread)
+    monkeypatch.setattr(plugin, "_render_latest_card", fake_render_latest_card)
+
+    import zeus_os.minerva as minerva
+
+    monkeypatch.setattr(
+        minerva.MinervaWorkflow,
+        "from_config",
+        classmethod(lambda cls, config, semantic_client=None: FakeService()),
+    )
+
+    channel = type("ThreadChannelWithoutParent", (), {"id": "origin-thread", "name": "Hermes spawned thread", "parent": None})()
+    raw_message = type("RawMessage", (), {"channel": channel, "id": "message-1", "guild": type("Guild", (), {"id": "guild-1"})()})()
+    source = type("Source", (), {"thread_id": "origin-thread", "parent_chat_id": "parent-1", "chat_id": "origin-thread", "platform": None})()
+    event = type("Event", (), {"raw_message": raw_message, "source": source})()
+
+    asyncio.run(plugin._handle_minerva_command(event, None, plugin.MinervaCommand(goal="credential smoke")))
+
+    assert calls == ["start", "mark", "thread.created", "render"]
