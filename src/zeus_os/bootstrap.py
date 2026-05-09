@@ -15,6 +15,8 @@ REQUIRED_DIRECTORIES = [
     Path("data/briefings"),
     Path("data/feedback"),
     Path("data/watchlists"),
+    Path("data/secretary/runs"),
+    Path("data/secretary/drafts"),
     Path("state"),
     Path("state/locks"),
 ]
@@ -190,6 +192,72 @@ SCHEMA_STATEMENTS = [
         artifact_file TEXT NOT NULL,
         wiki_note_path TEXT
     )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS mail_secretary_cases (
+        case_id TEXT PRIMARY KEY,
+        source_message_id TEXT NOT NULL UNIQUE,
+        status TEXT NOT NULL,
+        triage_kind TEXT NOT NULL,
+        priority_score REAL NOT NULL,
+        risk_level TEXT NOT NULL,
+        action_required INTEGER NOT NULL,
+        action_type TEXT,
+        meaning_summary TEXT,
+        impact_summary TEXT,
+        risk_summary TEXT,
+        next_action_text TEXT,
+        deadline_ts TEXT,
+        analysis_basis TEXT,
+        analysis_confidence REAL NOT NULL,
+        reason_json TEXT,
+        approval_card_md TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        resolved_at TEXT
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS mail_secretary_evidence (
+        evidence_id TEXT PRIMARY KEY,
+        case_id TEXT NOT NULL,
+        source_table TEXT NOT NULL,
+        source_id TEXT NOT NULL,
+        evidence_kind TEXT NOT NULL,
+        score REAL NOT NULL,
+        summary_text TEXT,
+        payload_json TEXT,
+        created_at TEXT NOT NULL
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS mail_secretary_drafts (
+        draft_id TEXT PRIMARY KEY,
+        case_id TEXT NOT NULL,
+        draft_type TEXT NOT NULL,
+        status TEXT NOT NULL,
+        title TEXT,
+        body_md TEXT,
+        payload_json TEXT,
+        external_effect TEXT,
+        approval_required INTEGER NOT NULL,
+        confidence REAL NOT NULL,
+        artifact_file TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+    )
+    """,
+    """
+    CREATE INDEX IF NOT EXISTS idx_mail_secretary_cases_status_updated
+        ON mail_secretary_cases(status, updated_at DESC)
+    """,
+    """
+    CREATE INDEX IF NOT EXISTS idx_mail_secretary_evidence_case
+        ON mail_secretary_evidence(case_id)
+    """,
+    """
+    CREATE INDEX IF NOT EXISTS idx_mail_secretary_drafts_case_status
+        ON mail_secretary_drafts(case_id, status)
     """,
     """
     CREATE TABLE IF NOT EXISTS watch_sources (

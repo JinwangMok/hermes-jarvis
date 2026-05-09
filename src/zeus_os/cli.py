@@ -22,6 +22,7 @@ from .hermes_skill_search import DEFAULT_SKILL_SEARCH_DB, build_skill_search_ind
 from .intelligence import collect_knowledge_mail, generate_daily_intelligence_report
 from .knowledge import synthesize_knowledge
 from .mail import build_fake_mail_runner, collect_mail_snapshots
+from .mail_secretary import generate_mail_secretary_cases, review_mail_secretary_cases
 from .news_center import append_news_center_to_daily_report, collect_news_center, generate_podcast_script
 from .personal_radar import generate_personal_radar_coverage_verification, generate_personal_radar_source_audit
 from .proposals import generate_proposals
@@ -69,6 +70,20 @@ def build_parser(prog: str = "zeus-os") -> argparse.ArgumentParser:
 
     briefing_parser = subparsers.add_parser("generate-briefing", help="Generate a natural-language ZeusOS briefing artifact for Discord delivery")
     briefing_parser.add_argument("--config", required=True, help="Path to pipeline.yaml")
+
+    secretary_triage_parser = subparsers.add_parser("secretary-triage", help="Read recent mail and prepare preactive secretary cases/drafts without external side effects")
+    secretary_triage_parser.add_argument("--config", required=True, help="Path to pipeline.yaml")
+    secretary_triage_parser.add_argument("--since-minutes", type=int, default=30, help="Recent window to inspect")
+    secretary_triage_parser.add_argument("--limit", type=int, default=20, help="Maximum inbox messages to inspect")
+    secretary_triage_parser.add_argument("--message-id", default="", help="Inspect one message id")
+    secretary_triage_parser.add_argument("--dry-run", action="store_true", help="Do not write secretary DB rows; still writes a run artifact")
+    secretary_triage_parser.add_argument("--json", action="store_true", help="Print JSON summary")
+
+    secretary_review_parser = subparsers.add_parser("secretary-review", help="Render pending preactive secretary approval cards")
+    secretary_review_parser.add_argument("--config", required=True, help="Path to pipeline.yaml")
+    secretary_review_parser.add_argument("--status", default="awaiting_approval", help="Case status to render")
+    secretary_review_parser.add_argument("--limit", type=int, default=20, help="Maximum cases to render")
+    secretary_review_parser.add_argument("--format", choices=("json", "markdown"), default="json", help="Output format")
 
     knowledge_parser = subparsers.add_parser("synthesize-knowledge", help="Generate a rolling watchlist and optional wiki synthesis from the latest proposal artifact")
     knowledge_parser.add_argument("--config", required=True, help="Path to pipeline.yaml")
@@ -409,6 +424,37 @@ def main(argv: Sequence[str] | None = None, *, prog: str = "zeus-os") -> int:
         config = load_pipeline_config(args.config)
         result = generate_briefing(config)
         print(json.dumps({**result, "artifact_path": str(result["artifact_path"])}, ensure_ascii=False))
+        return 0
+
+    if args.command == "secretary-triage":
+        config = load_pipeline_config(args.config)
+        result = generate_mail_secretary_cases(
+            config,
+            since_minutes=args.since_minutes,
+            limit=args.limit,
+            message_id=args.message_id or None,
+            dry_run=args.dry_run,
+        )
+        payload = {
+            "run_id": result["run_id"],
+            "case_count": result["case_count"],
+            "draft_count": result["draft_count"],
+            "needs_approval_count": result["needs_approval_count"],
+            "artifact_path": str(result["artifact_path"]),
+        }
+        if args.json:
+            print(json.dumps(payload, ensure_ascii=False))
+        else:
+            print(f"secretary cases={payload['case_count']} drafts={payload['draft_count']} approvals={payload['needs_approval_count']} artifact={payload['artifact_path']}")
+        return 0
+
+    if args.command == "secretary-review":
+        config = load_pipeline_config(args.config)
+        result = review_mail_secretary_cases(config, status=args.status, fmt=args.format, limit=args.limit)
+        if args.format == "markdown":
+            print(result["markdown"])
+        else:
+            print(json.dumps(result, ensure_ascii=False))
         return 0
 
     if args.command == "synthesize-knowledge":
