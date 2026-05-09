@@ -1,0 +1,16 @@
+apiVersion: zeus.os/v1alpha1
+kind: CapabilityApp
+metadata:
+  name: email-handler
+spec:
+  kind: watchdog
+  entrypoint: README.md
+  legacyScripts:
+    - path: scripts/mail-secretary-watchdog.py
+      role: watchdog
+      migration: classify-only
+  runtimeBindings:
+    - type: hermes-cron
+      name: zeus-mail-action-watch-15m
+      script: scripts/mail-secretary-watchdog.py
+      mode: inventory-only

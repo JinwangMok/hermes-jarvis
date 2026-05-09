@@ -20,6 +20,11 @@ spec:
         - path: repo-relative path under scripts/
           role: one of [watchdog, tool, renderer, quality-gate, installer]
           migration: classify-only
+      runtimeBindings:
+        - type: hermes-cron
+          name: safe cron job name
+          script: repo-relative path under scripts/
+          mode: inventory-only
   notes:
     - Capability apps are declarative mount points.
     - Moving existing runtime files into apps/ requires a separate migration gate.

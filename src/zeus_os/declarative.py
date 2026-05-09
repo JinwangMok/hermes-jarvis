@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Any
 
+import json
 import yaml
 
 from zeus_os.paths import ZeusPaths
@@ -39,6 +40,7 @@ class AppManifest:
     path: Path
     compatibility_bridge: dict[str, Any] | None = None
     legacy_scripts: tuple[dict[str, str], ...] = ()
+    runtime_bindings: tuple[dict[str, str], ...] = ()
 
 
 @dataclass(frozen=True)
@@ -58,6 +60,7 @@ class RegistryEntry:
     entrypoint: str | None = None
     legacy_scripts: tuple[dict[str, str], ...] = ()
     compatibility_bridge: dict[str, Any] | None = None
+    runtime_bindings: tuple[dict[str, str], ...] = ()
 
 
 def validate_repo_manifests(
@@ -126,9 +129,56 @@ def list_registry(
                 entrypoint=app.entrypoint,
                 compatibility_bridge=app.compatibility_bridge,
                 legacy_scripts=app.legacy_scripts,
+                runtime_bindings=app.runtime_bindings,
             )
         )
     return tuple(sorted(entries, key=lambda entry: (entry.category, entry.name)))
+
+
+def list_automation_inventory(
+    repo_root: Path | None = None,
+    *,
+    paths: ZeusPaths | None = None,
+    hermes_jobs_path: Path | None = None,
+) -> list[dict[str, Any]]:
+    """Return a read-only app-to-live-automation view without leaking prompts."""
+    manifests = validate_repo_manifests(repo_root, paths=paths)
+    live_jobs = _load_hermes_cron_jobs(hermes_jobs_path)
+    jobs_by_name = {str(job.get("name") or ""): job for job in live_jobs if isinstance(job, dict)}
+    inventory: list[dict[str, Any]] = []
+    for app in sorted(manifests.apps.values(), key=lambda item: item.name):
+        for binding in app.runtime_bindings:
+            job = jobs_by_name.get(binding["name"])
+            live = {"status": "missing"}
+            if job:
+                live = {
+                    "status": "matched",
+                    "id": str(job.get("id") or ""),
+                    "name": str(job.get("name") or ""),
+                    "schedule": str(job.get("schedule") or ""),
+                    "enabled": bool(job.get("enabled", False)),
+                    "script": str(job.get("script") or ""),
+                    "workdir": str(job.get("workdir") or ""),
+                }
+            inventory.append({
+                "app": app.name,
+                "kind": app.kind,
+                "declared": dict(binding),
+                "live": live,
+                "side_effects": "read-only-inventory",
+            })
+    return inventory
+
+
+def _load_hermes_cron_jobs(path: Path | None) -> list[dict[str, Any]]:
+    if path is None or not path.exists():
+        return []
+    data = json.loads(path.read_text(encoding="utf-8"))
+    if isinstance(data, dict) and isinstance(data.get("jobs"), list):
+        return [job for job in data["jobs"] if isinstance(job, dict)]
+    if isinstance(data, list):
+        return [job for job in data if isinstance(job, dict)]
+    return []
 
 
 def _discover_shims(shim_root: Path) -> dict[str, ShimManifest]:
@@ -171,6 +221,7 @@ def _load_apps(app_root: Path) -> dict[str, AppManifest]:
         entrypoint = _nonempty_str(spec.get("entrypoint"), path, "spec.entrypoint")
         compatibility_bridge = _optional_compatibility_bridge(spec.get("compatibilityBridge"), path)
         legacy_scripts = _optional_legacy_scripts(spec.get("legacyScripts"), path)
+        runtime_bindings = _optional_runtime_bindings(spec.get("runtimeBindings"), path)
         _require(kind in ALLOWED_APP_KINDS, path, f"unknown app kind {kind!r}")
         _require(name not in apps, path, f"duplicate app {name!r}")
         apps[name] = AppManifest(
@@ -180,6 +231,7 @@ def _load_apps(app_root: Path) -> dict[str, AppManifest]:
             path=path.parent,
             compatibility_bridge=compatibility_bridge,
             legacy_scripts=legacy_scripts,
+            runtime_bindings=runtime_bindings,
         )
     return apps
 
@@ -241,9 +293,33 @@ def _optional_legacy_scripts(value: Any, path: Path) -> tuple[dict[str, str], ..
     return tuple(scripts)
 
 
+def _optional_runtime_bindings(value: Any, path: Path) -> tuple[dict[str, str], ...]:
+    if value is None:
+        return ()
+    _require(isinstance(value, list), path, "spec.runtimeBindings must be a list")
+    bindings: list[dict[str, str]] = []
+    for index, item in enumerate(value):
+        field = f"spec.runtimeBindings[{index}]"
+        binding = _mapping(item, path, field)
+        binding_type = _nonempty_str(binding.get("type"), path, f"{field}.type")
+        name = _nonempty_str(binding.get("name"), path, f"{field}.name")
+        script = _nonempty_str(binding.get("script"), path, f"{field}.script")
+        mode = _nonempty_str(binding.get("mode"), path, f"{field}.mode")
+        _require(binding_type == "hermes-cron", path, f"{field}.type must be hermes-cron")
+        _require(_is_safe_runtime_binding_name(name), path, f"{field}.name must be a safe runtime binding name")
+        _require(_is_repo_relative_script_path(script), path, f"{field}.script must be a repo-relative scripts/ path")
+        _require(mode == "inventory-only", path, f"{field}.mode must be inventory-only")
+        bindings.append({"type": binding_type, "name": name, "script": script, "mode": mode})
+    return tuple(bindings)
+
+
 def _is_repo_relative_script_path(value: str) -> bool:
     parsed = PurePosixPath(value)
     return not parsed.is_absolute() and ".." not in parsed.parts and len(parsed.parts) >= 2 and parsed.parts[0] == "scripts"
+
+
+def _is_safe_runtime_binding_name(value: str) -> bool:
+    return bool(value) and all(ch.isalnum() or ch in {"-", "_", "."} for ch in value)
 
 
 def _is_single_relative_name(value: str) -> bool:

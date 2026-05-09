@@ -1,8 +1,10 @@
 from pathlib import Path
 
+import json
 import pytest
 import yaml
 
+from zeus_os.cli import main
 from zeus_os.declarative import ManifestValidationError, RegistryEntry, list_registry, validate_repo_manifests
 from zeus_os.paths import ZeusPaths
 
@@ -225,3 +227,98 @@ def test_legacy_script_classification_path_cannot_escape_repo_root(tmp_path):
 
     with pytest.raises(ManifestValidationError, match="legacyScripts.*path"):
         validate_repo_manifests(tmp_path)
+
+
+def test_email_handler_manifest_declares_live_mail_watchdog_binding_without_moving_script():
+    result = validate_repo_manifests(paths=ZeusPaths(Path.cwd()))
+    app = result.apps["email-handler"]
+
+    assert app.kind == "watchdog"
+    scripts = {script["path"]: script for script in app.legacy_scripts}
+    assert scripts["scripts/mail-secretary-watchdog.py"]["role"] == "watchdog"
+    bindings = {binding["name"]: binding for binding in app.runtime_bindings}
+    binding = bindings["zeus-mail-action-watch-15m"]
+    assert binding == {
+        "type": "hermes-cron",
+        "name": "zeus-mail-action-watch-15m",
+        "script": "scripts/mail-secretary-watchdog.py",
+        "mode": "inventory-only",
+    }
+
+
+def test_automation_inventory_matches_declared_hermes_cron_without_prompt_leak(tmp_path: Path):
+    from zeus_os.declarative import list_automation_inventory
+
+    repo = tmp_path
+    (repo / "agent-shim" / "hermes").mkdir(parents=True)
+    (repo / "agents").mkdir()
+    (repo / "agents" / "boramae.yaml").write_text(yaml.safe_dump({
+        "apiVersion": "zeus.os/v1alpha1",
+        "kind": "AgentPersona",
+        "metadata": {"name": "boramae"},
+        "spec": {"persona": "controller", "shim": "hermes"},
+    }), encoding="utf-8")
+    app_dir = repo / "apps" / "watchdogs" / "email-handler"
+    app_dir.mkdir(parents=True)
+    (app_dir / "app.yaml").write_text(yaml.safe_dump({
+        "apiVersion": "zeus.os/v1alpha1",
+        "kind": "CapabilityApp",
+        "metadata": {"name": "email-handler"},
+        "spec": {
+            "kind": "watchdog",
+            "entrypoint": "README.md",
+            "legacyScripts": [{"path": "scripts/mail-secretary-watchdog.py", "role": "watchdog", "migration": "classify-only"}],
+            "runtimeBindings": [{"type": "hermes-cron", "name": "zeus-mail-action-watch-15m", "script": "scripts/mail-secretary-watchdog.py", "mode": "inventory-only"}],
+        },
+    }), encoding="utf-8")
+    jobs_path = repo / "jobs.json"
+    jobs_path.write_text(json.dumps({"jobs": [{
+        "id": "job-1",
+        "name": "zeus-mail-action-watch-15m",
+        "schedule": "every 15m",
+        "enabled": True,
+        "script": "/home/jinwang/.hermes/scripts/zeus-mail-secretary-watchdog.py",
+        "prompt": "SECRET_TOKEN_SHOULD_NOT_LEAK",
+    }]}, ensure_ascii=False), encoding="utf-8")
+
+    inventory = list_automation_inventory(repo_root=repo, hermes_jobs_path=jobs_path)
+
+    assert inventory[0]["app"] == "email-handler"
+    assert inventory[0]["declared"]["name"] == "zeus-mail-action-watch-15m"
+    assert inventory[0]["live"]["status"] == "matched"
+    assert inventory[0]["live"]["id"] == "job-1"
+    assert "prompt" not in inventory[0]["live"]
+    assert "SECRET_TOKEN_SHOULD_NOT_LEAK" not in json.dumps(inventory, ensure_ascii=False)
+
+
+def test_registry_status_cli_reports_automation_inventory_without_prompt_leak(tmp_path: Path, capsys):
+    repo = tmp_path
+    (repo / "agent-shim" / "hermes").mkdir(parents=True)
+    (repo / "agents").mkdir()
+    (repo / "agents" / "boramae.yaml").write_text(yaml.safe_dump({
+        "apiVersion": "zeus.os/v1alpha1",
+        "kind": "AgentPersona",
+        "metadata": {"name": "boramae"},
+        "spec": {"persona": "controller", "shim": "hermes"},
+    }), encoding="utf-8")
+    app_dir = repo / "apps" / "watchdogs" / "email-handler"
+    app_dir.mkdir(parents=True)
+    (app_dir / "app.yaml").write_text(yaml.safe_dump({
+        "apiVersion": "zeus.os/v1alpha1",
+        "kind": "CapabilityApp",
+        "metadata": {"name": "email-handler"},
+        "spec": {
+            "kind": "watchdog",
+            "entrypoint": "README.md",
+            "runtimeBindings": [{"type": "hermes-cron", "name": "zeus-mail-action-watch-15m", "script": "scripts/mail-secretary-watchdog.py", "mode": "inventory-only"}],
+        },
+    }), encoding="utf-8")
+    jobs_path = repo / "jobs.json"
+    jobs_path.write_text(json.dumps({"jobs": [{"id": "job-1", "name": "zeus-mail-action-watch-15m", "prompt": "SECRET_TOKEN_SHOULD_NOT_LEAK"}]}, ensure_ascii=False), encoding="utf-8")
+
+    assert main(["registry-status", "--repo-root", str(repo), "--hermes-jobs", str(jobs_path)]) == 0
+    payload = json.loads(capsys.readouterr().out)
+
+    assert payload["ok"] is True
+    assert payload["automation_inventory"][0]["live"]["id"] == "job-1"
+    assert "SECRET_TOKEN_SHOULD_NOT_LEAK" not in json.dumps(payload, ensure_ascii=False)

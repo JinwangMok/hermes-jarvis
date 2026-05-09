@@ -12,6 +12,7 @@ from .briefing import generate_briefing
 from .calendar import build_fake_calendar_runner, collect_calendar_snapshots
 from .classifier import classify_messages
 from .config import load_pipeline_config
+from .declarative import list_automation_inventory, list_registry
 from .digest import generate_digest
 from .feedback import record_proposal_feedback
 from .hermes_continuity import check_hermes_customizations
@@ -210,6 +211,10 @@ def build_parser(prog: str = "zeus-os") -> argparse.ArgumentParser:
     customization_parser.add_argument("--hermes-agent-dir", default=str(Path.home() / ".hermes/hermes-agent"), help="Hermes agent checkout directory")
     customization_parser.add_argument("--hermes-config", default="", help="Hermes config.yaml path; defaults to <hermes-home>/config.yaml")
     customization_parser.add_argument("--include-network", action="store_true", help="Also probe external backends such as VoxCPM health")
+
+    registry_parser = subparsers.add_parser("registry-status", help="Show declarative ZeusOS registry and read-only live automation inventory")
+    registry_parser.add_argument("--repo-root", default=".", help="ZeusOS repository root")
+    registry_parser.add_argument("--hermes-jobs", default=str(Path.home() / ".hermes/cron/jobs.json"), help="Hermes cron jobs.json for read-only matching; empty disables live matching")
 
     lifecycle_parser = subparsers.add_parser("hermes-skill-lifecycle-audit", help="Passively audit Hermes skill lifecycle metadata, staleness, archives, and negative-claim revalidation candidates")
     lifecycle_parser.add_argument("--hermes-home", default=str(Path.home() / ".hermes"), help="Hermes home directory")
@@ -699,6 +704,32 @@ def main(argv: Sequence[str] | None = None, *, prog: str = "zeus-os") -> int:
         )
         print(json.dumps(result, ensure_ascii=False))
         return 0 if result.get("ok") else 1
+
+    if args.command == "registry-status":
+        repo_root = Path(args.repo_root)
+        hermes_jobs = Path(args.hermes_jobs) if args.hermes_jobs else None
+        entries = list_registry(repo_root=repo_root)
+        inventory = list_automation_inventory(repo_root=repo_root, hermes_jobs_path=hermes_jobs)
+        print(json.dumps({
+            "ok": True,
+            "repo_root": str(repo_root),
+            "registry": [
+                {
+                    "category": entry.category,
+                    "name": entry.name,
+                    "kind": entry.kind,
+                    "path": str(entry.path),
+                    "source_root": entry.source_root,
+                    "entrypoint": entry.entrypoint,
+                    "legacy_scripts": list(entry.legacy_scripts),
+                    "runtime_bindings": list(entry.runtime_bindings),
+                }
+                for entry in entries
+            ],
+            "automation_inventory": inventory,
+            "side_effects": "read-only-inventory",
+        }, ensure_ascii=False))
+        return 0
 
     if args.command == "hermes-skill-lifecycle-audit":
         result = audit_hermes_skill_lifecycle(
